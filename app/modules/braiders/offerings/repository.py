@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import Select
 
 from app.modules.braiders.offerings.models import (
     BraiderStyle,
@@ -28,13 +29,12 @@ async def get_braider_style_by_id(
     return await db.get(BraiderStyle, braider_style_id)
 
 
-async def list_braider_styles(db: AsyncSession, braider_id: uuid.UUID) -> list[BraiderStyle]:
-    result = await db.execute(
+def build_braider_styles_stmt(braider_id: uuid.UUID) -> Select:
+    return (
         select(BraiderStyle)
         .where(BraiderStyle.braider_id == braider_id)
         .order_by(BraiderStyle.created_at)
     )
-    return list(result.scalars().all())
 
 
 async def create_braider_style(

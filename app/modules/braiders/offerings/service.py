@@ -11,6 +11,7 @@ from app.core.exceptions import (
     StyleNotActiveError,
     StyleNotFoundError,
 )
+from app.core.pagination import PaginatedData, PaginationMeta, PaginationParams, paginate
 from app.modules.braiders import repository as braiders_repo
 from app.modules.braiders.completion import mark_step_complete
 from app.modules.braiders.models import OnboardingStep
@@ -85,12 +86,39 @@ async def _to_response(db: AsyncSession, braider_style: BraiderStyle) -> Braider
     )
 
 
-async def list_braider_styles(db: AsyncSession, user_id: uuid.UUID) -> list[BraiderStyleResponse]:
+async def list_braider_styles(
+    db: AsyncSession, user_id: uuid.UUID, *, params: PaginationParams
+) -> PaginatedData[BraiderStyleResponse]:
     profile = await braiders_repo.get_profile_by_user_id(db, user_id)
     if profile is None:
-        return []
-    rows = await offerings_repo.list_braider_styles(db, profile.id)
-    return [await _to_response(db, row) for row in rows]
+        return PaginatedData(
+            items=[],
+            pagination=PaginationMeta(
+                page=params.page,
+                page_size=params.page_size,
+                total_items=0,
+                total_pages=0,
+                has_next=False,
+                has_previous=False,
+            ),
+        )
+
+    stmt = offerings_repo.build_braider_styles_stmt(profile.id)
+    rows, meta = await paginate(db, stmt, params)
+    items = [await _to_response(db, row) for row in rows]
+    return PaginatedData(items=items, pagination=meta)
+
+
+async def get_braider_style(
+    db: AsyncSession, user_id: uuid.UUID, braider_style_id: uuid.UUID
+) -> BraiderStyleResponse:
+    profile = await braiders_repo.get_profile_by_user_id(db, user_id)
+    braider_style = (
+        await offerings_repo.get_braider_style_by_id(db, braider_style_id) if profile else None
+    )
+    if profile is None or braider_style is None or braider_style.braider_id != profile.id:
+        raise BraiderStyleNotFoundError()
+    return await _to_response(db, braider_style)
 
 
 async def create_braider_style(

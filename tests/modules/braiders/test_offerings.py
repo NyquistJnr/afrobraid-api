@@ -77,7 +77,14 @@ async def test_braider_selects_a_style_and_completes_service_type_step(
     assert status_data["service_type_completed_at"] is not None
 
     list_resp = await client.get(SERVICES_URL, headers=braider_headers)
-    assert len(list_resp.json()["data"]) == 1
+    list_data = list_resp.json()["data"]
+    assert len(list_data["items"]) == 1
+    assert list_data["pagination"]["total_items"] == 1
+
+    get_resp = await client.get(f"{SERVICES_URL}/{body['id']}", headers=braider_headers)
+    assert get_resp.status_code == 200
+    assert get_resp.json()["data"]["id"] == body["id"]
+    assert get_resp.json()["data"]["style_name_en"] == "Knotless Braids"
 
     duplicate_resp = await client.post(
         SERVICES_URL, json={"style_id": catalog["style_id"], "base_price": "100.00"}, headers=braider_headers
@@ -96,7 +103,11 @@ async def test_braider_selects_a_style_and_completes_service_type_step(
     assert delete_resp.status_code == 204
 
     list_after_delete = await client.get(SERVICES_URL, headers=braider_headers)
-    assert list_after_delete.json()["data"] == []
+    assert list_after_delete.json()["data"]["items"] == []
+
+    get_after_delete = await client.get(f"{SERVICES_URL}/{braider_style_id}", headers=braider_headers)
+    assert get_after_delete.status_code == 404
+    assert get_after_delete.json()["error"]["code"] == "BRAIDER_STYLE_NOT_FOUND"
 
 
 async def test_cannot_select_an_unpublished_style(client: AsyncClient, db_session: AsyncSession):
@@ -114,6 +125,29 @@ async def test_cannot_select_an_unpublished_style(client: AsyncClient, db_sessio
     )
     assert resp.status_code == 400
     assert resp.json()["error"]["code"] == "STYLE_NOT_ACTIVE"
+
+
+async def test_get_by_id_is_scoped_to_the_owning_braider(
+    client: AsyncClient, db_session: AsyncSession
+):
+    _, admin_token = await create_user_with_token(db_session, user_type=UserType.ADMIN)
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+    catalog = await _published_style_with_variation_and_addon(client, admin_headers)
+
+    _, owner_token = await create_user_with_token(db_session, user_type=UserType.BRAIDER)
+    create_resp = await client.post(
+        SERVICES_URL,
+        json={"style_id": catalog["style_id"], "base_price": "180.00"},
+        headers={"Authorization": f"Bearer {owner_token}"},
+    )
+    braider_style_id = create_resp.json()["data"]["id"]
+
+    _, other_token = await create_user_with_token(db_session, user_type=UserType.BRAIDER)
+    resp = await client.get(
+        f"{SERVICES_URL}/{braider_style_id}", headers={"Authorization": f"Bearer {other_token}"}
+    )
+    assert resp.status_code == 404
+    assert resp.json()["error"]["code"] == "BRAIDER_STYLE_NOT_FOUND"
 
 
 async def test_bare_id_in_variations_gives_an_actionable_error(
