@@ -114,3 +114,32 @@ async def test_cannot_select_an_unpublished_style(client: AsyncClient, db_sessio
     )
     assert resp.status_code == 400
     assert resp.json()["error"]["code"] == "STYLE_NOT_ACTIVE"
+
+
+async def test_bare_id_in_variations_gives_an_actionable_error(
+    client: AsyncClient, db_session: AsyncSession
+):
+    _, admin_token = await create_user_with_token(db_session, user_type=UserType.ADMIN)
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+    catalog = await _published_style_with_variation_and_addon(client, admin_headers)
+
+    _, braider_token = await create_user_with_token(db_session, user_type=UserType.BRAIDER)
+
+    # The exact mistake a tester made against Swagger: passing bare ID
+    # strings instead of {"style_variation_id"/"addon_id": ..., "price": ...}.
+    resp = await client.post(
+        SERVICES_URL,
+        json={
+            "style_id": catalog["style_id"],
+            "base_price": "180.00",
+            "variations": [catalog["variation_id"]],
+            "addons": [catalog["addon_id"]],
+        },
+        headers={"Authorization": f"Bearer {braider_token}"},
+    )
+    assert resp.status_code == 422
+    details = resp.json()["error"]["details"]
+    messages = " ".join(d["msg"] for d in details)
+    assert "style_variation_id" in messages
+    assert "addon_id" in messages
+    assert "bare ID string" in messages
