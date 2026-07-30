@@ -34,8 +34,9 @@ async def _clean_state() -> AsyncGenerator[None]:
             text(
                 "TRUNCATE TABLE refresh_tokens, otp_codes, auth_identities, "
                 "braider_style_addons, braider_style_variations, braider_styles, "
-                "portfolio_images, addons, style_variations, style_images, styles, "
-                "style_categories, braider_onboarding_statuses, braider_profiles, users "
+                "portfolio_images, braider_service_locations, addons, style_variations, "
+                "style_images, styles, style_categories, braider_onboarding_statuses, "
+                "braider_profiles, users "
                 "RESTART IDENTITY CASCADE"
             )
         )
