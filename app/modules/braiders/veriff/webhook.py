@@ -11,7 +11,9 @@ from app.modules.braiders.veriff.client import verify_signature
 
 logger = logging.getLogger("app.webhooks.veriff")
 
-router = APIRouter(prefix="/api/v1/webhooks/veriff", tags=["Webhooks - Veriff"])
+router = APIRouter(
+    prefix="/api/v1/webhooks/veriff", tags=["Webhooks - Veriff"], include_in_schema=False
+)
 
 
 @router.post("")
