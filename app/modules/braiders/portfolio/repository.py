@@ -20,16 +20,9 @@ async def get_image_by_id(db: AsyncSession, image_id: uuid.UUID) -> PortfolioIma
 
 
 async def create_image(
-    db: AsyncSession,
-    *,
-    braider_id: uuid.UUID,
-    object_key: str,
-    caption: str | None,
-    position: int,
+    db: AsyncSession, *, braider_id: uuid.UUID, object_key: str, position: int
 ) -> PortfolioImage:
-    image = PortfolioImage(
-        braider_id=braider_id, object_key=object_key, caption=caption, position=position
-    )
+    image = PortfolioImage(braider_id=braider_id, object_key=object_key, position=position)
     db.add(image)
     await db.flush()
     return image

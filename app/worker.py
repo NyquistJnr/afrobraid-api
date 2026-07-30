@@ -12,6 +12,8 @@ from app.modules.auth import models as auth_models  # noqa: F401,E402
 from app.modules.auth.tasks import send_otp_email_task
 from app.modules.braiders import models as braiders_models  # noqa: F401,E402
 from app.modules.braiders.offerings import models as braider_offerings_models  # noqa: F401,E402
+from app.modules.braiders.portfolio import models as braider_portfolio_models  # noqa: F401,E402
+from app.modules.braiders.portfolio.tasks import translate_portfolio_caption_task
 from app.modules.braiders.tasks import translate_bio_task
 from app.modules.styles import models as styles_models  # noqa: F401,E402
 from app.modules.styles.tasks import translate_style_text_task
@@ -25,6 +27,11 @@ async def startup(ctx: dict) -> None:
 
 
 class WorkerSettings:
-    functions = [send_otp_email_task, translate_bio_task, translate_style_text_task]
+    functions = [
+        send_otp_email_task,
+        translate_bio_task,
+        translate_style_text_task,
+        translate_portfolio_caption_task,
+    ]
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
     on_startup = startup

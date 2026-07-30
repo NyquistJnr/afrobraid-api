@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.modules.braiders.models import BioSource
+
 PortfolioImageContentType = Literal["image/jpeg", "image/png", "image/webp"]
 
 _CAPTION_MAX_LENGTH = 300
@@ -22,7 +24,12 @@ def _caption_valid(v: str | None) -> str | None:
 class PortfolioImageResponse(BaseModel):
     id: uuid.UUID
     url: str
-    caption: str | None
+    caption_en: str | None
+    caption_de: str | None
+    caption_fr: str | None
+    caption_en_source: BioSource | None
+    caption_de_source: BioSource | None
+    caption_fr_source: BioSource | None
     position: int
 
 
@@ -59,7 +66,11 @@ class PortfolioImageConfirmRequest(BaseModel):
         "not a file path or URL of your own."
     )
     caption: str | None = Field(
-        default=None, description="Optional, shown to clients alongside the photo."
+        default=None,
+        description="Optional, shown to clients alongside the photo. Write it in "
+        "whichever language you're using right now (set via `?lang=` or "
+        "Accept-Language) - it's saved as that locale's caption and the other "
+        "two are auto-translated.",
     )
 
     @field_validator("caption")
@@ -69,7 +80,12 @@ class PortfolioImageConfirmRequest(BaseModel):
 
 
 class PortfolioImageUpdateRequest(BaseModel):
-    caption: str | None = None
+    caption: str | None = Field(
+        default=None,
+        description="Same locale behavior as on confirm - written in your "
+        "current locale, the other two are re-translated. Send `null` to "
+        "clear the caption in all three languages.",
+    )
 
     @field_validator("caption")
     @classmethod

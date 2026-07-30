@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import storage
 from app.modules.braiders import repository as braiders_repo
 from app.modules.braiders.models import OnboardingStep
+from app.modules.braiders.portfolio.tasks import TASK_TRANSLATE_PORTFOLIO_CAPTION
 from app.modules.users.models import UserType
 from tests.helpers import create_user_with_token
 
@@ -63,7 +64,10 @@ async def test_uploading_enough_photos_completes_the_step(
     assert mid_status.json()["data"]["current_step"] == "PORTFOLIO"
 
     third = await _upload_photo(client, headers, caption="Box braids, medium")
-    assert third["caption"] == "Box braids, medium"
+    assert third["caption_en"] == "Box braids, medium"
+    assert third["caption_en_source"] == "HUMAN"
+    assert third["caption_de_source"] == "PENDING"
+    assert third["caption_fr_source"] == "PENDING"
     assert third["position"] == 2
 
     final_status = await client.get(STATUS_URL, headers=headers)
@@ -90,13 +94,39 @@ async def test_update_caption_and_delete(
         f"{PORTFOLIO_URL}/{image['id']}", json={"caption": "New caption"}, headers=headers
     )
     assert update_resp.status_code == 200
-    assert update_resp.json()["data"]["caption"] == "New caption"
+    updated = update_resp.json()["data"]
+    assert updated["caption_en"] == "New caption"
+    assert updated["caption_en_source"] == "HUMAN"
+
+    clear_resp = await client.put(
+        f"{PORTFOLIO_URL}/{image['id']}", json={"caption": None}, headers=headers
+    )
+    assert clear_resp.status_code == 200
+    cleared = clear_resp.json()["data"]
+    assert cleared["caption_en"] is None
+    assert cleared["caption_de"] is None
+    assert cleared["caption_fr"] is None
 
     delete_resp = await client.delete(f"{PORTFOLIO_URL}/{image['id']}", headers=headers)
     assert delete_resp.status_code == 204
 
     portfolio = await client.get(PORTFOLIO_URL, headers=headers)
     assert portfolio.json()["data"]["images"] == []
+
+
+async def test_caption_translation_is_enqueued(
+    client: AsyncClient, db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch, fake_queue
+):
+    _mock_storage(monkeypatch)
+    _, token = await create_user_with_token(db_session, user_type=UserType.BRAIDER)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    await _upload_photo(client, headers, caption="Knotless braids, waist length")
+
+    job = fake_queue.last_job_kwargs(TASK_TRANSLATE_PORTFOLIO_CAPTION)
+    assert job["source_locale"] == "en"
+    assert job["source_text"] == "Knotless braids, waist length"
+    assert set(job["target_locales"]) == {"de", "fr"}
 
 
 async def test_max_photos_enforced(

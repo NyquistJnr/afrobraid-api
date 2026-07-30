@@ -1,9 +1,11 @@
 import uuid
 
-from fastapi import APIRouter, Depends, status
+from arq import ArqRedis
+from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.queue import get_task_queue
 from app.core.response import APIResponse
 from app.modules.auth.dependencies import require_roles
 from app.modules.braiders.portfolio import service
@@ -22,6 +24,10 @@ router = APIRouter(
 )
 
 _require_braider = require_roles(UserType.BRAIDER)
+
+
+def _locale(request: Request) -> str:
+    return getattr(request.state, "locale", "en")
 
 
 @router.get(
@@ -65,15 +71,21 @@ async def request_upload_url(
     description=(
         "Call this after successfully PUTing the file to the `upload_url` from "
         f"the previous step. Once you have {service.MIN_PORTFOLIO_IMAGES} or more "
-        "photos, the PORTFOLIO onboarding step is marked complete automatically."
+        "photos, the PORTFOLIO onboarding step is marked complete automatically. "
+        "If you send a `caption`, it's saved in your current locale (`?lang=` or "
+        "Accept-Language) and auto-translated into the others."
     ),
 )
 async def confirm_upload(
     payload: PortfolioImageConfirmRequest,
+    request: Request,
     user: User = Depends(_require_braider),
     db: AsyncSession = Depends(get_db),
+    queue: ArqRedis = Depends(get_task_queue),
 ) -> APIResponse[PortfolioImageResponse]:
-    result = await service.confirm_upload(db, user.id, data=payload)
+    result = await service.confirm_upload(
+        db, user.id, data=payload, locale=_locale(request), queue=queue
+    )
     return APIResponse(data=result)
 
 
@@ -85,10 +97,14 @@ async def confirm_upload(
 async def update_image(
     image_id: uuid.UUID,
     payload: PortfolioImageUpdateRequest,
+    request: Request,
     user: User = Depends(_require_braider),
     db: AsyncSession = Depends(get_db),
+    queue: ArqRedis = Depends(get_task_queue),
 ) -> APIResponse[PortfolioImageResponse]:
-    result = await service.update_image(db, user.id, image_id, data=payload)
+    result = await service.update_image(
+        db, user.id, image_id, data=payload, locale=_locale(request), queue=queue
+    )
     return APIResponse(data=result)
 
 

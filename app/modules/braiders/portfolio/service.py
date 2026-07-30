@@ -1,8 +1,10 @@
 import uuid
 
+from arq import ArqRedis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import storage
+from app.core.config import get_settings
 from app.core.exceptions import (
     InvalidPortfolioImageUploadError,
     MaxPortfolioImagesReachedError,
@@ -10,7 +12,12 @@ from app.core.exceptions import (
 )
 from app.modules.braiders import repository as braiders_repo
 from app.modules.braiders.completion import mark_step_complete
-from app.modules.braiders.models import BraiderOnboardingStatus, BraiderProfile, OnboardingStep
+from app.modules.braiders.models import (
+    BioSource,
+    BraiderOnboardingStatus,
+    BraiderProfile,
+    OnboardingStep,
+)
 from app.modules.braiders.portfolio import repository as portfolio_repo
 from app.modules.braiders.portfolio.models import PortfolioImage
 from app.modules.braiders.portfolio.schemas import (
@@ -21,6 +28,9 @@ from app.modules.braiders.portfolio.schemas import (
     PortfolioImageUploadUrlResponse,
     PortfolioResponse,
 )
+from app.modules.braiders.portfolio.tasks import TASK_TRANSLATE_PORTFOLIO_CAPTION
+
+settings = get_settings()
 
 MIN_PORTFOLIO_IMAGES = 3
 _MAX_PORTFOLIO_IMAGES = 20
@@ -44,11 +54,57 @@ async def _get_or_create_status(db: AsyncSession, user_id: uuid.UUID) -> Braider
     return status
 
 
+def _start_caption_translation(image: PortfolioImage, locale: str, text: str) -> list[str]:
+    """Same locale-fan-out as `braiders.service.update_business_info`'s bio
+    handling: the locale the braider is currently using becomes the HUMAN
+    source, the other supported locales are queued for translation."""
+    setattr(image, f"caption_{locale}", text)
+    setattr(image, f"caption_{locale}_source", BioSource.HUMAN)
+    target_locales = [
+        loc
+        for loc in settings.supported_locales_list
+        if loc != locale and getattr(image, f"caption_{loc}_source", None) != BioSource.HUMAN
+    ]
+    for loc in target_locales:
+        setattr(image, f"caption_{loc}_source", BioSource.PENDING)
+    return target_locales
+
+
+def _clear_caption(image: PortfolioImage) -> None:
+    for loc in settings.supported_locales_list:
+        setattr(image, f"caption_{loc}", None)
+        setattr(image, f"caption_{loc}_source", None)
+
+
+async def _enqueue_caption_translation(
+    queue: ArqRedis,
+    *,
+    image_id: uuid.UUID,
+    source_locale: str,
+    source_text: str,
+    target_locales: list[str],
+) -> None:
+    if not target_locales:
+        return
+    await queue.enqueue_job(
+        TASK_TRANSLATE_PORTFOLIO_CAPTION,
+        image_id=str(image_id),
+        source_locale=source_locale,
+        source_text=source_text,
+        target_locales=target_locales,
+    )
+
+
 def _to_image_response(image: PortfolioImage) -> PortfolioImageResponse:
     return PortfolioImageResponse(
         id=image.id,
         url=storage.build_public_url(image.object_key),
-        caption=image.caption,
+        caption_en=image.caption_en,
+        caption_de=image.caption_de,
+        caption_fr=image.caption_fr,
+        caption_en_source=image.caption_en_source,
+        caption_de_source=image.caption_de_source,
+        caption_fr_source=image.caption_fr_source,
         position=image.position,
     )
 
@@ -85,7 +141,12 @@ async def request_upload_url(
 
 
 async def confirm_upload(
-    db: AsyncSession, user_id: uuid.UUID, *, data: PortfolioImageConfirmRequest
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    *,
+    data: PortfolioImageConfirmRequest,
+    locale: str,
+    queue: ArqRedis,
 ) -> PortfolioImageResponse:
     expected_prefix = f"braiders/{user_id}/portfolio/"
     if not data.object_key.startswith(expected_prefix):
@@ -109,32 +170,62 @@ async def confirm_upload(
 
     next_position = max((img.position for img in existing_images), default=-1) + 1
     image = await portfolio_repo.create_image(
-        db,
-        braider_id=profile.id,
-        object_key=data.object_key,
-        caption=data.caption,
-        position=next_position,
+        db, braider_id=profile.id, object_key=data.object_key, position=next_position
     )
+
+    target_locales: list[str] = []
+    if data.caption:
+        target_locales = _start_caption_translation(image, locale, data.caption)
 
     if len(existing_images) + 1 >= MIN_PORTFOLIO_IMAGES:
         status = await _get_or_create_status(db, user_id)
         mark_step_complete(status, OnboardingStep.PORTFOLIO, OnboardingStep.SERVICE_LOCATION)
 
     await db.commit()
+
+    if data.caption:
+        await _enqueue_caption_translation(
+            queue,
+            image_id=image.id,
+            source_locale=locale,
+            source_text=data.caption,
+            target_locales=target_locales,
+        )
+
     return _to_image_response(image)
 
 
 async def update_image(
-    db: AsyncSession, user_id: uuid.UUID, image_id: uuid.UUID, *, data: PortfolioImageUpdateRequest
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    image_id: uuid.UUID,
+    *,
+    data: PortfolioImageUpdateRequest,
+    locale: str,
+    queue: ArqRedis,
 ) -> PortfolioImageResponse:
     profile = await braiders_repo.get_profile_by_user_id(db, user_id)
     image = await portfolio_repo.get_image_by_id(db, image_id) if profile else None
     if profile is None or image is None or image.braider_id != profile.id:
         raise PortfolioImageNotFoundError()
 
+    target_locales: list[str] = []
     if "caption" in data.model_fields_set:
-        image.caption = data.caption
+        if data.caption is None:
+            _clear_caption(image)
+        elif data.caption != getattr(image, f"caption_{locale}"):
+            target_locales = _start_caption_translation(image, locale, data.caption)
+
     await db.commit()
+
+    if target_locales:
+        await _enqueue_caption_translation(
+            queue,
+            image_id=image.id,
+            source_locale=locale,
+            source_text=data.caption or "",
+            target_locales=target_locales,
+        )
 
     return _to_image_response(image)
 
