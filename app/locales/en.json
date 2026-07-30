@@ -38,5 +38,8 @@
   "email.reset_greeting": "Hi {first_name},",
   "email.reset_body": "Use the code below to reset your password. It expires in {minutes} minutes.",
   "email.reset_code_label": "Your password reset code",
-  "email.reset_ignore_note": "If you didn't request a password reset, you can safely ignore this email."
+  "email.reset_ignore_note": "If you didn't request a password reset, you can safely ignore this email.",
+
+  "braider.invalid_logo_upload": "The uploaded logo is invalid. Please upload a JPEG, PNG, or WebP image no larger than 5MB.",
+  "braider.logo_not_found": "We couldn't find the uploaded logo. Please try uploading it again."
 }

@@ -38,5 +38,8 @@
   "email.reset_greeting": "Hallo {first_name},",
   "email.reset_body": "Verwenden Sie den folgenden Code, um Ihr Passwort zurückzusetzen. Er läuft in {minutes} Minuten ab.",
   "email.reset_code_label": "Ihr Code zum Zurücksetzen",
-  "email.reset_ignore_note": "Wenn Sie kein Zurücksetzen des Passworts angefordert haben, können Sie diese E-Mail ignorieren."
+  "email.reset_ignore_note": "Wenn Sie kein Zurücksetzen des Passworts angefordert haben, können Sie diese E-Mail ignorieren.",
+
+  "braider.invalid_logo_upload": "Das hochgeladene Logo ist ungültig. Bitte laden Sie ein JPEG-, PNG- oder WebP-Bild mit maximal 5MB hoch.",
+  "braider.logo_not_found": "Wir konnten das hochgeladene Logo nicht finden. Bitte versuchen Sie es erneut."
 }

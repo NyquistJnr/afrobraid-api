@@ -3,6 +3,7 @@ from arq.connections import RedisSettings
 from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.modules.auth.tasks import send_otp_email_task
+from app.modules.braiders.tasks import translate_bio_task
 
 settings = get_settings()
 
@@ -12,6 +13,6 @@ async def startup(ctx: dict) -> None:
 
 
 class WorkerSettings:
-    functions = [send_otp_email_task]
+    functions = [send_otp_email_task, translate_bio_task]
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
     on_startup = startup

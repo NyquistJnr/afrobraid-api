@@ -117,6 +117,18 @@ class UserTypeRequiredError(AppError):
     message_key = "auth.user_type_required"
 
 
+class InvalidLogoUploadError(AppError):
+    status_code = status.HTTP_400_BAD_REQUEST
+    code = "INVALID_LOGO_UPLOAD"
+    message_key = "braider.invalid_logo_upload"
+
+
+class LogoNotFoundError(AppError):
+    status_code = status.HTTP_404_NOT_FOUND
+    code = "LOGO_NOT_FOUND"
+    message_key = "braider.logo_not_found"
+
+
 class RateLimitedError(AppError):
     status_code = status.HTTP_429_TOO_MANY_REQUESTS
     code = "RATE_LIMITED"

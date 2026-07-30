@@ -36,6 +36,16 @@ class Settings(BaseSettings):
 
     cors_origins: str = "http://localhost:3000"
 
+    r2_account_id: str = ""
+    r2_access_key_id: str = ""
+    r2_secret_access_key: str = ""
+    r2_bucket_name: str = ""
+    r2_endpoint_url: str = ""
+    r2_public_base_url: str = ""
+
+    deepl_api_key: str = ""
+    deepl_api_url: str = "https://api-free.deepl.com/v2/translate"
+
     @property
     def supported_locales_list(self) -> list[str]:
         return [loc.strip() for loc in self.supported_locales.split(",") if loc.strip()]
