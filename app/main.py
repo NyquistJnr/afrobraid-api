@@ -11,6 +11,7 @@ from app.core.queue import create_arq_pool
 from app.modules.auth.router import router as auth_router
 from app.modules.braiders.offerings.router import router as braider_offerings_router
 from app.modules.braiders.phone_verification.router import router as phone_verification_router
+from app.modules.braiders.portfolio.router import router as braider_portfolio_router
 from app.modules.braiders.router import router as braiders_router
 from app.modules.braiders.veriff.router import router as veriff_router
 from app.modules.braiders.veriff.webhook import router as veriff_webhook_router
@@ -62,6 +63,7 @@ def create_app() -> FastAPI:
     app.include_router(styles_router)
     app.include_router(styles_admin_router)
     app.include_router(braider_offerings_router)
+    app.include_router(braider_portfolio_router)
 
     @app.get("/health", tags=["Health"])
     async def health() -> dict[str, str]:

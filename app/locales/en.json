@@ -65,5 +65,9 @@
   "braider_offerings.style_not_found": "This style isn't on your menu.",
   "braider_offerings.style_already_exists": "You've already added this style to your menu.",
   "braider_offerings.invalid_variation": "One of the selected variations doesn't belong to this style.",
-  "braider_offerings.invalid_addon": "One of the selected add-ons is no longer available."
+  "braider_offerings.invalid_addon": "One of the selected add-ons is no longer available.",
+
+  "portfolio.invalid_image_upload": "The uploaded photo is invalid. Please upload a JPEG, PNG, or WebP image no larger than 5MB.",
+  "portfolio.image_not_found": "We couldn't find the uploaded photo. Please try uploading it again.",
+  "portfolio.max_images_reached": "Your portfolio can have at most 20 photos. Remove one before adding another."
 }

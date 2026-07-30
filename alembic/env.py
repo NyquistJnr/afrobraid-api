@@ -13,6 +13,7 @@ from app.core.database import Base
 from app.modules.auth import models as auth_models  # noqa: F401
 from app.modules.braiders import models as braiders_models  # noqa: F401
 from app.modules.braiders.offerings import models as braider_offerings_models  # noqa: F401
+from app.modules.braiders.portfolio import models as braider_portfolio_models  # noqa: F401
 from app.modules.braiders.veriff import models as veriff_models  # noqa: F401
 from app.modules.styles import models as styles_models  # noqa: F401
 from app.modules.users import models as users_models  # noqa: F401

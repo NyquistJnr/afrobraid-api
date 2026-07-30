@@ -65,5 +65,9 @@
   "braider_offerings.style_not_found": "Cette coiffure ne figure pas dans votre menu.",
   "braider_offerings.style_already_exists": "Vous avez déjà ajouté cette coiffure à votre menu.",
   "braider_offerings.invalid_variation": "L'une des variantes sélectionnées n'appartient pas à cette coiffure.",
-  "braider_offerings.invalid_addon": "L'une des options sélectionnées n'est plus disponible."
+  "braider_offerings.invalid_addon": "L'une des options sélectionnées n'est plus disponible.",
+
+  "portfolio.invalid_image_upload": "La photo téléchargée est invalide. Veuillez télécharger une image JPEG, PNG ou WebP de 5 Mo maximum.",
+  "portfolio.image_not_found": "Nous n'avons pas trouvé la photo téléchargée. Veuillez réessayer de la télécharger.",
+  "portfolio.max_images_reached": "Votre portfolio peut contenir au maximum 20 photos. Retirez-en une avant d'en ajouter une autre."
 }
