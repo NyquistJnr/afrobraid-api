@@ -47,5 +47,8 @@
 
   "veriff.api_unavailable": "Der Dienst zur Identitätsprüfung war nicht erreichbar. Bitte versuchen Sie es in Kürze erneut.",
   "veriff.invalid_webhook_signature": "Ungültige Webhook-Signatur.",
-  "veriff.session_not_found": "Es wurde keine Identitätsprüfung gefunden. Bitte starten Sie zuerst die Verifizierung."
+  "veriff.session_not_found": "Es wurde keine Identitätsprüfung gefunden. Bitte starten Sie zuerst die Verifizierung.",
+
+  "phone_verification.api_unavailable": "Der Dienst zur Telefonverifizierung war nicht erreichbar. Bitte versuchen Sie es in Kürze erneut.",
+  "phone_verification.invalid_code": "Dieser Bestätigungscode ist falsch oder abgelaufen. Bitte fordern Sie einen neuen an."
 }

@@ -1,4 +1,5 @@
 uvicorn app.main:app --reload
+arq app.worker.WorkerSettings
 
 1. Google — easiest, works in a browser right now
    Google issues an ID token (a signed JWT) straight to client-side JavaScript after sign-in — no server-side secret needed for this step. I built you a small local test page for exactly this: dev-tools/social-login-test/google.html. It's already open in the Browser pane.

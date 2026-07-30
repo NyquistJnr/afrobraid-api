@@ -70,6 +70,7 @@ def _to_onboarding_status_response(status: BraiderOnboardingStatus) -> Onboardin
     return OnboardingStatusResponse(
         current_step=status.current_step,
         business_info_completed_at=status.business_info_completed_at,
+        phone_verification_completed_at=status.phone_verification_completed_at,
         veriff_completed_at=status.veriff_completed_at,
         service_type_completed_at=status.service_type_completed_at,
         portfolio_completed_at=status.portfolio_completed_at,

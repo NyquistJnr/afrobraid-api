@@ -147,6 +147,18 @@ class VeriffSessionNotFoundError(AppError):
     message_key = "veriff.session_not_found"
 
 
+class PhoneVerificationApiUnavailableError(AppError):
+    status_code = status.HTTP_502_BAD_GATEWAY
+    code = "PHONE_VERIFICATION_API_UNAVAILABLE"
+    message_key = "phone_verification.api_unavailable"
+
+
+class InvalidVerificationCodeError(AppError):
+    status_code = status.HTTP_400_BAD_REQUEST
+    code = "INVALID_VERIFICATION_CODE"
+    message_key = "phone_verification.invalid_code"
+
+
 class RateLimitedError(AppError):
     status_code = status.HTTP_429_TOO_MANY_REQUESTS
     code = "RATE_LIMITED"
@@ -170,10 +182,12 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
         status_code=exc.status_code,
         headers=headers,
         content={
+            "status": "error",
+            "data": None,
             "error": {
                 "code": exc.code,
                 "message": t(exc.message_key, locale, **exc.format_kwargs),
-            }
+            },
         },
     )
 
@@ -183,11 +197,13 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
+            "status": "error",
+            "data": None,
             "error": {
                 "code": "VALIDATION_ERROR",
                 "message": t("errors.validation_error", locale),
                 "details": jsonable_encoder(exc.errors()),
-            }
+            },
         },
     )
 
@@ -198,10 +214,12 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
+            "status": "error",
+            "data": None,
             "error": {
                 "code": "INTERNAL_SERVER_ERROR",
                 "message": t("errors.internal_server_error", locale),
-            }
+            },
         },
     )
 

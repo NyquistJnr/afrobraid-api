@@ -52,6 +52,11 @@ class Settings(BaseSettings):
     veriff_api_url: str = "https://stationapi.veriff.com/v1"
     veriff_callback_url: str = ""
 
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+    twilio_verify_service_sid: str = ""
+    twilio_phone_number: str = ""
+
     @property
     def supported_locales_list(self) -> list[str]:
         return [loc.strip() for loc in self.supported_locales.split(",") if loc.strip()]

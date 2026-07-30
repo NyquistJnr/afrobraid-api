@@ -47,5 +47,8 @@
 
   "veriff.api_unavailable": "Nous n'avons pas pu contacter le service de vérification d'identité. Veuillez réessayer sous peu.",
   "veriff.invalid_webhook_signature": "Signature de webhook invalide.",
-  "veriff.session_not_found": "Aucune session de vérification d'identité trouvée. Veuillez d'abord démarrer la vérification."
+  "veriff.session_not_found": "Aucune session de vérification d'identité trouvée. Veuillez d'abord démarrer la vérification.",
+
+  "phone_verification.api_unavailable": "Nous n'avons pas pu contacter le service de vérification téléphonique. Veuillez réessayer sous peu.",
+  "phone_verification.invalid_code": "Ce code de vérification est incorrect ou a expiré. Veuillez en demander un nouveau."
 }

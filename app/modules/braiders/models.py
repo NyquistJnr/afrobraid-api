@@ -25,6 +25,7 @@ class BioSource(str, enum.Enum):
 
 class OnboardingStep(str, enum.Enum):
     BUSINESS_INFO = "BUSINESS_INFO"
+    PHONE_VERIFICATION = "PHONE_VERIFICATION"
     VERIFF = "VERIFF"
     SERVICE_TYPE = "SERVICE_TYPE"
     PORTFOLIO = "PORTFOLIO"
@@ -89,6 +90,9 @@ class BraiderOnboardingStatus(Base):
         nullable=False,
     )
     business_info_completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    phone_verification_completed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
     veriff_completed_at: Mapped[datetime | None] = mapped_column(

@@ -22,7 +22,7 @@ def recompute_business_info_completion(
     if is_complete and not was_complete:
         status.business_info_completed_at = datetime.now(UTC)
         if status.current_step == OnboardingStep.BUSINESS_INFO:
-            status.current_step = OnboardingStep.VERIFF
+            status.current_step = OnboardingStep.PHONE_VERIFICATION
     elif not is_complete and was_complete:
         status.business_info_completed_at = None
 

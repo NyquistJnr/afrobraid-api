@@ -74,6 +74,7 @@ class LogoConfirmRequest(BaseModel):
 class OnboardingStatusResponse(BaseModel):
     current_step: OnboardingStep
     business_info_completed_at: datetime | None
+    phone_verification_completed_at: datetime | None
     veriff_completed_at: datetime | None
     service_type_completed_at: datetime | None
     portfolio_completed_at: datetime | None
