@@ -10,12 +10,14 @@ class Settings(BaseSettings):
     debug: bool = False
 
     database_url: str
+    db_echo: bool = False
     redis_url: str
 
     secret_key: str
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 30
+    remember_me_refresh_token_expire_days: int = 90
 
     otp_expire_minutes: int = 10
     otp_length: int = 6

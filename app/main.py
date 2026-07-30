@@ -26,6 +26,10 @@ def create_app() -> FastAPI:
         title="Afrobraid API",
         version="0.1.0",
         lifespan=lifespan,
+        swagger_ui_parameters={
+            "docExpansion": "none",  # all tags collapsed by default
+            "defaultModelsExpandDepth": -1,  # hides the "Schemas" section entirely
+        },
     )
 
     # Middlewares are applied outside-in in reverse of registration order,
@@ -43,7 +47,7 @@ def create_app() -> FastAPI:
 
     app.include_router(auth_router)
 
-    @app.get("/health", tags=["health"])
+    @app.get("/health", tags=["Health"])
     async def health() -> dict[str, str]:
         return {"status": "ok"}
 

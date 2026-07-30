@@ -26,7 +26,7 @@ from app.modules.auth.schemas import (
 )
 from app.modules.users.models import AuthProvider
 
-router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
+router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
 
 SocialProviderPath = Literal["google", "facebook", "tiktok"]
 _PROVIDER_MAP = {
