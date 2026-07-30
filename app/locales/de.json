@@ -50,5 +50,20 @@
   "veriff.session_not_found": "Es wurde keine Identitätsprüfung gefunden. Bitte starten Sie zuerst die Verifizierung.",
 
   "phone_verification.api_unavailable": "Der Dienst zur Telefonverifizierung war nicht erreichbar. Bitte versuchen Sie es in Kürze erneut.",
-  "phone_verification.invalid_code": "Dieser Bestätigungscode ist falsch oder abgelaufen. Bitte fordern Sie einen neuen an."
+  "phone_verification.invalid_code": "Dieser Bestätigungscode ist falsch oder abgelaufen. Bitte fordern Sie einen neuen an.",
+
+  "styles.category_not_found": "Diese Stil-Kategorie existiert nicht.",
+  "styles.style_not_found": "Dieser Stil existiert nicht.",
+  "styles.style_not_active": "Dieser Stil ist noch nicht veröffentlicht.",
+  "styles.variation_not_found": "Diese Variante existiert nicht für diesen Stil.",
+  "styles.addon_not_found": "Dieses Zusatzangebot existiert nicht.",
+  "styles.invalid_image_upload": "Das hochgeladene Bild ist ungültig. Bitte laden Sie ein JPEG-, PNG- oder WebP-Bild mit maximal 5MB hoch.",
+  "styles.image_not_found": "Wir konnten das hochgeladene Bild nicht finden. Bitte versuchen Sie es erneut.",
+  "styles.max_images_reached": "Ein Stil kann höchstens 6 Bilder haben. Entfernen Sie eines, bevor Sie ein weiteres hinzufügen.",
+  "styles.entity_in_use": "Dies kann nicht entfernt werden, da es noch verwendet wird.",
+
+  "braider_offerings.style_not_found": "Dieser Stil ist nicht in Ihrem Angebot.",
+  "braider_offerings.style_already_exists": "Sie haben diesen Stil bereits zu Ihrem Angebot hinzugefügt.",
+  "braider_offerings.invalid_variation": "Eine der ausgewählten Varianten gehört nicht zu diesem Stil.",
+  "braider_offerings.invalid_addon": "Eines der ausgewählten Zusatzangebote ist nicht mehr verfügbar."
 }

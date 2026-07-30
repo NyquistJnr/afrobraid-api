@@ -159,6 +159,84 @@ class InvalidVerificationCodeError(AppError):
     message_key = "phone_verification.invalid_code"
 
 
+class StyleCategoryNotFoundError(AppError):
+    status_code = status.HTTP_404_NOT_FOUND
+    code = "STYLE_CATEGORY_NOT_FOUND"
+    message_key = "styles.category_not_found"
+
+
+class StyleNotFoundError(AppError):
+    status_code = status.HTTP_404_NOT_FOUND
+    code = "STYLE_NOT_FOUND"
+    message_key = "styles.style_not_found"
+
+
+class StyleNotActiveError(AppError):
+    status_code = status.HTTP_400_BAD_REQUEST
+    code = "STYLE_NOT_ACTIVE"
+    message_key = "styles.style_not_active"
+
+
+class StyleVariationNotFoundError(AppError):
+    status_code = status.HTTP_404_NOT_FOUND
+    code = "STYLE_VARIATION_NOT_FOUND"
+    message_key = "styles.variation_not_found"
+
+
+class AddOnNotFoundError(AppError):
+    status_code = status.HTTP_404_NOT_FOUND
+    code = "ADDON_NOT_FOUND"
+    message_key = "styles.addon_not_found"
+
+
+class InvalidStyleImageUploadError(AppError):
+    status_code = status.HTTP_400_BAD_REQUEST
+    code = "INVALID_STYLE_IMAGE_UPLOAD"
+    message_key = "styles.invalid_image_upload"
+
+
+class StyleImageNotFoundError(AppError):
+    status_code = status.HTTP_404_NOT_FOUND
+    code = "STYLE_IMAGE_NOT_FOUND"
+    message_key = "styles.image_not_found"
+
+
+class MaxStyleImagesReachedError(AppError):
+    status_code = status.HTTP_400_BAD_REQUEST
+    code = "MAX_STYLE_IMAGES_REACHED"
+    message_key = "styles.max_images_reached"
+
+
+class EntityInUseError(AppError):
+    status_code = status.HTTP_409_CONFLICT
+    code = "ENTITY_IN_USE"
+    message_key = "styles.entity_in_use"
+
+
+class BraiderStyleNotFoundError(AppError):
+    status_code = status.HTTP_404_NOT_FOUND
+    code = "BRAIDER_STYLE_NOT_FOUND"
+    message_key = "braider_offerings.style_not_found"
+
+
+class BraiderStyleAlreadyExistsError(AppError):
+    status_code = status.HTTP_409_CONFLICT
+    code = "BRAIDER_STYLE_ALREADY_EXISTS"
+    message_key = "braider_offerings.style_already_exists"
+
+
+class BraiderStyleVariationInvalidError(AppError):
+    status_code = status.HTTP_400_BAD_REQUEST
+    code = "INVALID_STYLE_VARIATION"
+    message_key = "braider_offerings.invalid_variation"
+
+
+class BraiderStyleAddonInvalidError(AppError):
+    status_code = status.HTTP_400_BAD_REQUEST
+    code = "INVALID_ADDON"
+    message_key = "braider_offerings.invalid_addon"
+
+
 class RateLimitedError(AppError):
     status_code = status.HTTP_429_TOO_MANY_REQUESTS
     code = "RATE_LIMITED"

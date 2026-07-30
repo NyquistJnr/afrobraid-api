@@ -50,5 +50,20 @@
   "veriff.session_not_found": "Aucune session de vérification d'identité trouvée. Veuillez d'abord démarrer la vérification.",
 
   "phone_verification.api_unavailable": "Nous n'avons pas pu contacter le service de vérification téléphonique. Veuillez réessayer sous peu.",
-  "phone_verification.invalid_code": "Ce code de vérification est incorrect ou a expiré. Veuillez en demander un nouveau."
+  "phone_verification.invalid_code": "Ce code de vérification est incorrect ou a expiré. Veuillez en demander un nouveau.",
+
+  "styles.category_not_found": "Cette catégorie de coiffure n'existe pas.",
+  "styles.style_not_found": "Cette coiffure n'existe pas.",
+  "styles.style_not_active": "Cette coiffure n'est pas encore publiée.",
+  "styles.variation_not_found": "Cette variante n'existe pas pour cette coiffure.",
+  "styles.addon_not_found": "Cette option supplémentaire n'existe pas.",
+  "styles.invalid_image_upload": "L'image téléchargée est invalide. Veuillez télécharger une image JPEG, PNG ou WebP de 5 Mo maximum.",
+  "styles.image_not_found": "Nous n'avons pas trouvé l'image téléchargée. Veuillez réessayer de la télécharger.",
+  "styles.max_images_reached": "Une coiffure peut avoir au maximum 6 images. Retirez-en une avant d'en ajouter une autre.",
+  "styles.entity_in_use": "Impossible de supprimer cet élément car il est encore utilisé.",
+
+  "braider_offerings.style_not_found": "Cette coiffure ne figure pas dans votre menu.",
+  "braider_offerings.style_already_exists": "Vous avez déjà ajouté cette coiffure à votre menu.",
+  "braider_offerings.invalid_variation": "L'une des variantes sélectionnées n'appartient pas à cette coiffure.",
+  "braider_offerings.invalid_addon": "L'une des options sélectionnées n'est plus disponible."
 }

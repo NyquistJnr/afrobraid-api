@@ -50,5 +50,20 @@
   "veriff.session_not_found": "No identity verification session was found. Please start verification first.",
 
   "phone_verification.api_unavailable": "We couldn't reach the phone verification service. Please try again shortly.",
-  "phone_verification.invalid_code": "That verification code is incorrect or has expired. Please request a new one."
+  "phone_verification.invalid_code": "That verification code is incorrect or has expired. Please request a new one.",
+
+  "styles.category_not_found": "This style category doesn't exist.",
+  "styles.style_not_found": "This style doesn't exist.",
+  "styles.style_not_active": "This style isn't published yet.",
+  "styles.variation_not_found": "This variation doesn't exist for this style.",
+  "styles.addon_not_found": "This add-on doesn't exist.",
+  "styles.invalid_image_upload": "The uploaded image is invalid. Please upload a JPEG, PNG, or WebP image no larger than 5MB.",
+  "styles.image_not_found": "We couldn't find the uploaded image. Please try uploading it again.",
+  "styles.max_images_reached": "A style can have at most 6 images. Remove one before adding another.",
+  "styles.entity_in_use": "This can't be removed because it's still in use.",
+
+  "braider_offerings.style_not_found": "This style isn't on your menu.",
+  "braider_offerings.style_already_exists": "You've already added this style to your menu.",
+  "braider_offerings.invalid_variation": "One of the selected variations doesn't belong to this style.",
+  "braider_offerings.invalid_addon": "One of the selected add-ons is no longer available."
 }
