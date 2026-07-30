@@ -237,6 +237,54 @@ class BraiderStyleAddonInvalidError(AppError):
     message_key = "braider_offerings.invalid_addon"
 
 
+class AvailabilitySettingsNotConfiguredError(AppError):
+    status_code = status.HTTP_404_NOT_FOUND
+    code = "AVAILABILITY_SETTINGS_NOT_CONFIGURED"
+    message_key = "availability.settings_not_configured"
+
+
+class InvalidTimezoneError(AppError):
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    code = "INVALID_TIMEZONE"
+    message_key = "availability.invalid_timezone"
+
+
+class WeeklyWindowNotFoundError(AppError):
+    status_code = status.HTTP_404_NOT_FOUND
+    code = "WEEKLY_WINDOW_NOT_FOUND"
+    message_key = "availability.window_not_found"
+
+
+class InvalidAvailabilityWindowTimesError(AppError):
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    code = "INVALID_AVAILABILITY_WINDOW_TIMES"
+    message_key = "availability.invalid_window_times"
+
+
+class OverlappingAvailabilityWindowError(AppError):
+    status_code = status.HTTP_409_CONFLICT
+    code = "OVERLAPPING_AVAILABILITY_WINDOW"
+    message_key = "availability.overlapping_window"
+
+
+class AvailabilityExceptionNotFoundError(AppError):
+    status_code = status.HTTP_404_NOT_FOUND
+    code = "AVAILABILITY_EXCEPTION_NOT_FOUND"
+    message_key = "availability.exception_not_found"
+
+
+class OverlappingAvailabilityExceptionError(AppError):
+    status_code = status.HTTP_409_CONFLICT
+    code = "OVERLAPPING_AVAILABILITY_EXCEPTION"
+    message_key = "availability.overlapping_exception"
+
+
+class BraiderStyleDurationMissingError(AppError):
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    code = "BRAIDER_STYLE_DURATION_MISSING"
+    message_key = "availability.style_duration_missing"
+
+
 class InvalidPortfolioImageUploadError(AppError):
     status_code = status.HTTP_400_BAD_REQUEST
     code = "INVALID_PORTFOLIO_IMAGE_UPLOAD"

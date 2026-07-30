@@ -69,5 +69,14 @@
 
   "portfolio.invalid_image_upload": "The uploaded photo is invalid. Please upload a JPEG, PNG, or WebP image no larger than 5MB.",
   "portfolio.image_not_found": "We couldn't find the uploaded photo. Please try uploading it again.",
-  "portfolio.max_images_reached": "Your portfolio can have at most 20 photos. Remove one before adding another."
+  "portfolio.max_images_reached": "Your portfolio can have at most 20 photos. Remove one before adding another.",
+
+  "availability.settings_not_configured": "This braider hasn't set up their availability yet.",
+  "availability.invalid_timezone": "That's not a recognized timezone. Please send a valid IANA timezone name, e.g. \"Africa/Lagos\".",
+  "availability.window_not_found": "This availability window doesn't exist.",
+  "availability.invalid_window_times": "end_time must be after start_time.",
+  "availability.overlapping_window": "This time overlaps with another window you've already set for that day.",
+  "availability.exception_not_found": "This availability exception doesn't exist.",
+  "availability.overlapping_exception": "You already have an exception set for this date that overlaps with this one.",
+  "availability.style_duration_missing": "This style doesn't have a duration set yet, so bookable slots can't be calculated for it."
 }

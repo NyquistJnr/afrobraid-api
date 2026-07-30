@@ -69,5 +69,14 @@
 
   "portfolio.invalid_image_upload": "Das hochgeladene Foto ist ungültig. Bitte laden Sie ein JPEG-, PNG- oder WebP-Bild mit maximal 5MB hoch.",
   "portfolio.image_not_found": "Wir konnten das hochgeladene Foto nicht finden. Bitte versuchen Sie es erneut.",
-  "portfolio.max_images_reached": "Ihr Portfolio kann höchstens 20 Fotos enthalten. Entfernen Sie eines, bevor Sie ein weiteres hinzufügen."
+  "portfolio.max_images_reached": "Ihr Portfolio kann höchstens 20 Fotos enthalten. Entfernen Sie eines, bevor Sie ein weiteres hinzufügen.",
+
+  "availability.settings_not_configured": "Dieser Braider hat seine Verfügbarkeit noch nicht eingerichtet.",
+  "availability.invalid_timezone": "Das ist keine gültige Zeitzone. Bitte geben Sie einen gültigen IANA-Zeitzonennamen an, z. B. \"Africa/Lagos\".",
+  "availability.window_not_found": "Dieses Verfügbarkeitsfenster existiert nicht.",
+  "availability.invalid_window_times": "end_time muss nach start_time liegen.",
+  "availability.overlapping_window": "Diese Zeit überschneidet sich mit einem anderen Fenster, das Sie für diesen Tag bereits festgelegt haben.",
+  "availability.exception_not_found": "Diese Verfügbarkeitsausnahme existiert nicht.",
+  "availability.overlapping_exception": "Sie haben für dieses Datum bereits eine Ausnahme festgelegt, die sich mit dieser überschneidet.",
+  "availability.style_duration_missing": "Für diesen Stil ist noch keine Dauer festgelegt, daher können keine buchbaren Termine berechnet werden."
 }

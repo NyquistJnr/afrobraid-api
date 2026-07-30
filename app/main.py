@@ -9,6 +9,10 @@ from app.core.i18n import LocaleMiddleware
 from app.core.logging import configure_logging
 from app.core.queue import create_arq_pool
 from app.modules.auth.router import router as auth_router
+from app.modules.braiders.availability.router import (
+    public_router as braider_availability_public_router,
+)
+from app.modules.braiders.availability.router import router as braider_availability_router
 from app.modules.braiders.offerings.router import router as braider_offerings_router
 from app.modules.braiders.phone_verification.router import router as phone_verification_router
 from app.modules.braiders.portfolio.router import router as braider_portfolio_router
@@ -66,6 +70,8 @@ def create_app() -> FastAPI:
     app.include_router(braider_offerings_router)
     app.include_router(braider_portfolio_router)
     app.include_router(braider_service_location_router)
+    app.include_router(braider_availability_router)
+    app.include_router(braider_availability_public_router)
 
     @app.get("/health", tags=["Health"])
     async def health() -> dict[str, str]:

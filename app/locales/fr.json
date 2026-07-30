@@ -69,5 +69,14 @@
 
   "portfolio.invalid_image_upload": "La photo téléchargée est invalide. Veuillez télécharger une image JPEG, PNG ou WebP de 5 Mo maximum.",
   "portfolio.image_not_found": "Nous n'avons pas trouvé la photo téléchargée. Veuillez réessayer de la télécharger.",
-  "portfolio.max_images_reached": "Votre portfolio peut contenir au maximum 20 photos. Retirez-en une avant d'en ajouter une autre."
+  "portfolio.max_images_reached": "Votre portfolio peut contenir au maximum 20 photos. Retirez-en une avant d'en ajouter une autre.",
+
+  "availability.settings_not_configured": "Cette tresseuse/ce tresseur n'a pas encore configuré ses disponibilités.",
+  "availability.invalid_timezone": "Ce n'est pas un fuseau horaire reconnu. Veuillez indiquer un nom de fuseau horaire IANA valide, par ex. \"Africa/Lagos\".",
+  "availability.window_not_found": "Ce créneau de disponibilité n'existe pas.",
+  "availability.invalid_window_times": "end_time doit être postérieur à start_time.",
+  "availability.overlapping_window": "Cet horaire chevauche un autre créneau déjà défini pour ce jour.",
+  "availability.exception_not_found": "Cette exception de disponibilité n'existe pas.",
+  "availability.overlapping_exception": "Vous avez déjà une exception définie pour cette date qui chevauche celle-ci.",
+  "availability.style_duration_missing": "Cette coiffure n'a pas encore de durée définie, les créneaux réservables ne peuvent donc pas être calculés."
 }
