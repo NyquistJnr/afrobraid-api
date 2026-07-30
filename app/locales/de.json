@@ -41,5 +41,11 @@
   "email.reset_ignore_note": "Wenn Sie kein Zurücksetzen des Passworts angefordert haben, können Sie diese E-Mail ignorieren.",
 
   "braider.invalid_logo_upload": "Das hochgeladene Logo ist ungültig. Bitte laden Sie ein JPEG-, PNG- oder WebP-Bild mit maximal 5MB hoch.",
-  "braider.logo_not_found": "Wir konnten das hochgeladene Logo nicht finden. Bitte versuchen Sie es erneut."
+  "braider.logo_not_found": "Wir konnten das hochgeladene Logo nicht finden. Bitte versuchen Sie es erneut.",
+
+  "media.deleted": "Die Datei wurde gelöscht.",
+
+  "veriff.api_unavailable": "Der Dienst zur Identitätsprüfung war nicht erreichbar. Bitte versuchen Sie es in Kürze erneut.",
+  "veriff.invalid_webhook_signature": "Ungültige Webhook-Signatur.",
+  "veriff.session_not_found": "Es wurde keine Identitätsprüfung gefunden. Bitte starten Sie zuerst die Verifizierung."
 }

@@ -55,17 +55,31 @@ MAX_OTP_ATTEMPTS = 5
 
 
 async def _issue_token_pair(
-    db: AsyncSession, user: User, *, refresh_expire_days: int | None = None
+    db: AsyncSession, user: User, *, remember_me: bool = False
 ) -> tuple[str, str, int]:
-    access_token, _jti = create_access_token(user_id=user.id, user_type=user.user_type.value)
+    access_expire_minutes = (
+        settings.remember_me_access_token_expire_minutes
+        if remember_me
+        else settings.access_token_expire_minutes
+    )
+    refresh_expire_days = (
+        settings.remember_me_refresh_token_expire_days
+        if remember_me
+        else settings.refresh_token_expire_days
+    )
+
+    access_token, _jti = create_access_token(
+        user_id=user.id, user_type=user.user_type.value, expire_minutes=access_expire_minutes
+    )
     raw_refresh_token = generate_opaque_token()
     await auth_repo.create_refresh_token(
         db,
         user_id=user.id,
         token_hash=hash_token(raw_refresh_token),
-        expire_days=refresh_expire_days or settings.refresh_token_expire_days,
+        expire_days=refresh_expire_days,
+        remember_me=remember_me,
     )
-    expires_in = settings.access_token_expire_minutes * 60
+    expires_in = access_expire_minutes * 60
     return access_token, raw_refresh_token, expires_in
 
 
@@ -210,11 +224,8 @@ async def login(db: AsyncSession, redis: Redis, *, data: LoginRequest) -> AuthTo
     if not user.is_email_verified:
         raise EmailNotVerifiedError()
 
-    refresh_expire_days = (
-        settings.remember_me_refresh_token_expire_days if data.remember_me else None
-    )
     access_token, refresh_token, expires_in = await _issue_token_pair(
-        db, user, refresh_expire_days=refresh_expire_days
+        db, user, remember_me=data.remember_me
     )
     await db.commit()
     return _to_auth_response(
@@ -283,7 +294,9 @@ async def refresh_access_token(
         raise InvalidRefreshTokenError()
 
     await auth_repo.revoke_refresh_token(db, stored)
-    access_token, new_refresh_token, expires_in = await _issue_token_pair(db, user)
+    access_token, new_refresh_token, expires_in = await _issue_token_pair(
+        db, user, remember_me=stored.remember_me
+    )
     await db.commit()
     return _to_auth_response(
         user, access_token=access_token, refresh_token=new_refresh_token, expires_in=expires_in

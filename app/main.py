@@ -10,6 +10,9 @@ from app.core.logging import configure_logging
 from app.core.queue import create_arq_pool
 from app.modules.auth.router import router as auth_router
 from app.modules.braiders.router import router as braiders_router
+from app.modules.braiders.veriff.router import router as veriff_router
+from app.modules.braiders.veriff.webhook import router as veriff_webhook_router
+from app.modules.media.router import router as media_router
 
 settings = get_settings()
 
@@ -48,6 +51,9 @@ def create_app() -> FastAPI:
 
     app.include_router(auth_router)
     app.include_router(braiders_router)
+    app.include_router(veriff_router)
+    app.include_router(veriff_webhook_router)
+    app.include_router(media_router)
 
     @app.get("/health", tags=["Health"])
     async def health() -> dict[str, str]:

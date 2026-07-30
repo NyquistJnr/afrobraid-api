@@ -129,6 +129,24 @@ class LogoNotFoundError(AppError):
     message_key = "braider.logo_not_found"
 
 
+class VeriffApiUnavailableError(AppError):
+    status_code = status.HTTP_502_BAD_GATEWAY
+    code = "VERIFF_API_UNAVAILABLE"
+    message_key = "veriff.api_unavailable"
+
+
+class InvalidWebhookSignatureError(AppError):
+    status_code = status.HTTP_401_UNAUTHORIZED
+    code = "INVALID_WEBHOOK_SIGNATURE"
+    message_key = "veriff.invalid_webhook_signature"
+
+
+class VeriffSessionNotFoundError(AppError):
+    status_code = status.HTTP_404_NOT_FOUND
+    code = "VERIFF_SESSION_NOT_FOUND"
+    message_key = "veriff.session_not_found"
+
+
 class RateLimitedError(AppError):
     status_code = status.HTTP_429_TOO_MANY_REQUESTS
     code = "RATE_LIMITED"

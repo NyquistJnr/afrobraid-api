@@ -25,3 +25,15 @@ def recompute_business_info_completion(
             status.current_step = OnboardingStep.VERIFF
     elif not is_complete and was_complete:
         status.business_info_completed_at = None
+
+
+def mark_step_complete(
+    status: BraiderOnboardingStatus, step: OnboardingStep, next_step: OnboardingStep
+) -> None:
+    """Generic one-way step completion, for steps that don't need business-info's
+    recompute-both-ways behavior (once verified/approved/etc., it stays that way)."""
+    field = f"{step.value.lower()}_completed_at"
+    if getattr(status, field) is None:
+        setattr(status, field, datetime.now(UTC))
+    if status.current_step == step:
+        status.current_step = next_step

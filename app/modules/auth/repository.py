@@ -59,11 +59,17 @@ async def invalidate_active_otps(
 
 
 async def create_refresh_token(
-    db: AsyncSession, *, user_id: uuid.UUID, token_hash: str, expire_days: int
+    db: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    token_hash: str,
+    expire_days: int,
+    remember_me: bool = False,
 ) -> RefreshToken:
     token = RefreshToken(
         user_id=user_id,
         token_hash=token_hash,
+        remember_me=remember_me,
         expires_at=datetime.now(UTC) + timedelta(days=expire_days),
     )
     db.add(token)

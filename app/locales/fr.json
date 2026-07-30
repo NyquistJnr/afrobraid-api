@@ -41,5 +41,11 @@
   "email.reset_ignore_note": "Si vous n'avez pas demandé de réinitialisation de mot de passe, vous pouvez ignorer cet email en toute sécurité.",
 
   "braider.invalid_logo_upload": "Le logo téléchargé est invalide. Veuillez télécharger une image JPEG, PNG ou WebP de 5 Mo maximum.",
-  "braider.logo_not_found": "Nous n'avons pas trouvé le logo téléchargé. Veuillez réessayer de le télécharger."
+  "braider.logo_not_found": "Nous n'avons pas trouvé le logo téléchargé. Veuillez réessayer de le télécharger.",
+
+  "media.deleted": "Le fichier a été supprimé.",
+
+  "veriff.api_unavailable": "Nous n'avons pas pu contacter le service de vérification d'identité. Veuillez réessayer sous peu.",
+  "veriff.invalid_webhook_signature": "Signature de webhook invalide.",
+  "veriff.session_not_found": "Aucune session de vérification d'identité trouvée. Veuillez d'abord démarrer la vérification."
 }

@@ -12,6 +12,7 @@ from app.core.database import Base
 # Import every module's models so they register on Base.metadata for autogenerate.
 from app.modules.auth import models as auth_models  # noqa: F401
 from app.modules.braiders import models as braiders_models  # noqa: F401
+from app.modules.braiders.veriff import models as veriff_models  # noqa: F401
 from app.modules.users import models as users_models  # noqa: F401
 
 # this is the Alembic Config object, which provides

@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     secret_key: str
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 15
+    remember_me_access_token_expire_minutes: int = 43200  # 30 days
     refresh_token_expire_days: int = 30
     remember_me_refresh_token_expire_days: int = 90
 
@@ -45,6 +46,11 @@ class Settings(BaseSettings):
 
     deepl_api_key: str = ""
     deepl_api_url: str = "https://api-free.deepl.com/v2/translate"
+
+    veriff_api_key: str = ""
+    veriff_secret_key: str = ""
+    veriff_api_url: str = "https://stationapi.veriff.com/v1"
+    veriff_callback_url: str = ""
 
     @property
     def supported_locales_list(self) -> list[str]:

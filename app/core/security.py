@@ -26,7 +26,9 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-def create_access_token(*, user_id: uuid.UUID, user_type: str) -> tuple[str, str]:
+def create_access_token(
+    *, user_id: uuid.UUID, user_type: str, expire_minutes: int | None = None
+) -> tuple[str, str]:
     """Returns (encoded_jwt, jti)."""
     now = datetime.now(UTC)
     jti = str(uuid.uuid4())
@@ -35,7 +37,7 @@ def create_access_token(*, user_id: uuid.UUID, user_type: str) -> tuple[str, str
         "user_type": user_type,
         "jti": jti,
         "iat": now,
-        "exp": now + timedelta(minutes=settings.access_token_expire_minutes),
+        "exp": now + timedelta(minutes=expire_minutes or settings.access_token_expire_minutes),
         "type": "access",
     }
     token = jwt.encode(payload, settings.secret_key, algorithm=settings.jwt_algorithm)
