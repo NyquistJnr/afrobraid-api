@@ -22,8 +22,8 @@ async def translate_text(text: str, *, source_lang: str, target_lang: str) -> st
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.post(
                 settings.deepl_api_url,
+                headers={"Authorization": f"DeepL-Auth-Key {settings.deepl_api_key}"},
                 data={
-                    "auth_key": settings.deepl_api_key,
                     "text": text,
                     "source_lang": _SOURCE_LANG_CODES[source_lang],
                     "target_lang": _TARGET_LANG_CODES[target_lang],
