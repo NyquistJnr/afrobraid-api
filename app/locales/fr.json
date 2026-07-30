@@ -1,0 +1,42 @@
+{
+  "errors.generic": "Une erreur s'est produite. Veuillez réessayer.",
+  "errors.not_found": "La ressource demandée est introuvable.",
+  "errors.rate_limited": "Trop de requêtes. Veuillez réessayer dans {retry_after_seconds} secondes.",
+  "errors.validation_error": "Un ou plusieurs champs sont invalides.",
+  "errors.internal_server_error": "Une erreur inattendue s'est produite. Veuillez réessayer plus tard.",
+
+  "auth.invalid_credentials": "Email ou mot de passe incorrect.",
+  "auth.email_not_verified": "Veuillez vérifier votre adresse email avant de vous connecter.",
+  "auth.email_already_exists": "Un compte avec cet email existe déjà.",
+  "auth.phone_already_exists": "Un compte avec ce numéro de téléphone existe déjà.",
+  "auth.invalid_otp": "Le code de vérification est invalide.",
+  "auth.otp_expired": "Ce code de vérification a expiré. Veuillez en demander un nouveau.",
+  "auth.too_many_otp_attempts": "Trop de tentatives incorrectes. Veuillez demander un nouveau code.",
+  "auth.invalid_refresh_token": "Votre session a expiré. Veuillez vous reconnecter.",
+  "auth.invalid_access_token": "Votre session a expiré. Veuillez vous reconnecter.",
+  "auth.user_not_active": "Ce compte a été désactivé.",
+  "auth.forbidden": "Vous n'avez pas la permission d'effectuer cette action.",
+  "auth.admin_signup_blocked": "Les comptes administrateur ne peuvent pas être créés via l'inscription.",
+  "auth.social_auth_failed": "Nous n'avons pas pu vérifier votre compte auprès de ce fournisseur.",
+  "auth.unsupported_provider": "Fournisseur de connexion non pris en charge.",
+  "auth.user_type_required": "Veuillez indiquer si vous vous inscrivez en tant que client ou tresseuse/tresseur.",
+
+  "auth.signup_success": "Compte créé. Veuillez consulter votre email pour le code de vérification.",
+  "auth.verification_resent": "Si un compte existe et n'est pas encore vérifié, nous avons envoyé un nouveau code.",
+  "auth.email_verified": "Email vérifié avec succès.",
+  "auth.password_reset_requested": "Si un compte avec cet email existe, nous avons envoyé un code de réinitialisation.",
+  "auth.password_reset_success": "Votre mot de passe a été réinitialisé. Veuillez vous connecter avec votre nouveau mot de passe.",
+  "auth.logged_out": "Vous avez été déconnecté.",
+
+  "email.verify_subject": "Vérifiez votre adresse email Afrobraid",
+  "email.verify_greeting": "Bonjour {first_name},",
+  "email.verify_body": "Utilisez le code ci-dessous pour vérifier votre adresse email. Il expire dans {minutes} minutes.",
+  "email.verify_code_label": "Votre code de vérification",
+  "email.verify_ignore_note": "Si vous n'avez pas créé de compte Afrobraid, vous pouvez ignorer cet email en toute sécurité.",
+
+  "email.reset_subject": "Réinitialisez votre mot de passe Afrobraid",
+  "email.reset_greeting": "Bonjour {first_name},",
+  "email.reset_body": "Utilisez le code ci-dessous pour réinitialiser votre mot de passe. Il expire dans {minutes} minutes.",
+  "email.reset_code_label": "Votre code de réinitialisation",
+  "email.reset_ignore_note": "Si vous n'avez pas demandé de réinitialisation de mot de passe, vous pouvez ignorer cet email en toute sécurité."
+}

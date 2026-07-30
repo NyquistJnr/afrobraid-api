@@ -1,0 +1,42 @@
+{
+  "errors.generic": "Something went wrong. Please try again.",
+  "errors.not_found": "The requested resource was not found.",
+  "errors.rate_limited": "Too many requests. Please try again in {retry_after_seconds} seconds.",
+  "errors.validation_error": "One or more fields are invalid.",
+  "errors.internal_server_error": "An unexpected error occurred. Please try again later.",
+
+  "auth.invalid_credentials": "Incorrect email or password.",
+  "auth.email_not_verified": "Please verify your email address before logging in.",
+  "auth.email_already_exists": "An account with this email already exists.",
+  "auth.phone_already_exists": "An account with this phone number already exists.",
+  "auth.invalid_otp": "The verification code is invalid.",
+  "auth.otp_expired": "This verification code has expired. Please request a new one.",
+  "auth.too_many_otp_attempts": "Too many incorrect attempts. Please request a new code.",
+  "auth.invalid_refresh_token": "Your session has expired. Please log in again.",
+  "auth.invalid_access_token": "Your session has expired. Please log in again.",
+  "auth.user_not_active": "This account has been deactivated.",
+  "auth.forbidden": "You do not have permission to perform this action.",
+  "auth.admin_signup_blocked": "Admin accounts cannot be created through sign up.",
+  "auth.social_auth_failed": "We couldn't verify your account with this provider.",
+  "auth.unsupported_provider": "Unsupported sign-in provider.",
+  "auth.user_type_required": "Please specify whether you're signing up as a customer or a braider.",
+
+  "auth.signup_success": "Account created. Please check your email for a verification code.",
+  "auth.verification_resent": "If an account exists and isn't verified yet, we've sent a new code.",
+  "auth.email_verified": "Email verified successfully.",
+  "auth.password_reset_requested": "If an account with this email exists, we've sent a password reset code.",
+  "auth.password_reset_success": "Your password has been reset. Please log in with your new password.",
+  "auth.logged_out": "You've been logged out.",
+
+  "email.verify_subject": "Verify your Afrobraid email address",
+  "email.verify_greeting": "Hi {first_name},",
+  "email.verify_body": "Use the code below to verify your email address. It expires in {minutes} minutes.",
+  "email.verify_code_label": "Your verification code",
+  "email.verify_ignore_note": "If you didn't create an Afrobraid account, you can safely ignore this email.",
+
+  "email.reset_subject": "Reset your Afrobraid password",
+  "email.reset_greeting": "Hi {first_name},",
+  "email.reset_body": "Use the code below to reset your password. It expires in {minutes} minutes.",
+  "email.reset_code_label": "Your password reset code",
+  "email.reset_ignore_note": "If you didn't request a password reset, you can safely ignore this email."
+}

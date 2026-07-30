@@ -1,0 +1,42 @@
+{
+  "errors.generic": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
+  "errors.not_found": "Die angeforderte Ressource wurde nicht gefunden.",
+  "errors.rate_limited": "Zu viele Anfragen. Bitte versuchen Sie es in {retry_after_seconds} Sekunden erneut.",
+  "errors.validation_error": "Ein oder mehrere Felder sind ungültig.",
+  "errors.internal_server_error": "Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es später erneut.",
+
+  "auth.invalid_credentials": "Falsche E-Mail-Adresse oder falsches Passwort.",
+  "auth.email_not_verified": "Bitte bestätigen Sie Ihre E-Mail-Adresse, bevor Sie sich anmelden.",
+  "auth.email_already_exists": "Ein Konto mit dieser E-Mail-Adresse existiert bereits.",
+  "auth.phone_already_exists": "Ein Konto mit dieser Telefonnummer existiert bereits.",
+  "auth.invalid_otp": "Der Bestätigungscode ist ungültig.",
+  "auth.otp_expired": "Dieser Bestätigungscode ist abgelaufen. Bitte fordern Sie einen neuen an.",
+  "auth.too_many_otp_attempts": "Zu viele falsche Versuche. Bitte fordern Sie einen neuen Code an.",
+  "auth.invalid_refresh_token": "Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.",
+  "auth.invalid_access_token": "Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.",
+  "auth.user_not_active": "Dieses Konto wurde deaktiviert.",
+  "auth.forbidden": "Sie sind nicht berechtigt, diese Aktion auszuführen.",
+  "auth.admin_signup_blocked": "Admin-Konten können nicht über die Registrierung erstellt werden.",
+  "auth.social_auth_failed": "Wir konnten Ihr Konto bei diesem Anbieter nicht verifizieren.",
+  "auth.unsupported_provider": "Nicht unterstützter Anmeldeanbieter.",
+  "auth.user_type_required": "Bitte geben Sie an, ob Sie sich als Kunde oder als Braider registrieren.",
+
+  "auth.signup_success": "Konto erstellt. Bitte prüfen Sie Ihre E-Mails auf einen Bestätigungscode.",
+  "auth.verification_resent": "Falls ein Konto existiert und noch nicht bestätigt wurde, haben wir einen neuen Code gesendet.",
+  "auth.email_verified": "E-Mail-Adresse erfolgreich bestätigt.",
+  "auth.password_reset_requested": "Falls ein Konto mit dieser E-Mail-Adresse existiert, haben wir einen Code zum Zurücksetzen gesendet.",
+  "auth.password_reset_success": "Ihr Passwort wurde zurückgesetzt. Bitte melden Sie sich mit Ihrem neuen Passwort an.",
+  "auth.logged_out": "Sie wurden abgemeldet.",
+
+  "email.verify_subject": "Bestätigen Sie Ihre Afrobraid E-Mail-Adresse",
+  "email.verify_greeting": "Hallo {first_name},",
+  "email.verify_body": "Verwenden Sie den folgenden Code, um Ihre E-Mail-Adresse zu bestätigen. Er läuft in {minutes} Minuten ab.",
+  "email.verify_code_label": "Ihr Bestätigungscode",
+  "email.verify_ignore_note": "Wenn Sie kein Afrobraid-Konto erstellt haben, können Sie diese E-Mail ignorieren.",
+
+  "email.reset_subject": "Setzen Sie Ihr Afrobraid-Passwort zurück",
+  "email.reset_greeting": "Hallo {first_name},",
+  "email.reset_body": "Verwenden Sie den folgenden Code, um Ihr Passwort zurückzusetzen. Er läuft in {minutes} Minuten ab.",
+  "email.reset_code_label": "Ihr Code zum Zurücksetzen",
+  "email.reset_ignore_note": "Wenn Sie kein Zurücksetzen des Passworts angefordert haben, können Sie diese E-Mail ignorieren."
+}
