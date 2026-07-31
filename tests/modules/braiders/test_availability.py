@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from httpx import AsyncClient
@@ -155,6 +155,13 @@ async def test_creating_first_window_completes_availability_step(
     onboarding_status = await braiders_repo.create_onboarding_status_for_user(
         db_session, braider.id
     )
+    now = datetime.now(UTC)
+    onboarding_status.business_info_completed_at = now
+    onboarding_status.phone_verification_completed_at = now
+    onboarding_status.veriff_completed_at = now
+    onboarding_status.service_type_completed_at = now
+    onboarding_status.portfolio_completed_at = now
+    onboarding_status.service_location_completed_at = now
     onboarding_status.current_step = OnboardingStep.AVAILABILITY
     await db_session.commit()
 

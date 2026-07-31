@@ -160,7 +160,7 @@ async def create_weekly_window(
     onboarding_status = await braiders_repo.get_onboarding_status_by_user_id(db, user_id)
     if onboarding_status is None:
         onboarding_status = await braiders_repo.create_onboarding_status_for_user(db, user_id)
-    mark_step_complete(onboarding_status, OnboardingStep.AVAILABILITY, OnboardingStep.PAYMENT_SETUP)
+    mark_step_complete(onboarding_status, OnboardingStep.AVAILABILITY)
 
     await db.commit()
     return _window_to_response(window)

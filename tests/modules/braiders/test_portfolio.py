@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -53,6 +55,11 @@ async def test_uploading_enough_photos_completes_the_step(
 
     # Realistically the braider reaches PORTFOLIO only after SERVICE_TYPE.
     onboarding_status = await braiders_repo.create_onboarding_status_for_user(db_session, braider.id)
+    now = datetime.now(UTC)
+    onboarding_status.business_info_completed_at = now
+    onboarding_status.phone_verification_completed_at = now
+    onboarding_status.veriff_completed_at = now
+    onboarding_status.service_type_completed_at = now
     onboarding_status.current_step = OnboardingStep.PORTFOLIO
     await db_session.commit()
 

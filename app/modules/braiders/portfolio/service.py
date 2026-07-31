@@ -179,7 +179,7 @@ async def confirm_upload(
 
     if len(existing_images) + 1 >= MIN_PORTFOLIO_IMAGES:
         status = await _get_or_create_status(db, user_id)
-        mark_step_complete(status, OnboardingStep.PORTFOLIO, OnboardingStep.SERVICE_LOCATION)
+        mark_step_complete(status, OnboardingStep.PORTFOLIO)
 
     await db.commit()
 

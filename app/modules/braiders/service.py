@@ -8,6 +8,7 @@ from app.core.config import get_settings
 from app.core.exceptions import InvalidLogoUploadError, LogoNotFoundError
 from app.modules.braiders import repository as braiders_repo
 from app.modules.braiders.completion import (
+    compute_current_step,
     is_business_info_complete,
     recompute_business_info_completion,
 )
@@ -184,5 +185,9 @@ async def confirm_logo_upload(
 
 async def get_onboarding_status(db: AsyncSession, user_id: uuid.UUID) -> OnboardingStatusResponse:
     status = await _get_or_create_status(db, user_id)
+    # Re-derive rather than trust the stored value: steps can be completed out
+    # of order, and this also self-heals rows written before current_step was
+    # made a derived field.
+    status.current_step = compute_current_step(status)
     await db.commit()
     return _to_onboarding_status_response(status)

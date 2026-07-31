@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,6 +50,10 @@ async def test_braider_selects_a_style_and_completes_service_type_step(
     # PHONE_VERIFICATION, and VERIFF are done - simulate that instead of
     # starting fresh, so the SERVICE_TYPE -> PORTFOLIO transition is testable.
     onboarding_status = await braiders_repo.create_onboarding_status_for_user(db_session, braider.id)
+    now = datetime.now(UTC)
+    onboarding_status.business_info_completed_at = now
+    onboarding_status.phone_verification_completed_at = now
+    onboarding_status.veriff_completed_at = now
     onboarding_status.current_step = OnboardingStep.SERVICE_TYPE
     await db_session.commit()
 

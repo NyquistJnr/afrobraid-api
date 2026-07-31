@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,6 +23,12 @@ async def _put(client: AsyncClient, headers: dict, payload: dict) -> dict:
 
 async def _set_step_to_service_location(db_session: AsyncSession, braider_id) -> None:
     onboarding_status = await braiders_repo.create_onboarding_status_for_user(db_session, braider_id)
+    now = datetime.now(UTC)
+    onboarding_status.business_info_completed_at = now
+    onboarding_status.phone_verification_completed_at = now
+    onboarding_status.veriff_completed_at = now
+    onboarding_status.service_type_completed_at = now
+    onboarding_status.portfolio_completed_at = now
     onboarding_status.current_step = OnboardingStep.SERVICE_LOCATION
     await db_session.commit()
 

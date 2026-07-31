@@ -44,7 +44,7 @@ async def _apply_decision(
         status = await braiders_repo.get_onboarding_status_by_user_id(db, session.user_id)
         if status is None:
             status = await braiders_repo.create_onboarding_status_for_user(db, session.user_id)
-        mark_step_complete(status, OnboardingStep.VERIFF, OnboardingStep.SERVICE_TYPE)
+        mark_step_complete(status, OnboardingStep.VERIFF)
 
     await db.commit()
 

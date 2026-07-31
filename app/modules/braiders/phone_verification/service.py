@@ -71,7 +71,7 @@ async def verify_code(
     onboarding_status = await braiders_repo.get_onboarding_status_by_user_id(db, user.id)
     if onboarding_status is None:
         onboarding_status = await braiders_repo.create_onboarding_status_for_user(db, user.id)
-    mark_step_complete(onboarding_status, OnboardingStep.PHONE_VERIFICATION, OnboardingStep.VERIFF)
+    mark_step_complete(onboarding_status, OnboardingStep.PHONE_VERIFICATION)
     await db.commit()
 
     return VerifyCodeResponse(status=status, is_complete=True)
