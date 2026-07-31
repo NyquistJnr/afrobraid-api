@@ -82,5 +82,6 @@
 
   "payment_setup.api_unavailable": "Nous n'avons pas pu contacter Stripe. Veuillez réessayer sous peu.",
   "payment_setup.account_not_found": "Vous n'avez pas encore commencé la configuration des paiements. Veuillez la démarrer d'abord.",
-  "payment_setup.invalid_webhook_signature": "Signature de webhook invalide."
+  "payment_setup.invalid_webhook_signature": "Signature de webhook invalide.",
+  "payment_setup.country_required": "Veuillez d'abord compléter votre localisation - nous avons besoin de votre pays pour configurer votre compte de paiement."
 }

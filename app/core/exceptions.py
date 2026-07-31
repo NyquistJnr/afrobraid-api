@@ -303,6 +303,12 @@ class StripeInvalidWebhookSignatureError(AppError):
     message_key = "payment_setup.invalid_webhook_signature"
 
 
+class BraiderCountryRequiredError(AppError):
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    code = "BRAIDER_COUNTRY_REQUIRED"
+    message_key = "payment_setup.country_required"
+
+
 class InvalidPortfolioImageUploadError(AppError):
     status_code = status.HTTP_400_BAD_REQUEST
     code = "INVALID_PORTFOLIO_IMAGE_UPLOAD"

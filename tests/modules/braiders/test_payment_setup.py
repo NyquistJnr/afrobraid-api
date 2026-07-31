@@ -49,8 +49,18 @@ class _FakeEvent:
         self.data = type("Data", (), {"object": data_object})()
 
 
+async def _set_country(client: AsyncClient, headers: dict, country: str = "DE") -> None:
+    resp = await client.put(
+        "/api/v1/braiders/onboarding/service-location", json={"country": country}, headers=headers
+    )
+    assert resp.status_code == 200, resp.text
+
+
 async def _create_account(client: AsyncClient, headers: dict, monkeypatch, account_id: str) -> None:
-    async def fake_create_connect_account(email):
+    await _set_country(client, headers)
+
+    async def fake_create_connect_account(email, country):
+        assert country == "DE"
         return account_id
 
     async def fake_create_account_link(acc_id, *, refresh_url, return_url):
@@ -69,10 +79,11 @@ async def test_account_link_creates_account_first_time(
 ):
     _, token = await create_user_with_token(db_session, user_type=UserType.BRAIDER)
     headers = {"Authorization": f"Bearer {token}"}
+    await _set_country(client, headers)
 
     calls = {"created": 0}
 
-    async def fake_create_connect_account(email):
+    async def fake_create_connect_account(email, country):
         calls["created"] += 1
         return "acct_123"
 
@@ -89,6 +100,13 @@ async def test_account_link_creates_account_first_time(
 
     # Account is only ever created once - the second call just mints a fresh link.
     assert calls["created"] == 1
+
+
+async def test_account_link_requires_country(client: AsyncClient, db_session: AsyncSession):
+    _, token = await create_user_with_token(db_session, user_type=UserType.BRAIDER)
+    resp = await client.post(ACCOUNT_LINK_URL, headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "BRAIDER_COUNTRY_REQUIRED"
 
 
 async def test_status_empty_before_starting(client: AsyncClient, db_session: AsyncSession):

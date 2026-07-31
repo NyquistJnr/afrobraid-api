@@ -5,7 +5,11 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.exceptions import StripeAccountNotFoundError, StripeApiUnavailableError
+from app.core.exceptions import (
+    BraiderCountryRequiredError,
+    StripeAccountNotFoundError,
+    StripeApiUnavailableError,
+)
 from app.modules.braiders import repository as braiders_repo
 from app.modules.braiders.completion import mark_step_complete
 from app.modules.braiders.models import OnboardingStep
@@ -21,6 +25,7 @@ from app.modules.braiders.payment_setup.schemas import (
     AccountLinkResponse,
     PaymentSetupStatusResponse,
 )
+from app.modules.braiders.service_location import repository as service_location_repo
 from app.modules.users.models import User
 
 settings = get_settings()
@@ -73,8 +78,14 @@ async def start_onboarding(db: AsyncSession, user: User) -> AccountLinkResponse:
 
     account = await payment_setup_repo.get_by_braider_id(db, profile.id)
     if account is None:
+        location = await service_location_repo.get_by_braider_id(db, profile.id)
+        if location is None or not location.country:
+            raise BraiderCountryRequiredError()
+
         try:
-            stripe_account_id = await create_connect_account(user.email)
+            stripe_account_id = await create_connect_account(
+                user.email, location.country.upper()
+            )
         except StripeApiError as exc:
             raise StripeApiUnavailableError() from exc
         account = await payment_setup_repo.create_for_braider(

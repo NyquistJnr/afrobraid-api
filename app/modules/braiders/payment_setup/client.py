@@ -17,10 +17,11 @@ class StripeWebhookSignatureError(Exception):
     pass
 
 
-def _create_connect_account_sync(email: str) -> str:
+def _create_connect_account_sync(email: str, country: str) -> str:
     account = stripe.Account.create(
         type="express",
         email=email,
+        country=country,
         capabilities={
             "card_payments": {"requested": True},
             "transfers": {"requested": True},
@@ -43,9 +44,9 @@ def _retrieve_account_sync(account_id: str) -> stripe.Account:
     return stripe.Account.retrieve(account_id)
 
 
-async def create_connect_account(email: str) -> str:
+async def create_connect_account(email: str, country: str) -> str:
     try:
-        return await asyncio.to_thread(_create_connect_account_sync, email)
+        return await asyncio.to_thread(_create_connect_account_sync, email, country)
     except stripe.error.StripeError as exc:
         raise StripeApiError(f"Stripe account creation failed: {exc}") from exc
 
