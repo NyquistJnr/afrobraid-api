@@ -13,6 +13,7 @@ pytestmark = pytest.mark.asyncio
 ACCOUNT_LINK_URL = "/api/v1/braiders/onboarding/payment-setup/account-link"
 STATUS_URL = "/api/v1/braiders/onboarding/payment-setup/status"
 REFRESH_URL = "/api/v1/braiders/onboarding/payment-setup/refresh"
+DASHBOARD_LINK_URL = "/api/v1/braiders/onboarding/payment-setup/dashboard-link"
 ONBOARDING_STATUS_URL = "/api/v1/braiders/onboarding/status"
 WEBHOOK_URL = "/api/v1/webhooks/stripe"
 
@@ -123,6 +124,33 @@ async def test_refresh_requires_existing_account(client: AsyncClient, db_session
     resp = await client.post(REFRESH_URL, headers={"Authorization": f"Bearer {token}"})
     assert resp.status_code == 404
     assert resp.json()["error"]["code"] == "STRIPE_ACCOUNT_NOT_FOUND"
+
+
+async def test_dashboard_link_requires_existing_account(
+    client: AsyncClient, db_session: AsyncSession
+):
+    _, token = await create_user_with_token(db_session, user_type=UserType.BRAIDER)
+    resp = await client.post(DASHBOARD_LINK_URL, headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 404
+    assert resp.json()["error"]["code"] == "STRIPE_ACCOUNT_NOT_FOUND"
+
+
+async def test_dashboard_link_works_even_before_onboarding_completes(
+    client: AsyncClient, db_session: AsyncSession, monkeypatch
+):
+    _, token = await create_user_with_token(db_session, user_type=UserType.BRAIDER)
+    headers = {"Authorization": f"Bearer {token}"}
+    await _create_account(client, headers, monkeypatch, "acct_dash")
+
+    async def fake_create_login_link(account_id):
+        assert account_id == "acct_dash"
+        return f"https://connect.stripe.com/app/express#{account_id}/balance"
+
+    monkeypatch.setattr(payment_setup_service, "create_login_link", fake_create_login_link)
+
+    resp = await client.post(DASHBOARD_LINK_URL, headers=headers)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["data"]["dashboard_url"] == "https://connect.stripe.com/app/express#acct_dash/balance"
 
 
 async def test_refresh_applies_enabled_state_and_completes_step(

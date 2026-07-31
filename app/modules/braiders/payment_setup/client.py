@@ -44,6 +44,11 @@ def _retrieve_account_sync(account_id: str) -> stripe.Account:
     return stripe.Account.retrieve(account_id)
 
 
+def _create_login_link_sync(account_id: str) -> str:
+    link = stripe.Account.create_login_link(account_id)
+    return link.url
+
+
 async def create_connect_account(email: str, country: str) -> str:
     try:
         return await asyncio.to_thread(_create_connect_account_sync, email, country)
@@ -65,6 +70,13 @@ async def retrieve_account(account_id: str) -> stripe.Account:
         return await asyncio.to_thread(_retrieve_account_sync, account_id)
     except stripe.error.StripeError as exc:
         raise StripeApiError(f"Stripe account retrieval failed: {exc}") from exc
+
+
+async def create_login_link(account_id: str) -> str:
+    try:
+        return await asyncio.to_thread(_create_login_link_sync, account_id)
+    except stripe.error.StripeError as exc:
+        raise StripeApiError(f"Stripe login link creation failed: {exc}") from exc
 
 
 def construct_webhook_event(payload: bytes, sig_header: str | None) -> dict[str, Any]:

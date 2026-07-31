@@ -7,6 +7,7 @@ from app.modules.auth.dependencies import require_roles
 from app.modules.braiders.payment_setup import service
 from app.modules.braiders.payment_setup.schemas import (
     AccountLinkResponse,
+    DashboardLinkResponse,
     PaymentSetupStatusResponse,
 )
 from app.modules.users.models import User, UserType
@@ -36,6 +37,25 @@ async def create_account_link(
     db: AsyncSession = Depends(get_db),
 ) -> APIResponse[AccountLinkResponse]:
     result = await service.start_onboarding(db, user)
+    return APIResponse(data=result)
+
+
+@router.post(
+    "/dashboard-link",
+    response_model=APIResponse[DashboardLinkResponse],
+    summary="Get a link to your Stripe Express Dashboard",
+    description=(
+        "Returns a fresh, single-use link to your Stripe-hosted dashboard - "
+        "balance, payouts, and transaction history. Works even if onboarding "
+        "isn't finished yet: Stripe routes you through any outstanding "
+        "requirements first before showing the dashboard itself."
+    ),
+)
+async def get_dashboard_link(
+    user: User = Depends(_require_braider),
+    db: AsyncSession = Depends(get_db),
+) -> APIResponse[DashboardLinkResponse]:
+    result = await service.get_dashboard_link(db, user.id)
     return APIResponse(data=result)
 
 

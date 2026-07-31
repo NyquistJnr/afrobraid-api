@@ -5,6 +5,10 @@ class AccountLinkResponse(BaseModel):
     onboarding_url: str
 
 
+class DashboardLinkResponse(BaseModel):
+    dashboard_url: str
+
+
 class PaymentSetupStatusResponse(BaseModel):
     has_account: bool
     stripe_account_id: str | None = None

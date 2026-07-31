@@ -18,11 +18,13 @@ from app.modules.braiders.payment_setup.client import (
     StripeApiError,
     create_account_link,
     create_connect_account,
+    create_login_link,
     retrieve_account,
 )
 from app.modules.braiders.payment_setup.models import StripeConnectAccount
 from app.modules.braiders.payment_setup.schemas import (
     AccountLinkResponse,
+    DashboardLinkResponse,
     PaymentSetupStatusResponse,
 )
 from app.modules.braiders.service_location import repository as service_location_repo
@@ -103,6 +105,20 @@ async def start_onboarding(db: AsyncSession, user: User) -> AccountLinkResponse:
         raise StripeApiUnavailableError() from exc
 
     return AccountLinkResponse(onboarding_url=onboarding_url)
+
+
+async def get_dashboard_link(db: AsyncSession, user_id: uuid.UUID) -> DashboardLinkResponse:
+    profile = await braiders_repo.get_profile_by_user_id(db, user_id)
+    account = await payment_setup_repo.get_by_braider_id(db, profile.id) if profile else None
+    if account is None:
+        raise StripeAccountNotFoundError()
+
+    try:
+        dashboard_url = await create_login_link(account.stripe_account_id)
+    except StripeApiError as exc:
+        raise StripeApiUnavailableError() from exc
+
+    return DashboardLinkResponse(dashboard_url=dashboard_url)
 
 
 async def get_status(db: AsyncSession, user_id: uuid.UUID) -> PaymentSetupStatusResponse:
