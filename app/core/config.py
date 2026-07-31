@@ -57,6 +57,9 @@ class Settings(BaseSettings):
     twilio_verify_service_sid: str = ""
     twilio_phone_number: str = ""
 
+    phone_verification_bypass_enabled: bool = False
+    phone_verification_bypass_code: str = "000000"
+
     @property
     def supported_locales_list(self) -> list[str]:
         return [loc.strip() for loc in self.supported_locales.split(",") if loc.strip()]

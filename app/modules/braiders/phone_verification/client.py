@@ -37,6 +37,9 @@ def _check_verification_code_sync(phone_number: str, code: str) -> str:
 
 
 async def send_verification_code(phone_number: str) -> str:
+    if settings.phone_verification_bypass_enabled:
+        return "pending"
+
     try:
         return await asyncio.to_thread(_send_verification_code_sync, phone_number)
     except TwilioRestException as exc:
@@ -44,6 +47,9 @@ async def send_verification_code(phone_number: str) -> str:
 
 
 async def check_verification_code(phone_number: str, code: str) -> str:
+    if settings.phone_verification_bypass_enabled:
+        return "approved" if code == settings.phone_verification_bypass_code else "denied"
+
     try:
         return await asyncio.to_thread(_check_verification_code_sync, phone_number, code)
     except TwilioRestException as exc:
