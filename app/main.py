@@ -14,6 +14,8 @@ from app.modules.braiders.availability.router import (
 )
 from app.modules.braiders.availability.router import router as braider_availability_router
 from app.modules.braiders.offerings.router import router as braider_offerings_router
+from app.modules.braiders.payment_setup.router import router as braider_payment_setup_router
+from app.modules.braiders.payment_setup.webhook import router as stripe_webhook_router
 from app.modules.braiders.phone_verification.router import router as phone_verification_router
 from app.modules.braiders.portfolio.router import router as braider_portfolio_router
 from app.modules.braiders.router import router as braiders_router
@@ -72,6 +74,8 @@ def create_app() -> FastAPI:
     app.include_router(braider_service_location_router)
     app.include_router(braider_availability_router)
     app.include_router(braider_availability_public_router)
+    app.include_router(braider_payment_setup_router)
+    app.include_router(stripe_webhook_router)
 
     @app.get("/health", tags=["Health"])
     async def health() -> dict[str, str]:

@@ -11,6 +11,10 @@ async def get_profile_by_user_id(db: AsyncSession, user_id: uuid.UUID) -> Braide
     return result.scalar_one_or_none()
 
 
+async def get_profile_by_id(db: AsyncSession, profile_id: uuid.UUID) -> BraiderProfile | None:
+    return await db.get(BraiderProfile, profile_id)
+
+
 async def create_profile_for_user(db: AsyncSession, user_id: uuid.UUID) -> BraiderProfile:
     profile = BraiderProfile(user_id=user_id)
     db.add(profile)

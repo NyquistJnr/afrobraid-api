@@ -78,5 +78,9 @@
   "availability.overlapping_window": "This time overlaps with another window you've already set for that day.",
   "availability.exception_not_found": "This availability exception doesn't exist.",
   "availability.overlapping_exception": "You already have an exception set for this date that overlaps with this one.",
-  "availability.style_duration_missing": "This style doesn't have a duration set yet, so bookable slots can't be calculated for it."
+  "availability.style_duration_missing": "This style doesn't have a duration set yet, so bookable slots can't be calculated for it.",
+
+  "payment_setup.api_unavailable": "We couldn't reach Stripe. Please try again shortly.",
+  "payment_setup.account_not_found": "You haven't started payment setup yet. Please start it first.",
+  "payment_setup.invalid_webhook_signature": "Invalid webhook signature."
 }

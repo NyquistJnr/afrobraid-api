@@ -78,5 +78,9 @@
   "availability.overlapping_window": "Diese Zeit überschneidet sich mit einem anderen Fenster, das Sie für diesen Tag bereits festgelegt haben.",
   "availability.exception_not_found": "Diese Verfügbarkeitsausnahme existiert nicht.",
   "availability.overlapping_exception": "Sie haben für dieses Datum bereits eine Ausnahme festgelegt, die sich mit dieser überschneidet.",
-  "availability.style_duration_missing": "Für diesen Stil ist noch keine Dauer festgelegt, daher können keine buchbaren Termine berechnet werden."
+  "availability.style_duration_missing": "Für diesen Stil ist noch keine Dauer festgelegt, daher können keine buchbaren Termine berechnet werden.",
+
+  "payment_setup.api_unavailable": "Wir konnten Stripe nicht erreichen. Bitte versuchen Sie es in Kürze erneut.",
+  "payment_setup.account_not_found": "Sie haben die Zahlungseinrichtung noch nicht gestartet. Bitte starten Sie sie zuerst.",
+  "payment_setup.invalid_webhook_signature": "Ungültige Webhook-Signatur."
 }

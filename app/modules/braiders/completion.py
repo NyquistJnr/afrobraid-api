@@ -30,6 +30,19 @@ def compute_current_step(status: BraiderOnboardingStatus) -> OnboardingStep:
     return OnboardingStep.COMPLETED
 
 
+def _apply_current_step(status: BraiderOnboardingStatus) -> None:
+    """Re-derives current_step, and keeps the aggregate completed_at in sync
+    with it - set the first time every step is done, cleared again if a
+    two-way step (business_info/service_location) later gets un-completed,
+    same as those steps' own *_completed_at already behaves."""
+    status.current_step = compute_current_step(status)
+    if status.current_step == OnboardingStep.COMPLETED:
+        if status.completed_at is None:
+            status.completed_at = datetime.now(UTC)
+    else:
+        status.completed_at = None
+
+
 def is_business_info_complete(profile: BraiderProfile) -> bool:
     return bool(
         profile.business_name
@@ -50,7 +63,7 @@ def recompute_business_info_completion(
         status.business_info_completed_at = datetime.now(UTC)
     elif not is_complete and was_complete:
         status.business_info_completed_at = None
-    status.current_step = compute_current_step(status)
+    _apply_current_step(status)
 
 
 def is_service_location_complete(location: BraiderServiceLocation | None) -> bool:
@@ -78,7 +91,7 @@ def recompute_service_location_completion(
         status.service_location_completed_at = datetime.now(UTC)
     elif not is_complete and was_complete:
         status.service_location_completed_at = None
-    status.current_step = compute_current_step(status)
+    _apply_current_step(status)
 
 
 def mark_step_complete(status: BraiderOnboardingStatus, step: OnboardingStep) -> None:
@@ -87,4 +100,4 @@ def mark_step_complete(status: BraiderOnboardingStatus, step: OnboardingStep) ->
     field = f"{step.value.lower()}_completed_at"
     if getattr(status, field) is None:
         setattr(status, field, datetime.now(UTC))
-    status.current_step = compute_current_step(status)
+    _apply_current_step(status)

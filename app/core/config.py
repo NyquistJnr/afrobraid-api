@@ -52,6 +52,11 @@ class Settings(BaseSettings):
     veriff_api_url: str = "https://stationapi.veriff.com/v1"
     veriff_callback_url: str = ""
 
+    stripe_secret_key: str = ""
+    stripe_webhook_secret: str = ""
+    stripe_connect_refresh_url: str = ""
+    stripe_connect_return_url: str = ""
+
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
     twilio_verify_service_sid: str = ""
