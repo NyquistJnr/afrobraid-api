@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -12,6 +13,21 @@ class Settings(BaseSettings):
     database_url: str
     db_echo: bool = False
     redis_url: str
+
+    @field_validator("database_url")
+    @classmethod
+    def normalize_database_url(cls, v: str) -> str:
+        # Managed Postgres providers (Railway, Heroku, Neon, ...) hand out
+        # postgres:// / postgresql:// URLs, but the async engine needs the
+        # asyncpg driver named explicitly in the scheme.
+        if v.startswith("postgres://"):
+            v = "postgresql+asyncpg://" + v[len("postgres://") :]
+        elif v.startswith("postgresql://"):
+            v = "postgresql+asyncpg://" + v[len("postgresql://") :]
+        # asyncpg's connect() takes a keyword arg named `ssl`, not `sslmode`
+        # (the psycopg/libpq name) — SQLAlchemy forwards query params
+        # straight through as kwargs, so `sslmode` raises a TypeError.
+        return v.replace("sslmode=", "ssl=")
 
     secret_key: str
     jwt_algorithm: str = "HS256"
