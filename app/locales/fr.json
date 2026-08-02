@@ -1,4 +1,7 @@
 {
+  "status.success": "Succès",
+  "status.error": "Erreur",
+
   "errors.generic": "Une erreur s'est produite. Veuillez réessayer.",
   "errors.not_found": "La ressource demandée est introuvable.",
   "errors.rate_limited": "Trop de requêtes. Veuillez réessayer dans {retry_after_seconds} secondes.",

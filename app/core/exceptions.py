@@ -351,6 +351,7 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
         headers=headers,
         content={
             "status": "error",
+            "status_label": t("status.error", locale),
             "data": None,
             "error": {
                 "code": exc.code,
@@ -366,6 +367,7 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
             "status": "error",
+            "status_label": t("status.error", locale),
             "data": None,
             "error": {
                 "code": "VALIDATION_ERROR",
@@ -383,6 +385,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
             "status": "error",
+            "status_label": t("status.error", locale),
             "data": None,
             "error": {
                 "code": "INTERNAL_SERVER_ERROR",

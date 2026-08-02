@@ -1,4 +1,7 @@
 {
+  "status.success": "Erfolg",
+  "status.error": "Fehler",
+
   "errors.generic": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
   "errors.not_found": "Die angeforderte Ressource wurde nicht gefunden.",
   "errors.rate_limited": "Zu viele Anfragen. Bitte versuchen Sie es in {retry_after_seconds} Sekunden erneut.",

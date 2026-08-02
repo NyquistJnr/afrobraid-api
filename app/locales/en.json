@@ -1,4 +1,7 @@
 {
+  "status.success": "Success",
+  "status.error": "Error",
+
   "errors.generic": "Something went wrong. Please try again.",
   "errors.not_found": "The requested resource was not found.",
   "errors.rate_limited": "Too many requests. Please try again in {retry_after_seconds} seconds.",

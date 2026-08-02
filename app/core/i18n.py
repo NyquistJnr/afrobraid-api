@@ -1,4 +1,5 @@
 import json
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Any
 
@@ -9,6 +10,18 @@ from starlette.types import ASGIApp
 from app.core.config import get_settings
 
 settings = get_settings()
+
+_current_locale: ContextVar[str] = ContextVar("current_locale", default=settings.default_locale)
+
+
+def get_current_locale() -> str:
+    """The resolved locale for the request currently being handled.
+
+    Lets request-scoped locale reach places that build a response body
+    without a `Request` in scope (e.g. the generic `APIResponse` model),
+    without threading a `locale` parameter through every router/service.
+    """
+    return _current_locale.get()
 
 _LOCALES_DIR = Path(__file__).resolve().parent.parent / "locales"
 
@@ -84,4 +97,8 @@ class LocaleMiddleware(BaseHTTPMiddleware):
             query_lang=request.query_params.get("lang"),
         )
         request.state.locale = locale
-        return await call_next(request)
+        token = _current_locale.set(locale)
+        try:
+            return await call_next(request)
+        finally:
+            _current_locale.reset(token)
