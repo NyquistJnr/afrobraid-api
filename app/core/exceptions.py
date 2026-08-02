@@ -129,6 +129,18 @@ class LogoNotFoundError(AppError):
     message_key = "braider.logo_not_found"
 
 
+class BraiderNotFoundError(AppError):
+    status_code = status.HTTP_404_NOT_FOUND
+    code = "BRAIDER_NOT_FOUND"
+    message_key = "braider.not_found"
+
+
+class InvalidSearchLocationError(AppError):
+    status_code = status.HTTP_400_BAD_REQUEST
+    code = "INVALID_SEARCH_LOCATION"
+    message_key = "braider.invalid_search_location"
+
+
 class VeriffApiUnavailableError(AppError):
     status_code = status.HTTP_502_BAD_GATEWAY
     code = "VERIFF_API_UNAVAILABLE"

@@ -45,6 +45,8 @@
 
   "braider.invalid_logo_upload": "The uploaded logo is invalid. Please upload a JPEG, PNG, or WebP image no larger than 5MB.",
   "braider.logo_not_found": "We couldn't find the uploaded logo. Please try uploading it again.",
+  "braider.not_found": "This braider doesn't exist.",
+  "braider.invalid_search_location": "Please provide both lat and lng, or neither.",
 
   "media.deleted": "The file was deleted.",
 

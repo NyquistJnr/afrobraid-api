@@ -45,6 +45,8 @@
 
   "braider.invalid_logo_upload": "Le logo téléchargé est invalide. Veuillez télécharger une image JPEG, PNG ou WebP de 5 Mo maximum.",
   "braider.logo_not_found": "Nous n'avons pas trouvé le logo téléchargé. Veuillez réessayer de le télécharger.",
+  "braider.not_found": "Cette tresseuse/ce tresseur n'existe pas.",
+  "braider.invalid_search_location": "Veuillez fournir à la fois lat et lng, ou aucun des deux.",
 
   "media.deleted": "Le fichier a été supprimé.",
 

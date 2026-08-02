@@ -45,6 +45,8 @@
 
   "braider.invalid_logo_upload": "Das hochgeladene Logo ist ungültig. Bitte laden Sie ein JPEG-, PNG- oder WebP-Bild mit maximal 5MB hoch.",
   "braider.logo_not_found": "Wir konnten das hochgeladene Logo nicht finden. Bitte versuchen Sie es erneut.",
+  "braider.not_found": "Dieser Braider existiert nicht.",
+  "braider.invalid_search_location": "Bitte geben Sie sowohl lat als auch lng an, oder keines von beiden.",
 
   "media.deleted": "Die Datei wurde gelöscht.",
 

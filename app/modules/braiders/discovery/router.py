@@ -1,0 +1,68 @@
+import uuid
+
+from fastapi import APIRouter, Depends, Query, Request
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import get_db
+from app.core.pagination import PaginatedData, PaginationParams
+from app.core.response import APIResponse
+from app.modules.braiders.discovery import service
+from app.modules.braiders.discovery.schemas import BraiderDetailResponse, BraiderSearchItemResponse
+
+router = APIRouter(prefix="/api/v1/braiders", tags=["Braiders - Discovery"])
+
+
+def _locale(request: Request) -> str:
+    return getattr(request.state, "locale", "en")
+
+
+@router.get(
+    "",
+    response_model=APIResponse[PaginatedData[BraiderSearchItemResponse]],
+    summary="Search braiders",
+    description=(
+        "Public, no auth required. Only returns braiders who've completed "
+        "onboarding. Pass `lat`+`lng` together to sort by distance and "
+        "optionally filter with `radius_km`. Filter to braiders offering a "
+        "specific style with `style_id` or `style_slug` (if both are given, "
+        "`style_id` wins)."
+    ),
+)
+async def search_braiders(
+    request: Request,
+    lat: float | None = Query(None, ge=-90, le=90),
+    lng: float | None = Query(None, ge=-180, le=180),
+    radius_km: float | None = Query(None, gt=0),
+    style_id: uuid.UUID | None = Query(None),
+    style_slug: str | None = Query(None),
+    search: str | None = Query(None),
+    params: PaginationParams = Depends(),
+    db: AsyncSession = Depends(get_db),
+) -> APIResponse[PaginatedData[BraiderSearchItemResponse]]:
+    result = await service.search_braiders(
+        db,
+        lat=lat,
+        lng=lng,
+        radius_km=radius_km,
+        style_id=style_id,
+        style_slug=style_slug,
+        search=search,
+        params=params,
+        locale=_locale(request),
+    )
+    return APIResponse(data=result)
+
+
+@router.get(
+    "/{braider_id}",
+    response_model=APIResponse[BraiderDetailResponse],
+    summary="Get a braider's public profile",
+    description="Public, no auth required. 404s if the braider hasn't finished onboarding.",
+)
+async def get_braider(
+    braider_id: uuid.UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> APIResponse[BraiderDetailResponse]:
+    result = await service.get_braider_detail(db, braider_id, locale=_locale(request))
+    return APIResponse(data=result)
