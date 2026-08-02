@@ -18,6 +18,7 @@ from app.core.exceptions import (
     StyleNotFoundError,
     StyleVariationNotFoundError,
 )
+from app.core.i18n import localize_field
 from app.core.pagination import PaginatedData, PaginationParams, paginate
 from app.modules.styles import repository as styles_repo
 from app.modules.styles.models import (
@@ -30,9 +31,11 @@ from app.modules.styles.models import (
 )
 from app.modules.styles.schemas import (
     AddOnCreateRequest,
+    AddOnPublicResponse,
     AddOnResponse,
     AddOnUpdateRequest,
     StyleCategoryCreateRequest,
+    StyleCategoryPublicResponse,
     StyleCategoryResponse,
     StyleCategoryUpdateRequest,
     StyleCreateRequest,
@@ -40,9 +43,11 @@ from app.modules.styles.schemas import (
     StyleImageResponse,
     StyleImageUploadUrlRequest,
     StyleImageUploadUrlResponse,
+    StylePublicResponse,
     StyleResponse,
     StyleUpdateRequest,
     StyleVariationCreateRequest,
+    StyleVariationPublicResponse,
     StyleVariationResponse,
     StyleVariationUpdateRequest,
 )
@@ -182,12 +187,74 @@ def _to_addon_response(addon: AddOn) -> AddOnResponse:
     )
 
 
+# --- Locale-filtered (public/display) responses -----------------------------
+#
+# Admin/authoring endpoints (above) always expose every language variant so
+# the catalog can be edited/completed. Consumer-facing reads instead resolve
+# to a single string via `localize_field`, so the frontend never has to carry
+# per-locale fallback logic itself.
+
+
+def _to_category_public_response(
+    category: StyleCategory, *, locale: str
+) -> StyleCategoryPublicResponse:
+    return StyleCategoryPublicResponse(
+        id=category.id,
+        slug=category.slug,
+        name=localize_field(category, "name", locale) or category.name_en,
+        display_order=category.display_order,
+    )
+
+
+def _to_variation_public_response(
+    variation: StyleVariation, *, locale: str
+) -> StyleVariationPublicResponse:
+    return StyleVariationPublicResponse(
+        id=variation.id,
+        name=localize_field(variation, "name", locale) or variation.name_en,
+        display_order=variation.display_order,
+        is_active=variation.is_active,
+    )
+
+
+def _to_style_public_response(
+    style: Style, *, images: list[StyleImage], variations: list[StyleVariation], locale: str
+) -> StylePublicResponse:
+    return StylePublicResponse(
+        id=style.id,
+        slug=style.slug,
+        category_id=style.category_id,
+        name=localize_field(style, "name", locale) or style.name_en,
+        description=localize_field(style, "description", locale),
+        is_active=style.is_active,
+        images=[_to_image_response(i) for i in images],
+        variations=[_to_variation_public_response(v, locale=locale) for v in variations],
+    )
+
+
+def _to_addon_public_response(addon: AddOn, *, locale: str) -> AddOnPublicResponse:
+    return AddOnPublicResponse(
+        id=addon.id,
+        slug=addon.slug,
+        name=localize_field(addon, "name", locale) or addon.name_en,
+        suggested_price=addon.suggested_price,
+        is_active=addon.is_active,
+    )
+
+
 # --- Categories ---------------------------------------------------------
 
 
 async def list_categories(db: AsyncSession) -> list[StyleCategoryResponse]:
     categories = await styles_repo.list_categories(db)
     return [_to_category_response(c) for c in categories]
+
+
+async def list_categories_public(
+    db: AsyncSession, *, locale: str
+) -> list[StyleCategoryPublicResponse]:
+    categories = await styles_repo.list_categories(db)
+    return [_to_category_public_response(c, locale=locale) for c in categories]
 
 
 async def create_category(
@@ -263,6 +330,15 @@ async def get_style(db: AsyncSession, style_id: uuid.UUID) -> StyleResponse:
     return _to_style_response(style, images=images, variations=variations)
 
 
+async def get_style_public(db: AsyncSession, style_id: uuid.UUID, *, locale: str) -> StylePublicResponse:
+    style = await styles_repo.get_style_by_id(db, style_id)
+    if style is None:
+        raise StyleNotFoundError()
+    images = await styles_repo.list_style_images(db, style.id)
+    variations = await styles_repo.list_style_variations(db, style.id)
+    return _to_style_public_response(style, images=images, variations=variations, locale=locale)
+
+
 async def list_styles(
     db: AsyncSession,
     *,
@@ -281,6 +357,30 @@ async def list_styles(
         images = await styles_repo.list_style_images(db, style.id)
         variations = await styles_repo.list_style_variations(db, style.id, only_active=only_active)
         items.append(_to_style_response(style, images=images, variations=variations))
+    return PaginatedData(items=items, pagination=meta)
+
+
+async def list_styles_public(
+    db: AsyncSession,
+    *,
+    category_id: uuid.UUID | None,
+    search: str | None,
+    only_active: bool,
+    params: PaginationParams,
+    locale: str,
+) -> PaginatedData[StylePublicResponse]:
+    stmt = styles_repo.build_style_list_stmt(
+        category_id=category_id, search=search, only_active=only_active
+    )
+    styles, meta = await paginate(db, stmt, params)
+
+    items = []
+    for style in styles:
+        images = await styles_repo.list_style_images(db, style.id)
+        variations = await styles_repo.list_style_variations(db, style.id, only_active=only_active)
+        items.append(
+            _to_style_public_response(style, images=images, variations=variations, locale=locale)
+        )
     return PaginatedData(items=items, pagination=meta)
 
 
@@ -545,6 +645,14 @@ async def list_addons(db: AsyncSession, *, only_active: bool) -> list[AddOnRespo
     stmt = styles_repo.build_addon_list_stmt(only_active=only_active)
     result = await db.execute(stmt)
     return [_to_addon_response(a) for a in result.scalars().all()]
+
+
+async def list_addons_public(
+    db: AsyncSession, *, only_active: bool, locale: str
+) -> list[AddOnPublicResponse]:
+    stmt = styles_repo.build_addon_list_stmt(only_active=only_active)
+    result = await db.execute(stmt)
+    return [_to_addon_public_response(a, locale=locale) for a in result.scalars().all()]
 
 
 async def create_addon(

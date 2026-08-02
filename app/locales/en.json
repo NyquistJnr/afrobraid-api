@@ -49,6 +49,16 @@
   "veriff.invalid_webhook_signature": "Invalid webhook signature.",
   "veriff.session_not_found": "No identity verification session was found. Please start verification first.",
 
+  "veriff.status.not_started": "Not started",
+  "veriff.status.created": "Started",
+  "veriff.status.submitted": "Submitted",
+  "veriff.status.approved": "Approved",
+  "veriff.status.declined": "Declined",
+  "veriff.status.resubmission_requested": "Resubmission requested",
+  "veriff.status.review": "Under review",
+  "veriff.status.expired": "Expired",
+  "veriff.status.abandoned": "Abandoned",
+
   "phone_verification.api_unavailable": "We couldn't reach the phone verification service. Please try again shortly.",
   "phone_verification.invalid_code": "That verification code is incorrect or has expired. Please request a new one.",
 

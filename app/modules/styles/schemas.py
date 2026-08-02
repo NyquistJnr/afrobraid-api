@@ -152,6 +152,39 @@ class StyleResponse(BaseModel):
     variations: list[StyleVariationResponse]
 
 
+class StyleCategoryPublicResponse(BaseModel):
+    id: uuid.UUID
+    slug: str
+    name: str
+    display_order: int
+
+
+class StyleVariationPublicResponse(BaseModel):
+    id: uuid.UUID
+    name: str
+    display_order: int
+    is_active: bool
+
+
+class StylePublicResponse(BaseModel):
+    id: uuid.UUID
+    slug: str
+    category_id: uuid.UUID | None
+    name: str
+    description: str | None
+    is_active: bool
+    images: list[StyleImageResponse]
+    variations: list[StyleVariationPublicResponse]
+
+
+class AddOnPublicResponse(BaseModel):
+    id: uuid.UUID
+    slug: str
+    name: str
+    suggested_price: Decimal | None
+    is_active: bool
+
+
 class StyleImageUploadUrlRequest(BaseModel):
     content_type: StyleImageContentType
 

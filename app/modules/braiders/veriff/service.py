@@ -7,6 +7,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import VeriffApiUnavailableError, VeriffSessionNotFoundError
+from app.core.i18n import t
 from app.core.rate_limit import check_rate_limit
 from app.modules.braiders import repository as braiders_repo
 from app.modules.braiders.completion import mark_step_complete
@@ -49,14 +50,20 @@ async def _apply_decision(
     await db.commit()
 
 
-def _to_status_response(session: VeriffSession | None) -> VeriffStatusResponse:
+def _status_label(status: VeriffSessionStatus | None, locale: str) -> str:
+    key = f"veriff.status.{status.value.lower()}" if status else "veriff.status.not_started"
+    return t(key, locale)
+
+
+def _to_status_response(session: VeriffSession | None, *, locale: str) -> VeriffStatusResponse:
     if session is None:
-        return VeriffStatusResponse(has_session=False)
+        return VeriffStatusResponse(has_session=False, status_label=_status_label(None, locale))
     return VeriffStatusResponse(
         has_session=True,
         session_id=session.veriff_session_id,
         verification_url=session.verification_url,
         status=session.status,
+        status_label=_status_label(session.status, locale),
         reason=session.reason,
         reason_code=session.reason_code,
         acceptance_time=session.acceptance_time,
@@ -67,7 +74,7 @@ def _to_status_response(session: VeriffSession | None) -> VeriffStatusResponse:
 
 
 async def start_verification(
-    db: AsyncSession, redis: Redis, user: User
+    db: AsyncSession, redis: Redis, user: User, *, locale: str
 ) -> StartVerificationResponse:
     await check_rate_limit(
         redis,
@@ -97,15 +104,18 @@ async def start_verification(
         session_id=session.veriff_session_id,
         verification_url=session.verification_url or "",
         status=session.status,
+        status_label=_status_label(session.status, locale),
     )
 
 
-async def get_status(db: AsyncSession, user_id: uuid.UUID) -> VeriffStatusResponse:
+async def get_status(db: AsyncSession, user_id: uuid.UUID, *, locale: str) -> VeriffStatusResponse:
     session = await veriff_repo.get_latest_session_by_user_id(db, user_id)
-    return _to_status_response(session)
+    return _to_status_response(session, locale=locale)
 
 
-async def refresh_status(db: AsyncSession, user_id: uuid.UUID) -> VeriffStatusResponse:
+async def refresh_status(
+    db: AsyncSession, user_id: uuid.UUID, *, locale: str
+) -> VeriffStatusResponse:
     session = await veriff_repo.get_latest_session_by_user_id(db, user_id)
     if session is None:
         raise VeriffSessionNotFoundError()
@@ -118,7 +128,7 @@ async def refresh_status(db: AsyncSession, user_id: uuid.UUID) -> VeriffStatusRe
     if verification is not None:
         await _apply_decision(db, session, verification)
 
-    return _to_status_response(session)
+    return _to_status_response(session, locale=locale)
 
 
 async def handle_webhook(db: AsyncSession, payload: dict[str, Any]) -> None:

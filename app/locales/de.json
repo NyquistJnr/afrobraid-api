@@ -49,6 +49,16 @@
   "veriff.invalid_webhook_signature": "Ungültige Webhook-Signatur.",
   "veriff.session_not_found": "Es wurde keine Identitätsprüfung gefunden. Bitte starten Sie zuerst die Verifizierung.",
 
+  "veriff.status.not_started": "Nicht gestartet",
+  "veriff.status.created": "Gestartet",
+  "veriff.status.submitted": "Eingereicht",
+  "veriff.status.approved": "Genehmigt",
+  "veriff.status.declined": "Abgelehnt",
+  "veriff.status.resubmission_requested": "Erneute Einreichung erforderlich",
+  "veriff.status.review": "Wird geprüft",
+  "veriff.status.expired": "Abgelaufen",
+  "veriff.status.abandoned": "Abgebrochen",
+
   "phone_verification.api_unavailable": "Der Dienst zur Telefonverifizierung war nicht erreichbar. Bitte versuchen Sie es in Kürze erneut.",
   "phone_verification.invalid_code": "Dieser Bestätigungscode ist falsch oder abgelaufen. Bitte fordern Sie einen neuen an.",
 

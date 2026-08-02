@@ -9,6 +9,7 @@ class StartVerificationResponse(BaseModel):
     session_id: str
     verification_url: str
     status: VeriffSessionStatus
+    status_label: str
 
 
 class VeriffStatusResponse(BaseModel):
@@ -16,6 +17,7 @@ class VeriffStatusResponse(BaseModel):
     session_id: str | None = None
     verification_url: str | None = None
     status: VeriffSessionStatus | None = None
+    status_label: str
     reason: str | None = None
     reason_code: int | None = None
     acceptance_time: datetime | None = None
