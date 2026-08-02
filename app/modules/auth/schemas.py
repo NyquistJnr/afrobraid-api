@@ -1,8 +1,10 @@
 import re
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, EmailStr, field_validator
 
+from app.modules.braiders.models import OnboardingStep
 from app.modules.users.schemas import UserPublic
 
 SignupUserType = Literal["CUSTOMER", "BRAIDER"]
@@ -94,8 +96,20 @@ class MessageResponse(BaseModel):
     message: str
 
 
+class BraiderOnboardingSummary(BaseModel):
+    current_step: OnboardingStep
+    completed_at: datetime | None
+
+
+class BraiderAuthProfile(BaseModel):
+    business_name: str | None
+    logo_url: str | None
+    onboarding: BraiderOnboardingSummary
+
+
 class AuthTokenResponse(UserPublic):
     access_token: str
     refresh_token: str
     token_type: Literal["bearer"] = "bearer"
     expires_in: int
+    braider: BraiderAuthProfile | None = None

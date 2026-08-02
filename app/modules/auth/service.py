@@ -1,3 +1,4 @@
+import uuid
 from datetime import UTC, datetime
 
 from arq import ArqRedis
@@ -28,10 +29,13 @@ from app.core.security import (
     hash_token,
     verify_password,
 )
+from app.core.storage import build_public_url
 from app.modules.auth import repository as auth_repo
 from app.modules.auth.models import OtpPurpose
 from app.modules.auth.schemas import (
     AuthTokenResponse,
+    BraiderAuthProfile,
+    BraiderOnboardingSummary,
     ForgotPasswordRequest,
     LoginRequest,
     LogoutRequest,
@@ -46,6 +50,9 @@ from app.modules.auth.schemas import (
 )
 from app.modules.auth.social import verify_social_token
 from app.modules.auth.tasks import TASK_SEND_OTP_EMAIL
+from app.modules.braiders import repository as braiders_repo
+from app.modules.braiders.completion import compute_current_step
+from app.modules.braiders.models import OnboardingStep
 from app.modules.users import repository as users_repo
 from app.modules.users.models import AuthProvider, User, UserType
 
@@ -83,8 +90,29 @@ async def _issue_token_pair(
     return access_token, raw_refresh_token, expires_in
 
 
+async def _get_braider_auth_profile(db: AsyncSession, user_id: uuid.UUID) -> BraiderAuthProfile:
+    profile = await braiders_repo.get_profile_by_user_id(db, user_id)
+    status = await braiders_repo.get_onboarding_status_by_user_id(db, user_id)
+    current_step = compute_current_step(status) if status else OnboardingStep.BUSINESS_INFO
+    return BraiderAuthProfile(
+        business_name=profile.business_name if profile else None,
+        logo_url=build_public_url(profile.logo_object_key)
+        if profile and profile.logo_object_key
+        else None,
+        onboarding=BraiderOnboardingSummary(
+            current_step=current_step,
+            completed_at=status.completed_at if status else None,
+        ),
+    )
+
+
 def _to_auth_response(
-    user: User, *, access_token: str, refresh_token: str, expires_in: int
+    user: User,
+    *,
+    access_token: str,
+    refresh_token: str,
+    expires_in: int,
+    braider: BraiderAuthProfile | None = None,
 ) -> AuthTokenResponse:
     return AuthTokenResponse(
         id=user.id,
@@ -96,6 +124,7 @@ def _to_auth_response(
         access_token=access_token,
         refresh_token=refresh_token,
         expires_in=expires_in,
+        braider=braider,
     )
 
 
@@ -228,8 +257,17 @@ async def login(db: AsyncSession, redis: Redis, *, data: LoginRequest) -> AuthTo
         db, user, remember_me=data.remember_me
     )
     await db.commit()
+
+    braider = None
+    if user.user_type == UserType.BRAIDER:
+        braider = await _get_braider_auth_profile(db, user.id)
+
     return _to_auth_response(
-        user, access_token=access_token, refresh_token=refresh_token, expires_in=expires_in
+        user,
+        access_token=access_token,
+        refresh_token=refresh_token,
+        expires_in=expires_in,
+        braider=braider,
     )
 
 
