@@ -314,8 +314,17 @@ async def social_login(
 
     access_token, refresh_token, expires_in = await _issue_token_pair(db, user)
     await db.commit()
+
+    braider = None
+    if user.user_type == UserType.BRAIDER:
+        braider = await _get_braider_auth_profile(db, user.id)
+
     return _to_auth_response(
-        user, access_token=access_token, refresh_token=refresh_token, expires_in=expires_in
+        user,
+        access_token=access_token,
+        refresh_token=refresh_token,
+        expires_in=expires_in,
+        braider=braider,
     )
 
 
