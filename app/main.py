@@ -26,6 +26,7 @@ from app.modules.braiders.veriff.webhook import router as veriff_webhook_router
 from app.modules.media.router import router as media_router
 from app.modules.styles.admin_router import router as styles_admin_router
 from app.modules.styles.router import router as styles_router
+from app.modules.users.router import router as users_router
 
 settings = get_settings()
 
@@ -63,6 +64,7 @@ def create_app() -> FastAPI:
     register_exception_handlers(app)
 
     app.include_router(auth_router)
+    app.include_router(users_router)
     app.include_router(braiders_router)
     app.include_router(phone_verification_router)
     app.include_router(veriff_router)
