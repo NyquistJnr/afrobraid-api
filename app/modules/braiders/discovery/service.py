@@ -1,10 +1,15 @@
 import uuid
+from datetime import date
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import storage
-from app.core.exceptions import BraiderNotFoundError, InvalidSearchLocationError
+from app.core.exceptions import (
+    BraiderNotFoundError,
+    InvalidSearchDateRangeError,
+    InvalidSearchLocationError,
+)
 from app.core.i18n import localize_field
 from app.core.pagination import PaginatedData, PaginationMeta, PaginationParams
 from app.modules.braiders.discovery import repository as discovery_repo
@@ -24,6 +29,9 @@ from app.modules.braiders.portfolio import repository as portfolio_repo
 from app.modules.braiders.service_location import repository as service_location_repo
 from app.modules.braiders.service_location.models import BraiderServiceLocation, LocationType
 from app.modules.styles import repository as styles_repo
+from app.modules.styles.models import Style
+
+_MAX_DATE_RANGE_DAYS = 90
 
 
 async def _paginate_rows(db: AsyncSession, stmt, params: PaginationParams):
@@ -56,7 +64,20 @@ def _to_location_summary(location: BraiderServiceLocation | None) -> tuple[str |
     return location.city, location.country
 
 
-def _to_location_response(location: BraiderServiceLocation | None) -> BraiderLocationResponse | None:
+def _to_matched_style_response(
+    braider_style: BraiderStyle, style: Style, locale: str
+) -> MatchedStyleResponse:
+    return MatchedStyleResponse(
+        style_id=style.id,
+        name=localize_field(style, "name", locale) or style.name_en,
+        base_price=braider_style.base_price,
+        duration_minutes=braider_style.duration_minutes,
+    )
+
+
+def _to_location_response(
+    location: BraiderServiceLocation | None,
+) -> BraiderLocationResponse | None:
     if location is None:
         return None
     show_exact_address = location.location_type == LocationType.SALON
@@ -82,11 +103,22 @@ async def search_braiders(
     style_id: uuid.UUID | None,
     style_slug: str | None,
     search: str | None,
+    date_from: date | None,
+    date_to: date | None,
     params: PaginationParams,
     locale: str,
 ) -> PaginatedData[BraiderSearchItemResponse]:
     if (lat is None) != (lng is None):
         raise InvalidSearchLocationError()
+
+    if (date_from is None) != (date_to is None):
+        raise InvalidSearchDateRangeError(max_days=_MAX_DATE_RANGE_DAYS)
+    if (
+        date_from is not None
+        and date_to is not None
+        and (date_to < date_from or (date_to - date_from).days > _MAX_DATE_RANGE_DAYS)
+    ):
+        raise InvalidSearchDateRangeError(max_days=_MAX_DATE_RANGE_DAYS)
 
     resolved_style_id = style_id
     if resolved_style_id is None and style_slug:
@@ -94,12 +126,21 @@ async def search_braiders(
         resolved_style_id = style.id if style else uuid.uuid4()  # no match -> empty page
 
     stmt = discovery_repo.build_search_stmt(
-        lat=lat, lng=lng, radius_km=radius_km, style_id=resolved_style_id, search=search
+        lat=lat,
+        lng=lng,
+        radius_km=radius_km,
+        style_id=resolved_style_id,
+        search=search,
+        date_from=date_from,
+        date_to=date_to,
     )
     rows, meta = await _paginate_rows(db, stmt, params)
 
     braider_ids = [row.BraiderProfile.id for row in rows]
     covers = await discovery_repo.list_cover_photos(db, braider_ids)
+    offered_styles_by_braider = await discovery_repo.list_offered_styles_for_braiders(
+        db, braider_ids
+    )
 
     items = []
     for row in rows:
@@ -110,13 +151,14 @@ async def search_braiders(
 
         matched_style = None
         if resolved_style_id is not None:
-            braider_style: BraiderStyle = row.BraiderStyle
-            matched_style = MatchedStyleResponse(
-                style_id=row.Style.id,
-                name=localize_field(row.Style, "name", locale) or row.Style.name_en,
-                base_price=braider_style.base_price,
-                duration_minutes=braider_style.duration_minutes,
-            )
+            matched_style = _to_matched_style_response(row.BraiderStyle, row.Style, locale)
+
+        # Full menu, so the frontend always has something to show even when
+        # the search wasn't filtered to one style (matched_style is null then).
+        styles = [
+            _to_matched_style_response(braider_style, style, locale)
+            for braider_style, style in offered_styles_by_braider.get(profile.id, [])
+        ]
 
         items.append(
             BraiderSearchItemResponse(
@@ -130,6 +172,7 @@ async def search_braiders(
                 distance_km=round(row.distance_km, 2) if row.distance_km is not None else None,
                 cover_photo_url=storage.build_public_url(cover.object_key) if cover else None,
                 matched_style=matched_style,
+                styles=styles,
             )
         )
 

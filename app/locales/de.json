@@ -47,6 +47,7 @@
   "braider.logo_not_found": "Wir konnten das hochgeladene Logo nicht finden. Bitte versuchen Sie es erneut.",
   "braider.not_found": "Dieser Braider existiert nicht.",
   "braider.invalid_search_location": "Bitte geben Sie sowohl lat als auch lng an, oder keines von beiden.",
+  "braider.invalid_search_date_range": "Bitte geben Sie sowohl date_from als auch date_to an, wobei date_to nicht vor date_from liegen darf und höchstens {max_days} Tage dazwischen liegen dürfen.",
 
   "media.deleted": "Die Datei wurde gelöscht.",
 

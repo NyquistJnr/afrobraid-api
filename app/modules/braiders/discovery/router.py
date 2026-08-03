@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,7 +26,10 @@ def _locale(request: Request) -> str:
         "onboarding. Pass `lat`+`lng` together to sort by distance and "
         "optionally filter with `radius_km`. Filter to braiders offering a "
         "specific style with `style_id` or `style_slug` (if both are given, "
-        "`style_id` wins)."
+        "`style_id` wins). Pass `date_from`+`date_to` together (max 90 days "
+        "apart) to only show braiders with at least one structurally-open day "
+        "in that range - this doesn't check bookable slots for a specific "
+        "style/duration, see `/braiders/{braider_id}/availability/slots` for that."
     ),
 )
 async def search_braiders(
@@ -36,6 +40,8 @@ async def search_braiders(
     style_id: uuid.UUID | None = Query(None),
     style_slug: str | None = Query(None),
     search: str | None = Query(None),
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
     params: PaginationParams = Depends(),
     db: AsyncSession = Depends(get_db),
 ) -> APIResponse[PaginatedData[BraiderSearchItemResponse]]:
@@ -47,6 +53,8 @@ async def search_braiders(
         style_id=style_id,
         style_slug=style_slug,
         search=search,
+        date_from=date_from,
+        date_to=date_to,
         params=params,
         locale=_locale(request),
     )

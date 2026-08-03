@@ -23,6 +23,7 @@ class BraiderSearchItemResponse(BaseModel):
     distance_km: float | None
     cover_photo_url: str | None
     matched_style: MatchedStyleResponse | None
+    styles: list[MatchedStyleResponse]
 
 
 class BraiderLocationResponse(BaseModel):
