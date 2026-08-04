@@ -150,6 +150,10 @@ async def _resolve_input(db: AsyncSession, data: BookingCalculationInput) -> _Re
                 if distance > location.travel_radius_km:
                     raise MobileLocationOutOfRangeError()
 
+    client_address = data.client_address if data.is_mobile else None
+    client_latitude = data.client_latitude if data.is_mobile else None
+    client_longitude = data.client_longitude if data.is_mobile else None
+
     return _ResolvedInput(
         braider_id=profile.id,
         style=style,
@@ -159,9 +163,9 @@ async def _resolve_input(db: AsyncSession, data: BookingCalculationInput) -> _Re
         braider_style_variation_id=data.braider_style_variation_id,
         addon_entries=addon_entries,
         is_mobile=data.is_mobile,
-        client_address=data.client_address,
-        client_latitude=data.client_latitude,
-        client_longitude=data.client_longitude,
+        client_address=client_address,
+        client_latitude=client_latitude,
+        client_longitude=client_longitude,
         travel_fee=travel_fee,
         country=location.country,
     )
