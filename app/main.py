@@ -10,6 +10,8 @@ from app.core.logging import configure_logging
 from app.core.queue import create_arq_pool
 from app.modules.auth.router import router as auth_router
 from app.modules.bookings.calculations.router import router as booking_calculations_router
+from app.modules.bookings.router import router as bookings_router
+from app.modules.bookings.braider_router import router as braider_bookings_router
 from app.modules.braiders.availability.router import (
     public_router as braider_availability_public_router,
 )
@@ -18,6 +20,7 @@ from app.modules.braiders.discovery.router import router as braider_discovery_ro
 from app.modules.braiders.offerings.router import router as braider_offerings_router
 from app.modules.braiders.payment_setup.router import router as braider_payment_setup_router
 from app.modules.braiders.payment_setup.webhook import router as stripe_webhook_router
+from app.modules.bookings.payments.webhook import router as stripe_platform_webhook_router
 from app.modules.braiders.phone_verification.router import router as phone_verification_router
 from app.modules.braiders.portfolio.router import router as braider_portfolio_router
 from app.modules.braiders.router import router as braiders_router
@@ -83,7 +86,10 @@ def create_app() -> FastAPI:
     app.include_router(braider_discovery_router)
     app.include_router(braider_payment_setup_router)
     app.include_router(stripe_webhook_router)
+    app.include_router(stripe_platform_webhook_router)
     app.include_router(booking_calculations_router)
+    app.include_router(braider_bookings_router, prefix="/api/v1/braiders")
+    app.include_router(bookings_router, prefix="/api/v1")
 
     @app.get("/health", tags=["Health"])
     async def health() -> dict[str, str]:

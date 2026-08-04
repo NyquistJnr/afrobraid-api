@@ -40,6 +40,7 @@ async def _clean_state() -> AsyncGenerator[None]:
                 "braider_availability_settings, stripe_connect_accounts, "
                 "platform_settings, "
                 "addons, style_variations, "
+                "stripe_webhook_events, booking_payments, booking_items, bookings, "
                 "style_images, styles, style_categories, braider_onboarding_statuses, "
                 "braider_profiles, users "
                 "RESTART IDENTITY CASCADE"

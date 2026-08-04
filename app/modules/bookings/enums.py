@@ -20,3 +20,35 @@ class BookingItemType(str, enum.Enum):
 class PaymentSchedule(str, enum.Enum):
     FULL_UPFRONT = "FULL_UPFRONT"
     DEPOSIT_THEN_BALANCE = "DEPOSIT_THEN_BALANCE"
+
+
+class BookingStatus(str, enum.Enum):
+    PENDING_PAYMENT = "PENDING_PAYMENT"
+    CONFIRMED = "CONFIRMED"
+    IN_PROGRESS = "IN_PROGRESS"
+    COMPLETED = "COMPLETED"
+    NO_SHOW = "NO_SHOW"
+    CANCELLED_BY_CUSTOMER = "CANCELLED_BY_CUSTOMER"
+    CANCELLED_BY_BRAIDER = "CANCELLED_BY_BRAIDER"
+    CANCELLED_NO_PAYMENT = "CANCELLED_NO_PAYMENT"
+    EXPIRED = "EXPIRED"
+    DISPUTED = "DISPUTED"
+
+
+class PaymentStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    SUCCEEDED = "SUCCEEDED"
+    FAILED = "FAILED"
+    CANCELED = "CANCELED"
+    ABANDONED = "ABANDONED"
+
+
+class PaymentPurpose(str, enum.Enum):
+    FULL = "FULL"
+    DEPOSIT = "DEPOSIT"
+    BALANCE = "BALANCE"
+
+
+class BalanceChargeState(str, enum.Enum):
+    SCHEDULED = "SCHEDULED"
+    ABANDONED = "ABANDONED"

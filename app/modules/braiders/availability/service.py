@@ -295,6 +295,13 @@ async def compute_available_slots(
     range_end = min(date_to, latest_date)
     if range_start > range_end:
         return []
+        
+    from app.modules.bookings.repository import get_overlapping_bookings
+    bookings = await get_overlapping_bookings(
+        db, braider_id,
+        datetime.combine(range_start, datetime.min.time(), tzinfo=tz).astimezone(UTC),
+        datetime.combine(range_end, datetime.max.time(), tzinfo=tz).astimezone(UTC)
+    )
 
     weekly_windows_by_day: dict[DayOfWeek, list[BraiderWeeklyAvailability]] = {}
     slots: list[AvailableSlotResponse] = []
@@ -328,12 +335,20 @@ async def compute_available_slots(
             while slot_start + duration <= window_end:
                 slot_end = slot_start + duration
                 if slot_start >= earliest_start:
-                    slots.append(
-                        AvailableSlotResponse(
-                            start_at=slot_start.astimezone(UTC),
-                            end_at=slot_end.astimezone(UTC),
+                    overlap = False
+                    slot_utc_start = slot_start.astimezone(UTC)
+                    slot_utc_end = slot_end.astimezone(UTC)
+                    for b in bookings:
+                        if slot_utc_start < b.blocked_until and slot_utc_end > b.blocked_from:
+                            overlap = True
+                            break
+                    if not overlap:
+                        slots.append(
+                            AvailableSlotResponse(
+                                start_at=slot_utc_start,
+                                end_at=slot_utc_end,
+                            )
                         )
-                    )
                 slot_start += step
 
         current += timedelta(days=1)

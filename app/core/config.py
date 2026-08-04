@@ -70,6 +70,8 @@ class Settings(BaseSettings):
 
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
+    stripe_payments_webhook_secret: str = ""
+    stripe_api_version: str = "2023-10-16"
     stripe_connect_refresh_url: str = ""
     stripe_connect_return_url: str = ""
 
@@ -96,6 +98,9 @@ class Settings(BaseSettings):
     # before it's stored (booking_calculations.client_ip_hash) - an IP is
     # personal data under GDPR, so the raw address is never persisted.
     client_ip_hash_salt: str = ""
+
+    terms_version: str = "1.0"
+    public_base_url: str = "http://localhost:3000"
 
     @property
     def supported_locales_list(self) -> list[str]:

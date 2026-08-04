@@ -477,6 +477,30 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
     )
 
 
+class InvalidBookingTransitionError(AppError):
+    status_code = status.HTTP_409_CONFLICT
+    code = "INVALID_BOOKING_TRANSITION"
+    message_key = "booking.invalid_transition"
+
+
+class BraiderNotPayableError(AppError):
+    status_code = status.HTTP_409_CONFLICT
+    code = "BRAIDER_NOT_PAYABLE"
+    message_key = "booking.braider_not_payable"
+
+
+class DoubleBookingError(AppError):
+    status_code = status.HTTP_409_CONFLICT
+    code = "DOUBLE_BOOKING"
+    message_key = "booking.double_booking"
+
+
+class BookingNotFoundError(AppError):
+    status_code = status.HTTP_404_NOT_FOUND
+    code = "BOOKING_NOT_FOUND"
+    message_key = "booking.not_found"
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(AppError, app_error_handler)
     app.add_exception_handler(RequestValidationError, validation_error_handler)
