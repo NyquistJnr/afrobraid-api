@@ -48,6 +48,7 @@
   "braider.not_found": "This braider doesn't exist.",
   "braider.invalid_search_location": "Please provide both lat and lng, or neither.",
   "braider.invalid_search_date_range": "Please provide both date_from and date_to, with date_to on or after date_from and at most {max_days} days apart.",
+  "braider.invalid_search_price_range": "max_amount must be greater than or equal to min_amount.",
 
   "media.deleted": "The file was deleted.",
 

@@ -14,18 +14,6 @@ class MatchedStyleResponse(BaseModel):
     duration_minutes: int | None
 
 
-class BraiderSearchItemResponse(BaseModel):
-    id: uuid.UUID
-    business_name: str | None
-    logo_url: str | None
-    city: str | None
-    country: str | None
-    distance_km: float | None
-    cover_photo_url: str | None
-    matched_style: MatchedStyleResponse | None
-    styles: list[MatchedStyleResponse]
-
-
 class BraiderLocationResponse(BaseModel):
     location_type: LocationType | None
     salon_name: str | None
@@ -36,6 +24,17 @@ class BraiderLocationResponse(BaseModel):
     country: str | None
     offers_mobile: bool
     travel_radius_km: int | None
+
+
+class BraiderSearchItemResponse(BaseModel):
+    id: uuid.UUID
+    business_name: str | None
+    logo_url: str | None
+    location: BraiderLocationResponse | None
+    distance_km: float | None
+    cover_photo_url: str | None
+    matched_style: MatchedStyleResponse | None
+    styles: list[MatchedStyleResponse]
 
 
 class PortfolioImagePublicResponse(BaseModel):

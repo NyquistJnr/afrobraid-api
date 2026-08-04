@@ -60,8 +60,20 @@ async def _make_completed_braider(
             longitude=lng,
         )
     )
+    onboarded_at = datetime(2026, 1, 1, tzinfo=UTC)
     db_session.add(
-        BraiderOnboardingStatus(user_id=user.id, completed_at=datetime(2026, 1, 1, tzinfo=UTC))
+        BraiderOnboardingStatus(
+            user_id=user.id,
+            business_info_completed_at=onboarded_at,
+            phone_verification_completed_at=onboarded_at,
+            veriff_completed_at=onboarded_at,
+            service_type_completed_at=onboarded_at,
+            portfolio_completed_at=onboarded_at,
+            service_location_completed_at=onboarded_at,
+            availability_completed_at=onboarded_at,
+            payment_setup_completed_at=onboarded_at,
+            completed_at=onboarded_at,
+        )
     )
     db_session.add(
         PortfolioImage(braider_id=profile.id, object_key="braiders/x/portfolio/1.jpg", position=0)
@@ -102,6 +114,10 @@ async def test_search_by_location_and_detail_and_style(
     near_item = next(i for i in body["items"] if i["id"] == str(near.id))
     assert near_item["distance_km"] is not None and near_item["distance_km"] < 5
     assert near_item["cover_photo_url"] is not None
+    # Salon location -> full address returned in the list view too.
+    assert near_item["location"]["address_line1"] == "123 Main St"
+    assert near_item["location"]["salon_name"] == "The Studio"
+    assert near_item["location"]["city"] == "Lagos"
     # No style filter applied -> matched_style is null, but the full menu is
     # still there so the frontend isn't left with nothing to show.
     assert near_item["matched_style"] is None
@@ -121,6 +137,9 @@ async def test_search_by_location_and_detail_and_style(
     assert ids.index(str(near.id)) < ids.index(str(far.id))
     far_item = next(i for i in body["items"] if i["id"] == str(far.id))
     assert far_item["styles"] == []
+    # Home-studio -> exact address withheld in the list view, city still shown.
+    assert far_item["location"]["address_line1"] is None
+    assert far_item["location"]["city"] == "Lagos"
 
     # 3. Style filter - only the braider offering that style shows, with matched_style.
     resp = await client.get(f"/api/v1/braiders?style_id={style.id}")
@@ -275,3 +294,98 @@ async def test_search_by_availability_date_range(client: AsyncClient, db_session
     resp = await client.get(f"/api/v1/braiders?date_from={anchor}&date_to={too_far}")
     assert resp.status_code == 400
     assert resp.json()["error"]["code"] == "INVALID_SEARCH_DATE_RANGE"
+
+
+async def test_payment_setup_pending_braider_is_still_shown(
+    client: AsyncClient, db_session: AsyncSession
+):
+    """Every onboarding step is required to be publicly listed, except
+    payment setup - a braider can go live while that's still pending."""
+    user, _ = await create_user_with_token(db_session, user_type=UserType.BRAIDER)
+    profile = BraiderProfile(user_id=user.id, business_name="Payment Pending")
+    db_session.add(profile)
+    await db_session.flush()
+
+    onboarded_at = datetime(2026, 1, 1, tzinfo=UTC)
+    db_session.add(
+        BraiderOnboardingStatus(
+            user_id=user.id,
+            business_info_completed_at=onboarded_at,
+            phone_verification_completed_at=onboarded_at,
+            veriff_completed_at=onboarded_at,
+            service_type_completed_at=onboarded_at,
+            portfolio_completed_at=onboarded_at,
+            service_location_completed_at=onboarded_at,
+            availability_completed_at=onboarded_at,
+            payment_setup_completed_at=None,
+            completed_at=None,
+        )
+    )
+    await db_session.commit()
+
+    resp = await client.get("/api/v1/braiders")
+    ids = [item["id"] for item in resp.json()["data"]["items"]]
+    assert str(profile.id) in ids
+
+    resp = await client.get(f"/api/v1/braiders/{profile.id}")
+    assert resp.status_code == 200
+
+
+async def test_search_by_price_range(client: AsyncClient, db_session: AsyncSession):
+    cheap = await _make_completed_braider(
+        db_session, business_name="Cheap Braids", lat=LAT_NEAR, lng=LNG_NEAR
+    )
+    pricey = await _make_completed_braider(
+        db_session, business_name="Pricey Braids", lat=LAT_NEAR, lng=LNG_NEAR
+    )
+
+    style = Style(slug="box-braids", name_en="Box Braids", is_active=True)
+    db_session.add(style)
+    await db_session.flush()
+    db_session.add(BraiderStyle(braider_id=cheap.id, style_id=style.id, base_price=50))
+    db_session.add(BraiderStyle(braider_id=pricey.id, style_id=style.id, base_price=500))
+    await db_session.commit()
+
+    resp = await client.get("/api/v1/braiders?min_amount=100&max_amount=600")
+    ids = {item["id"] for item in resp.json()["data"]["items"]}
+    assert str(pricey.id) in ids
+    assert str(cheap.id) not in ids
+
+    resp = await client.get("/api/v1/braiders?max_amount=100")
+    ids = {item["id"] for item in resp.json()["data"]["items"]}
+    assert str(cheap.id) in ids
+    assert str(pricey.id) not in ids
+
+    resp = await client.get("/api/v1/braiders?min_amount=600&max_amount=100")
+    assert resp.status_code == 400
+    assert resp.json()["error"]["code"] == "INVALID_SEARCH_PRICE_RANGE"
+
+
+async def test_search_by_country_code(client: AsyncClient, db_session: AsyncSession):
+    ng_braider = await _make_completed_braider(
+        db_session, business_name="Lagos Braids", lat=LAT_NEAR, lng=LNG_NEAR
+    )
+
+    resp = await client.get("/api/v1/braiders?country_code=NG")
+    ids = {item["id"] for item in resp.json()["data"]["items"]}
+    assert str(ng_braider.id) in ids
+
+    resp = await client.get("/api/v1/braiders?country_code=us")
+    ids = {item["id"] for item in resp.json()["data"]["items"]}
+    assert str(ng_braider.id) not in ids
+
+
+async def test_search_styles_capped_at_five(client: AsyncClient, db_session: AsyncSession):
+    braider = await _make_completed_braider(
+        db_session, business_name="Many Styles", lat=LAT_NEAR, lng=LNG_NEAR
+    )
+    for i in range(7):
+        style = Style(slug=f"style-{i}", name_en=f"Style {i}", is_active=True)
+        db_session.add(style)
+        await db_session.flush()
+        db_session.add(BraiderStyle(braider_id=braider.id, style_id=style.id, base_price=50))
+    await db_session.commit()
+
+    resp = await client.get("/api/v1/braiders")
+    item = next(i for i in resp.json()["data"]["items"] if i["id"] == str(braider.id))
+    assert len(item["styles"]) == 5

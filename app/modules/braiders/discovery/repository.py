@@ -1,8 +1,10 @@
 import uuid
 from datetime import date
+from decimal import Decimal
 
 from sqlalchemy import Date, and_, case, cast, func, literal, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 from sqlalchemy.sql import Select, exists
 
 from app.modules.braiders.availability.models import (
@@ -99,12 +101,43 @@ def _available_in_range_filter(date_from: date, date_to: date):
     return exists(select(1).select_from(day_series).where(or_(has_weekly, has_custom), ~is_closed))
 
 
+# Every onboarding step except PAYMENT_SETUP - a braider can be publicly
+# listed while payment setup is still pending, so this deliberately doesn't
+# use BraiderOnboardingStatus.completed_at (which requires *all* steps,
+# payment setup included; see app.modules.braiders.completion._STEP_ORDER).
+_REQUIRED_ONBOARDING_FIELDS = (
+    BraiderOnboardingStatus.business_info_completed_at,
+    BraiderOnboardingStatus.phone_verification_completed_at,
+    BraiderOnboardingStatus.veriff_completed_at,
+    BraiderOnboardingStatus.service_type_completed_at,
+    BraiderOnboardingStatus.portfolio_completed_at,
+    BraiderOnboardingStatus.service_location_completed_at,
+    BraiderOnboardingStatus.availability_completed_at,
+)
+
+
 def _visibility_filters():
     return (
         User.user_type == UserType.BRAIDER,
         User.is_active.is_(True),
-        BraiderOnboardingStatus.completed_at.is_not(None),
+        *[field.is_not(None) for field in _REQUIRED_ONBOARDING_FIELDS],
     )
+
+
+def _price_range_filter(min_amount: Decimal | None, max_amount: Decimal | None):
+    """True if the braider has at least one active style priced within the
+    given bounds. Uses its own aliased BraiderStyle so it doesn't collide
+    with the style_id join in build_search_stmt."""
+    priced_style = aliased(BraiderStyle)
+    conditions = [
+        priced_style.braider_id == BraiderProfile.id,
+        priced_style.is_active.is_(True),
+    ]
+    if min_amount is not None:
+        conditions.append(priced_style.base_price >= min_amount)
+    if max_amount is not None:
+        conditions.append(priced_style.base_price <= max_amount)
+    return exists(select(1).select_from(priced_style).where(*conditions))
 
 
 def build_search_stmt(
@@ -116,6 +149,9 @@ def build_search_stmt(
     search: str | None,
     date_from: date | None = None,
     date_to: date | None = None,
+    min_amount: Decimal | None = None,
+    max_amount: Decimal | None = None,
+    country_code: str | None = None,
 ) -> Select:
     """Row shape is (BraiderProfile, BraiderServiceLocation | None, distance_km | None)
     plus (BraiderStyle, Style) appended when `style_id` is given - callers must
@@ -151,6 +187,12 @@ def build_search_stmt(
 
     if date_from is not None and date_to is not None:
         stmt = stmt.where(_available_in_range_filter(date_from, date_to))
+
+    if min_amount is not None or max_amount is not None:
+        stmt = stmt.where(_price_range_filter(min_amount, max_amount))
+
+    if country_code:
+        stmt = stmt.where(BraiderServiceLocation.country == country_code)
 
     if lat is not None and lng is not None:
         stmt = stmt.where(

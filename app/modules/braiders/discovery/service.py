@@ -1,5 +1,6 @@
 import uuid
 from datetime import date
+from decimal import Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +10,7 @@ from app.core.exceptions import (
     BraiderNotFoundError,
     InvalidSearchDateRangeError,
     InvalidSearchLocationError,
+    InvalidSearchPriceRangeError,
 )
 from app.core.i18n import localize_field
 from app.core.pagination import PaginatedData, PaginationMeta, PaginationParams
@@ -32,6 +34,7 @@ from app.modules.styles import repository as styles_repo
 from app.modules.styles.models import Style
 
 _MAX_DATE_RANGE_DAYS = 90
+_MAX_SEARCH_STYLES = 5
 
 
 async def _paginate_rows(db: AsyncSession, stmt, params: PaginationParams):
@@ -56,12 +59,6 @@ async def _paginate_rows(db: AsyncSession, stmt, params: PaginationParams):
         has_previous=params.page > 1,
     )
     return rows, meta
-
-
-def _to_location_summary(location: BraiderServiceLocation | None) -> tuple[str | None, str | None]:
-    if location is None:
-        return None, None
-    return location.city, location.country
 
 
 def _to_matched_style_response(
@@ -105,6 +102,9 @@ async def search_braiders(
     search: str | None,
     date_from: date | None,
     date_to: date | None,
+    min_amount: Decimal | None,
+    max_amount: Decimal | None,
+    country_code: str | None,
     params: PaginationParams,
     locale: str,
 ) -> PaginatedData[BraiderSearchItemResponse]:
@@ -120,6 +120,9 @@ async def search_braiders(
     ):
         raise InvalidSearchDateRangeError(max_days=_MAX_DATE_RANGE_DAYS)
 
+    if min_amount is not None and max_amount is not None and max_amount < min_amount:
+        raise InvalidSearchPriceRangeError()
+
     resolved_style_id = style_id
     if resolved_style_id is None and style_slug:
         style = await styles_repo.get_style_by_slug(db, style_slug)
@@ -133,6 +136,9 @@ async def search_braiders(
         search=search,
         date_from=date_from,
         date_to=date_to,
+        min_amount=min_amount,
+        max_amount=max_amount,
+        country_code=country_code,
     )
     rows, meta = await _paginate_rows(db, stmt, params)
 
@@ -146,19 +152,18 @@ async def search_braiders(
     for row in rows:
         profile = row.BraiderProfile
         location = row.BraiderServiceLocation
-        city, country = _to_location_summary(location)
         cover = covers.get(profile.id)
 
         matched_style = None
         if resolved_style_id is not None:
             matched_style = _to_matched_style_response(row.BraiderStyle, row.Style, locale)
 
-        # Full menu, so the frontend always has something to show even when
-        # the search wasn't filtered to one style (matched_style is null then).
+        # Full menu (capped), so the frontend always has something to show even
+        # when the search wasn't filtered to one style (matched_style is null then).
         styles = [
             _to_matched_style_response(braider_style, style, locale)
             for braider_style, style in offered_styles_by_braider.get(profile.id, [])
-        ]
+        ][:_MAX_SEARCH_STYLES]
 
         items.append(
             BraiderSearchItemResponse(
@@ -167,8 +172,7 @@ async def search_braiders(
                 logo_url=storage.build_public_url(profile.logo_object_key)
                 if profile.logo_object_key
                 else None,
-                city=city,
-                country=country,
+                location=_to_location_response(location),
                 distance_km=round(row.distance_km, 2) if row.distance_km is not None else None,
                 cover_photo_url=storage.build_public_url(cover.object_key) if cover else None,
                 matched_style=matched_style,

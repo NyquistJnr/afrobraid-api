@@ -147,6 +147,12 @@ class InvalidSearchDateRangeError(AppError):
     message_key = "braider.invalid_search_date_range"
 
 
+class InvalidSearchPriceRangeError(AppError):
+    status_code = status.HTTP_400_BAD_REQUEST
+    code = "INVALID_SEARCH_PRICE_RANGE"
+    message_key = "braider.invalid_search_price_range"
+
+
 class VeriffApiUnavailableError(AppError):
     status_code = status.HTTP_502_BAD_GATEWAY
     code = "VERIFF_API_UNAVAILABLE"
