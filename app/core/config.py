@@ -81,6 +81,22 @@ class Settings(BaseSettings):
     phone_verification_bypass_enabled: bool = False
     phone_verification_bypass_code: str = "000000"
 
+    # Booking calculator (app.modules.bookings.calculations) - a DRAFT quote
+    # is disposable and cleaned up well before it could be mistaken for a
+    # real reservation.
+    booking_calculation_ttl_hours: int = 2
+    # The pricing engine's full-upfront cutoff: an appointment starting at or
+    # before this many hours from now is charged 100% upfront rather than a
+    # deposit + later balance. See app.modules.bookings.pricing for the
+    # margin added on top of this to avoid scheduling a balance charge that
+    # would already be almost due.
+    booking_full_payment_threshold_hours: int = 24
+    booking_full_payment_margin_hours: int = 2
+    # Salt mixed into the SHA-256 hash of a booking-calculator caller's IP
+    # before it's stored (booking_calculations.client_ip_hash) - an IP is
+    # personal data under GDPR, so the raw address is never persisted.
+    client_ip_hash_salt: str = ""
+
     @property
     def supported_locales_list(self) -> list[str]:
         return [loc.strip() for loc in self.supported_locales.split(",") if loc.strip()]

@@ -102,5 +102,16 @@
   "payment_setup.invalid_webhook_signature": "Ungültige Webhook-Signatur.",
   "payment_setup.country_required": "Bitte vervollständigen Sie zuerst Ihren Standort - wir benötigen Ihr Land, um Ihr Auszahlungskonto einzurichten.",
 
-  "platform_settings.invalid_percentage_value": "Ein prozentualer Wert muss zwischen 0 und 100 liegen."
+  "platform_settings.invalid_percentage_value": "Ein prozentualer Wert muss zwischen 0 und 100 liegen.",
+
+  "booking_calculation.not_found": "Dieses Preisangebot existiert nicht oder ist bereits abgelaufen.",
+  "booking_calculation.expired": "Dieses Preisangebot ist abgelaufen. Bitte fordern Sie ein neues an.",
+  "booking_calculation.already_used": "Dieses Preisangebot wurde bereits für eine Buchung verwendet.",
+  "booking_calculation.mobile_not_offered": "Diese Braiderin/dieser Braider bietet keine mobilen Termine an.",
+
+  "booking_calculation.travel_fee_label": "Anfahrtskosten für mobilen Termin",
+  "booking_calculation.platform_fee_label": "Servicegebühr",
+  "booking_calculation.vat_service_label": "MwSt.",
+  "booking_calculation.vat_platform_fee_label": "MwSt. auf Servicegebühr",
+  "booking_calculation.deposit_note": "Diese Anzahlung ist unverbindlich. Der genaue Betrag und Zahlungsplan werden bestätigt, sobald Sie einen Termin auswählen."
 }

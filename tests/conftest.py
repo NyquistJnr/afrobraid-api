@@ -33,6 +33,7 @@ async def _clean_state() -> AsyncGenerator[None]:
         await conn.execute(
             text(
                 "TRUNCATE TABLE refresh_tokens, otp_codes, auth_identities, "
+                "booking_calculation_addons, booking_calculations, "
                 "braider_style_addons, braider_style_variations, braider_styles, "
                 "portfolio_images, braider_service_locations, "
                 "braider_availability_exceptions, braider_weekly_availability, "

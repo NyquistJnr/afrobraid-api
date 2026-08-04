@@ -102,5 +102,16 @@
   "payment_setup.invalid_webhook_signature": "Invalid webhook signature.",
   "payment_setup.country_required": "Please complete your service location first - we need your country to set up your payout account.",
 
-  "platform_settings.invalid_percentage_value": "A percentage-based value must be between 0 and 100."
+  "platform_settings.invalid_percentage_value": "A percentage-based value must be between 0 and 100.",
+
+  "booking_calculation.not_found": "This price quote doesn't exist or has already expired.",
+  "booking_calculation.expired": "This price quote has expired. Please request a new one.",
+  "booking_calculation.already_used": "This price quote has already been used for a booking.",
+  "booking_calculation.mobile_not_offered": "This braider doesn't offer mobile appointments.",
+
+  "booking_calculation.travel_fee_label": "Mobile appointment travel fee",
+  "booking_calculation.platform_fee_label": "Service fee",
+  "booking_calculation.vat_service_label": "VAT",
+  "booking_calculation.vat_platform_fee_label": "VAT on service fee",
+  "booking_calculation.deposit_note": "This deposit is indicative. The exact amount and payment schedule are confirmed when you choose an appointment time."
 }

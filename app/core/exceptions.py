@@ -367,6 +367,40 @@ class RateLimitedError(AppError):
         super().__init__(retry_after_seconds=retry_after_seconds)
 
 
+class PricingInvariantError(AppError):
+    """Raised when the pricing engine's own arithmetic invariants don't hold
+    (e.g. line items don't sum to the total) - always a bug, never a user
+    input problem, hence 500 rather than 4xx."""
+
+    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+    code = "PRICING_INVARIANT_ERROR"
+    message_key = "errors.internal_server_error"
+
+
+class BookingCalculationNotFoundError(AppError):
+    status_code = status.HTTP_404_NOT_FOUND
+    code = "BOOKING_CALCULATION_NOT_FOUND"
+    message_key = "booking_calculation.not_found"
+
+
+class BookingCalculationExpiredError(AppError):
+    status_code = status.HTTP_409_CONFLICT
+    code = "BOOKING_CALCULATION_EXPIRED"
+    message_key = "booking_calculation.expired"
+
+
+class BookingCalculationAlreadyUsedError(AppError):
+    status_code = status.HTTP_409_CONFLICT
+    code = "BOOKING_CALCULATION_ALREADY_USED"
+    message_key = "booking_calculation.already_used"
+
+
+class MobileServiceNotOfferedError(AppError):
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    code = "MOBILE_SERVICE_NOT_OFFERED"
+    message_key = "booking_calculation.mobile_not_offered"
+
+
 def _locale_of(request: Request) -> str:
     return getattr(request.state, "locale", "en")
 
