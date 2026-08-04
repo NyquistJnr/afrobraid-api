@@ -401,6 +401,12 @@ class MobileServiceNotOfferedError(AppError):
     message_key = "booking_calculation.mobile_not_offered"
 
 
+class MobileLocationOutOfRangeError(AppError):
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    code = "MOBILE_LOCATION_OUT_OF_RANGE"
+    message_key = "booking_calculation.mobile_location_out_of_range"
+
+
 def _locale_of(request: Request) -> str:
     return getattr(request.state, "locale", "en")
 

@@ -20,6 +20,9 @@ class BookingCalculationInput(BaseModel):
     braider_style_variation_id: uuid.UUID | None = None
     braider_style_addon_ids: list[uuid.UUID] = Field(default_factory=list)
     is_mobile: bool = False
+    client_address: str | None = None
+    client_latitude: Decimal | None = None
+    client_longitude: Decimal | None = None
 
 
 class BookingCalculationUpdateRequest(BaseModel):
@@ -28,6 +31,9 @@ class BookingCalculationUpdateRequest(BaseModel):
     braider_style_variation_id: uuid.UUID | None = None
     braider_style_addon_ids: list[uuid.UUID] | None = None
     is_mobile: bool | None = None
+    client_address: str | None = None
+    client_latitude: Decimal | None = None
+    client_longitude: Decimal | None = None
 
 
 class BookingCalculationLineResponse(BaseModel):
@@ -46,6 +52,9 @@ class BookingCalculationPreviewResponse(BaseModel):
     style_name: str
     duration_minutes: int
     is_mobile: bool
+    client_address: str | None = None
+    client_latitude: Decimal | None = None
+    client_longitude: Decimal | None = None
     items: list[BookingCalculationLineResponse]
     service_subtotal: Decimal
     travel_fee: Decimal

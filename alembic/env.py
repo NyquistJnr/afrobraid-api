@@ -18,6 +18,8 @@ from app.modules.braiders.portfolio import models as braider_portfolio_models  #
 from app.modules.braiders.service_location import (
     models as braider_service_location_models,  # noqa: F401
 )
+from app.modules.braiders.availability import models as braider_availability_models  # noqa: F401
+from app.modules.braiders.payment_setup import models as braider_payment_setup_models  # noqa: F401
 from app.modules.braiders.veriff import models as veriff_models  # noqa: F401
 from app.modules.platform_settings import models as platform_settings_models  # noqa: F401
 from app.modules.styles import models as styles_models  # noqa: F401

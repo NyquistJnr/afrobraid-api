@@ -1,5 +1,6 @@
 uvicorn app.main:app --reload
 arq app.worker.WorkerSettings
+alembic upgrade head
 python -m scripts.seed_styles
 
 1. Google — easiest, works in a browser right now

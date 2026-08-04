@@ -18,6 +18,7 @@ from app.core.exceptions import (
     BraiderStyleDurationMissingError,
     BraiderStyleNotFoundError,
     BraiderStyleVariationInvalidError,
+    MobileLocationOutOfRangeError,
     MobileServiceNotOfferedError,
     StyleNotFoundError,
 )
@@ -45,6 +46,7 @@ from app.modules.braiders.service_location import repository as service_location
 from app.modules.platform_settings.cache import get_effective_settings
 from app.modules.styles import repository as styles_repo
 from app.modules.styles.models import AddOn, Style, StyleVariation
+from app.shared.geo import calculate_distance_km
 
 settings = get_settings()
 
@@ -62,6 +64,9 @@ class _ResolvedInput:
     braider_style_variation_id: uuid.UUID | None
     addon_entries: list[_AddonEntry]
     is_mobile: bool
+    client_address: str | None
+    client_latitude: Decimal | None
+    client_longitude: Decimal | None
     travel_fee: Decimal | None
 
 
@@ -123,6 +128,21 @@ async def _resolve_input(db: AsyncSession, data: BookingCalculationInput) -> _Re
         if location is None or not location.offers_mobile:
             raise MobileServiceNotOfferedError()
         travel_fee = location.travel_fee
+        if (
+            location.travel_radius_km is not None
+            and location.latitude is not None
+            and location.longitude is not None
+            and data.client_latitude is not None
+            and data.client_longitude is not None
+        ):
+                distance = calculate_distance_km(
+                    lat1=location.latitude,
+                    lon1=location.longitude,
+                    lat2=data.client_latitude,
+                    lon2=data.client_longitude
+                )
+                if distance > location.travel_radius_km:
+                    raise MobileLocationOutOfRangeError()
 
     return _ResolvedInput(
         braider_id=profile.id,
@@ -133,6 +153,9 @@ async def _resolve_input(db: AsyncSession, data: BookingCalculationInput) -> _Re
         braider_style_variation_id=data.braider_style_variation_id,
         addon_entries=addon_entries,
         is_mobile=data.is_mobile,
+        client_address=data.client_address,
+        client_latitude=data.client_latitude,
+        client_longitude=data.client_longitude,
         travel_fee=travel_fee,
     )
 
@@ -254,6 +277,9 @@ def _to_preview_response(
         style_name=localize_field(resolved.style, "name", locale) or resolved.style.name_en,
         duration_minutes=resolved.braider_style.duration_minutes,
         is_mobile=resolved.is_mobile,
+        client_address=resolved.client_address,
+        client_latitude=resolved.client_latitude,
+        client_longitude=resolved.client_longitude,
         items=_pricing_result_items(
             result,
             style=resolved.style,
@@ -426,6 +452,9 @@ async def create_calculation(
         style_variation_id=resolved.variation.id if resolved.variation else None,
         braider_style_variation_id=resolved.braider_style_variation_id,
         is_mobile=resolved.is_mobile,
+        client_address=resolved.client_address,
+        client_latitude=resolved.client_latitude,
+        client_longitude=resolved.client_longitude,
         currency=result.currency,
         duration_minutes=resolved.braider_style.duration_minutes,
         service_subtotal=result.service_subtotal,
@@ -515,6 +544,9 @@ async def update_calculation(
         ),
         braider_style_addon_ids=addon_ids,
         is_mobile=data.is_mobile if "is_mobile" in fields_set else calculation.is_mobile,
+        client_address=data.client_address if "client_address" in fields_set else calculation.client_address,
+        client_latitude=data.client_latitude if "client_latitude" in fields_set else calculation.client_latitude,
+        client_longitude=data.client_longitude if "client_longitude" in fields_set else calculation.client_longitude,
     )
 
     resolved = await _resolve_input(db, merged_input)
@@ -526,6 +558,9 @@ async def update_calculation(
     calculation.style_variation_id = resolved.variation.id if resolved.variation else None
     calculation.braider_style_variation_id = resolved.braider_style_variation_id
     calculation.is_mobile = resolved.is_mobile
+    calculation.client_address = resolved.client_address
+    calculation.client_latitude = resolved.client_latitude
+    calculation.client_longitude = resolved.client_longitude
     calculation.currency = result.currency
     calculation.duration_minutes = resolved.braider_style.duration_minutes
     calculation.service_subtotal = result.service_subtotal
