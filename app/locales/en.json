@@ -108,6 +108,7 @@
   "booking_calculation.expired": "This price quote has expired. Please request a new one.",
   "booking_calculation.already_used": "This price quote has already been used for a booking.",
   "booking_calculation.mobile_not_offered": "This braider doesn't offer mobile appointments.",
+  "booking_calculation.client_location_missing": "Client location (latitude and longitude) is required for mobile appointments.",
 
   "booking_calculation.travel_fee_label": "Mobile appointment travel fee",
   "booking_calculation.platform_fee_label": "Service fee",

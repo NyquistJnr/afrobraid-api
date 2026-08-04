@@ -108,6 +108,7 @@
   "booking_calculation.expired": "Ce devis a expiré. Veuillez en demander un nouveau.",
   "booking_calculation.already_used": "Ce devis a déjà été utilisé pour une réservation.",
   "booking_calculation.mobile_not_offered": "Ce ou cette braideur/braideuse ne propose pas de rendez-vous à domicile.",
+  "booking_calculation.client_location_missing": "L'emplacement du client (latitude et longitude) est requis pour les rendez-vous à domicile.",
 
   "booking_calculation.travel_fee_label": "Frais de déplacement pour rendez-vous à domicile",
   "booking_calculation.platform_fee_label": "Frais de service",

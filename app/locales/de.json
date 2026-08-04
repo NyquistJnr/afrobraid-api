@@ -108,6 +108,7 @@
   "booking_calculation.expired": "Dieses Preisangebot ist abgelaufen. Bitte fordern Sie ein neues an.",
   "booking_calculation.already_used": "Dieses Preisangebot wurde bereits für eine Buchung verwendet.",
   "booking_calculation.mobile_not_offered": "Diese Braiderin/dieser Braider bietet keine mobilen Termine an.",
+  "booking_calculation.client_location_missing": "Der Standort des Kunden (Breitengrad und Längengrad) ist für mobile Termine erforderlich.",
 
   "booking_calculation.travel_fee_label": "Anfahrtskosten für mobilen Termin",
   "booking_calculation.platform_fee_label": "Servicegebühr",
