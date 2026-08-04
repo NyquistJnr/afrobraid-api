@@ -100,5 +100,7 @@
   "payment_setup.api_unavailable": "Wir konnten Stripe nicht erreichen. Bitte versuchen Sie es in Kürze erneut.",
   "payment_setup.account_not_found": "Sie haben die Zahlungseinrichtung noch nicht gestartet. Bitte starten Sie sie zuerst.",
   "payment_setup.invalid_webhook_signature": "Ungültige Webhook-Signatur.",
-  "payment_setup.country_required": "Bitte vervollständigen Sie zuerst Ihren Standort - wir benötigen Ihr Land, um Ihr Auszahlungskonto einzurichten."
+  "payment_setup.country_required": "Bitte vervollständigen Sie zuerst Ihren Standort - wir benötigen Ihr Land, um Ihr Auszahlungskonto einzurichten.",
+
+  "platform_settings.invalid_percentage_value": "Ein prozentualer Wert muss zwischen 0 und 100 liegen."
 }

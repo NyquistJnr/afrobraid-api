@@ -24,6 +24,7 @@ from app.modules.braiders.service_location.router import router as braider_servi
 from app.modules.braiders.veriff.router import router as veriff_router
 from app.modules.braiders.veriff.webhook import router as veriff_webhook_router
 from app.modules.media.router import router as media_router
+from app.modules.platform_settings.router import router as platform_settings_router
 from app.modules.styles.admin_router import router as styles_admin_router
 from app.modules.styles.router import router as styles_router
 from app.modules.users.router import router as users_router
@@ -70,6 +71,7 @@ def create_app() -> FastAPI:
     app.include_router(veriff_router)
     app.include_router(veriff_webhook_router)
     app.include_router(media_router)
+    app.include_router(platform_settings_router)
     app.include_router(styles_router)
     app.include_router(styles_admin_router)
     app.include_router(braider_offerings_router)

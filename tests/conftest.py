@@ -37,6 +37,7 @@ async def _clean_state() -> AsyncGenerator[None]:
                 "portfolio_images, braider_service_locations, "
                 "braider_availability_exceptions, braider_weekly_availability, "
                 "braider_availability_settings, stripe_connect_accounts, "
+                "platform_settings, "
                 "addons, style_variations, "
                 "style_images, styles, style_categories, braider_onboarding_statuses, "
                 "braider_profiles, users "

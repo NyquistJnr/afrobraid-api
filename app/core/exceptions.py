@@ -351,6 +351,12 @@ class MaxPortfolioImagesReachedError(AppError):
     message_key = "portfolio.max_images_reached"
 
 
+class InvalidSettingValueError(AppError):
+    status_code = status.HTTP_400_BAD_REQUEST
+    code = "INVALID_SETTING_VALUE"
+    message_key = "platform_settings.invalid_percentage_value"
+
+
 class RateLimitedError(AppError):
     status_code = status.HTTP_429_TOO_MANY_REQUESTS
     code = "RATE_LIMITED"
