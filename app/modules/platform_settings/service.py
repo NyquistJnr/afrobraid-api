@@ -1,8 +1,10 @@
 from decimal import Decimal
 
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import InvalidSettingValueError
+from app.modules.platform_settings import cache as platform_settings_cache
 from app.modules.platform_settings import repository as platform_settings_repo
 from app.modules.platform_settings.models import PlatformSettings, SettingValueType
 from app.modules.platform_settings.schemas import (
@@ -14,6 +16,13 @@ _DEFAULT_PLATFORM_FEE_TYPE = SettingValueType.PERCENTAGE
 _DEFAULT_PLATFORM_FEE_VALUE = Decimal("10.00")
 _DEFAULT_VAT_TYPE = SettingValueType.PERCENTAGE
 _DEFAULT_VAT_VALUE = Decimal("20.00")
+# Seeded equal to _DEFAULT_VAT_VALUE - the platform fee is its own taxable
+# supply with an independently configurable rate, but starts at the same
+# 20% so the initially-approved pricing example reproduces exactly.
+_DEFAULT_VAT_PLATFORM_FEE_TYPE = SettingValueType.PERCENTAGE
+_DEFAULT_VAT_PLATFORM_FEE_VALUE = Decimal("20.00")
+_DEFAULT_DEPOSIT_TYPE = SettingValueType.PERCENTAGE
+_DEFAULT_DEPOSIT_VALUE = Decimal("10.00")
 
 
 async def _get_or_create_settings(db: AsyncSession) -> PlatformSettings:
@@ -25,15 +34,24 @@ async def _get_or_create_settings(db: AsyncSession) -> PlatformSettings:
             platform_fee_value=_DEFAULT_PLATFORM_FEE_VALUE,
             vat_type=_DEFAULT_VAT_TYPE,
             vat_value=_DEFAULT_VAT_VALUE,
+            vat_platform_fee_type=_DEFAULT_VAT_PLATFORM_FEE_TYPE,
+            vat_platform_fee_value=_DEFAULT_VAT_PLATFORM_FEE_VALUE,
+            deposit_type=_DEFAULT_DEPOSIT_TYPE,
+            deposit_value=_DEFAULT_DEPOSIT_VALUE,
         )
     return settings
 
 
 def _validate_percentage_bounds(settings: PlatformSettings) -> None:
-    if settings.platform_fee_type == SettingValueType.PERCENTAGE and settings.platform_fee_value > 100:
-        raise InvalidSettingValueError()
-    if settings.vat_type == SettingValueType.PERCENTAGE and settings.vat_value > 100:
-        raise InvalidSettingValueError()
+    checks = (
+        (settings.platform_fee_type, settings.platform_fee_value),
+        (settings.vat_type, settings.vat_value),
+        (settings.vat_platform_fee_type, settings.vat_platform_fee_value),
+        (settings.deposit_type, settings.deposit_value),
+    )
+    for value_type, value in checks:
+        if value_type == SettingValueType.PERCENTAGE and value > 100:
+            raise InvalidSettingValueError()
 
 
 def _to_response(settings: PlatformSettings) -> PlatformSettingsResponse:
@@ -43,17 +61,23 @@ def _to_response(settings: PlatformSettings) -> PlatformSettingsResponse:
         platform_fee_value=settings.platform_fee_value,
         vat_type=settings.vat_type,
         vat_value=settings.vat_value,
+        vat_platform_fee_type=settings.vat_platform_fee_type,
+        vat_platform_fee_value=settings.vat_platform_fee_value,
+        deposit_type=settings.deposit_type,
+        deposit_value=settings.deposit_value,
     )
 
 
 async def get_settings(db: AsyncSession) -> PlatformSettingsResponse:
+    """Admin-facing read - always hits the DB directly, never the cache, so
+    an admin is never shown a value staler than their own last write."""
     settings = await _get_or_create_settings(db)
     await db.commit()
     return _to_response(settings)
 
 
 async def update_settings(
-    db: AsyncSession, *, data: PlatformSettingsUpdateRequest
+    db: AsyncSession, redis: Redis, *, data: PlatformSettingsUpdateRequest
 ) -> PlatformSettingsResponse:
     settings = await _get_or_create_settings(db)
 
@@ -63,5 +87,12 @@ async def update_settings(
 
     _validate_percentage_bounds(settings)
 
+    # Double-delete around the commit: a read that races this write and
+    # repopulates the cache from the pre-commit snapshot gets flushed out
+    # again by the second delete, rather than pinning a stale value for the
+    # full 7-day TTL.
+    await platform_settings_cache.invalidate(redis)
     await db.commit()
+    await platform_settings_cache.invalidate(redis)
+
     return _to_response(settings)

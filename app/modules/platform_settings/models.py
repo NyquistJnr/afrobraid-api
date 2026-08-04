@@ -17,16 +17,29 @@ class SettingValueType(str, enum.Enum):
 
 class PlatformSettings(Base):
     """Singleton table - always exactly one row, holding the platform-wide
-    VAT and platform fee configuration. Like BraiderAvailabilitySettings,
+    fee, VAT and deposit configuration. Like BraiderAvailabilitySettings,
     the single row is fetched-or-created lazily in the service layer rather
-    than enforced by a DB constraint."""
+    than enforced by a DB constraint.
+
+    `vat_type`/`vat_value` is the VAT rate charged on the braider's SERVICE
+    (the customer-facing subtotal). `vat_platform_fee_type`/`vat_platform_fee_value`
+    is the (independent) VAT rate charged on the platform's own intermediation
+    fee - the two are genuinely different taxable supplies (see the booking
+    pricing engine for how they're combined), so they are never blended into
+    one rate even though both are seeded at the same value today.
+
+    `deposit_type`/`deposit_value` is the upfront-reservation deposit taken
+    on a booking made far enough in advance - see `app.modules.bookings.pricing`."""
 
     __tablename__ = "platform_settings"
     __table_args__ = (
         CheckConstraint(
             "platform_fee_value >= 0 AND vat_value >= 0 AND "
+            "vat_platform_fee_value >= 0 AND deposit_value >= 0 AND "
             "(platform_fee_type != 'PERCENTAGE' OR platform_fee_value <= 100) AND "
-            "(vat_type != 'PERCENTAGE' OR vat_value <= 100)",
+            "(vat_type != 'PERCENTAGE' OR vat_value <= 100) AND "
+            "(vat_platform_fee_type != 'PERCENTAGE' OR vat_platform_fee_value <= 100) AND "
+            "(deposit_type != 'PERCENTAGE' OR deposit_value <= 100)",
             name="ck_platform_settings_value_ranges",
         ),
     )
@@ -42,6 +55,14 @@ class PlatformSettings(Base):
         Enum(SettingValueType, name="setting_value_type"), nullable=False
     )
     vat_value: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    vat_platform_fee_type: Mapped[SettingValueType] = mapped_column(
+        Enum(SettingValueType, name="setting_value_type"), nullable=False
+    )
+    vat_platform_fee_value: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    deposit_type: Mapped[SettingValueType] = mapped_column(
+        Enum(SettingValueType, name="setting_value_type"), nullable=False
+    )
+    deposit_value: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

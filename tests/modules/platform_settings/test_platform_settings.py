@@ -25,6 +25,10 @@ async def test_get_settings_returns_seeded_defaults(client: AsyncClient, db_sess
     assert data["platform_fee_value"] == "10.00"
     assert data["vat_type"] == "PERCENTAGE"
     assert data["vat_value"] == "20.00"
+    assert data["vat_platform_fee_type"] == "PERCENTAGE"
+    assert data["vat_platform_fee_value"] == "20.00"
+    assert data["deposit_type"] == "PERCENTAGE"
+    assert data["deposit_value"] == "10.00"
 
     # Fetching again returns the same (already-created) row, not a new one.
     second_resp = await client.get(SETTINGS_URL, headers=headers)
@@ -39,9 +43,51 @@ async def test_patch_updates_only_given_fields(client: AsyncClient, db_session: 
     data = resp.json()["data"]
     assert data["platform_fee_type"] == "PERCENTAGE"
     assert data["platform_fee_value"] == "12.50"
-    # VAT untouched.
+    # VAT and deposit untouched.
     assert data["vat_type"] == "PERCENTAGE"
     assert data["vat_value"] == "20.00"
+    assert data["vat_platform_fee_value"] == "20.00"
+    assert data["deposit_value"] == "10.00"
+
+
+async def test_patch_updates_deposit(client: AsyncClient, db_session: AsyncSession):
+    headers = await _admin_headers(db_session)
+
+    resp = await client.patch(SETTINGS_URL, json={"deposit_value": "15.00"}, headers=headers)
+    assert resp.status_code == 200, resp.text
+    data = resp.json()["data"]
+    assert data["deposit_type"] == "PERCENTAGE"
+    assert data["deposit_value"] == "15.00"
+    # Everything else untouched.
+    assert data["platform_fee_value"] == "10.00"
+    assert data["vat_value"] == "20.00"
+    assert data["vat_platform_fee_value"] == "20.00"
+
+
+async def test_patch_can_switch_deposit_to_fixed_amount(
+    client: AsyncClient, db_session: AsyncSession
+):
+    headers = await _admin_headers(db_session)
+
+    resp = await client.patch(
+        SETTINGS_URL,
+        json={"deposit_type": "FIXED", "deposit_value": "25.00"},
+        headers=headers,
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()["data"]
+    assert data["deposit_type"] == "FIXED"
+    assert data["deposit_value"] == "25.00"
+
+
+async def test_patch_rejects_deposit_percentage_over_100(
+    client: AsyncClient, db_session: AsyncSession
+):
+    headers = await _admin_headers(db_session)
+
+    resp = await client.patch(SETTINGS_URL, json={"deposit_value": "150.00"}, headers=headers)
+    assert resp.status_code == 400
+    assert resp.json()["error"]["code"] == "INVALID_SETTING_VALUE"
 
 
 async def test_patch_can_switch_to_fixed_amount(client: AsyncClient, db_session: AsyncSession):

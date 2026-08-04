@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.redis import get_redis
 from app.core.response import APIResponse
 from app.modules.auth.dependencies import require_roles
 from app.modules.platform_settings import service
@@ -30,6 +32,7 @@ async def update_platform_settings(
     payload: PlatformSettingsUpdateRequest,
     user: User = Depends(_require_admin),
     db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
 ) -> APIResponse[PlatformSettingsResponse]:
-    result = await service.update_settings(db, data=payload)
+    result = await service.update_settings(db, redis, data=payload)
     return APIResponse(data=result)

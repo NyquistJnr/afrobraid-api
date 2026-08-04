@@ -18,12 +18,20 @@ async def create_settings(
     platform_fee_value: Decimal,
     vat_type: SettingValueType,
     vat_value: Decimal,
+    vat_platform_fee_type: SettingValueType,
+    vat_platform_fee_value: Decimal,
+    deposit_type: SettingValueType,
+    deposit_value: Decimal,
 ) -> PlatformSettings:
     settings = PlatformSettings(
         platform_fee_type=platform_fee_type,
         platform_fee_value=platform_fee_value,
         vat_type=vat_type,
         vat_value=vat_value,
+        vat_platform_fee_type=vat_platform_fee_type,
+        vat_platform_fee_value=vat_platform_fee_value,
+        deposit_type=deposit_type,
+        deposit_value=deposit_value,
     )
     db.add(settings)
     await db.flush()
