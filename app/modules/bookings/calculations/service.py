@@ -19,6 +19,7 @@ from app.core.exceptions import (
     BraiderStyleNotFoundError,
     BraiderStyleVariationInvalidError,
     BraiderCountryMissingError,
+    ClientLocationMissingError,
     MobileLocationOutOfRangeError,
     MobileServiceNotOfferedError,
     StyleNotFoundError,
@@ -132,13 +133,13 @@ async def _resolve_input(db: AsyncSession, data: BookingCalculationInput) -> _Re
     if data.is_mobile:
         if not location.offers_mobile:
             raise MobileServiceNotOfferedError()
+        if data.client_latitude is None or data.client_longitude is None:
+            raise ClientLocationMissingError()
         travel_fee = location.travel_fee
         if (
             location.travel_radius_km is not None
             and location.latitude is not None
             and location.longitude is not None
-            and data.client_latitude is not None
-            and data.client_longitude is not None
         ):
                 distance = calculate_distance_km(
                     lat1=location.latitude,
@@ -299,6 +300,8 @@ def _to_preview_response(
         platform_fee=result.platform_fee,
         vat_on_service=result.vat_on_service,
         vat_on_platform_fee=result.vat_on_platform_fee,
+        vat_rate=result.vat_service_value,
+        country=resolved.country,
         vat_total=result.vat_total,
         total=result.total,
         deposit_amount=result.deposit_amount,
@@ -417,6 +420,8 @@ async def _stored_preview_response(
         platform_fee=calculation.platform_fee,
         vat_on_service=calculation.vat_on_service,
         vat_on_platform_fee=calculation.vat_on_platform_fee,
+        vat_rate=calculation.vat_service_value,
+        country=calculation.country,
         vat_total=calculation.vat_total,
         total=calculation.total,
         deposit_amount=calculation.deposit_amount,
@@ -458,6 +463,7 @@ async def create_calculation(
         style_variation_id=resolved.variation.id if resolved.variation else None,
         braider_style_variation_id=resolved.braider_style_variation_id,
         is_mobile=resolved.is_mobile,
+        country=resolved.country,
         client_address=resolved.client_address,
         client_latitude=resolved.client_latitude,
         client_longitude=resolved.client_longitude,
@@ -564,6 +570,7 @@ async def update_calculation(
     calculation.style_variation_id = resolved.variation.id if resolved.variation else None
     calculation.braider_style_variation_id = resolved.braider_style_variation_id
     calculation.is_mobile = resolved.is_mobile
+    calculation.country = resolved.country
     calculation.client_address = resolved.client_address
     calculation.client_latitude = resolved.client_latitude
     calculation.client_longitude = resolved.client_longitude

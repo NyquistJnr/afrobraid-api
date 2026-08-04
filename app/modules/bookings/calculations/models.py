@@ -92,6 +92,7 @@ class BookingCalculation(Base):
     )
 
     is_mobile: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    country: Mapped[str | None] = mapped_column(String(2), nullable=True)
     client_address: Mapped[str | None] = mapped_column(String(500), nullable=True)
     client_latitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
     client_longitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)

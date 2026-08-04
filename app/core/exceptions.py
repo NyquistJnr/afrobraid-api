@@ -398,7 +398,13 @@ class BookingCalculationAlreadyUsedError(AppError):
 class MobileServiceNotOfferedError(AppError):
     status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
     code = "MOBILE_SERVICE_NOT_OFFERED"
-    message_key = "booking_calculation.mobile_not_offered"
+    message_key = "booking_calculation.mobile_service_not_offered"
+
+
+class ClientLocationMissingError(AppError):
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    code = "CLIENT_LOCATION_MISSING"
+    message_key = "booking_calculation.client_location_missing"
 
 
 class MobileLocationOutOfRangeError(AppError):

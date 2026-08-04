@@ -62,6 +62,8 @@ class BookingCalculationPreviewResponse(BaseModel):
     platform_fee: Decimal
     vat_on_service: Decimal
     vat_on_platform_fee: Decimal
+    vat_rate: Decimal
+    country: str | None = None
     vat_total: Decimal
     total: Decimal
     deposit_amount: Decimal
