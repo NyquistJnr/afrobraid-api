@@ -3,7 +3,7 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.platform_settings.models import PlatformSettings, SettingValueType
+from app.modules.platform_settings.models import CountryVatSettings, PlatformSettings, SettingValueType
 
 
 async def get_settings(db: AsyncSession) -> PlatformSettings | None:
@@ -36,3 +36,11 @@ async def create_settings(
     db.add(settings)
     await db.flush()
     return settings
+
+
+async def get_country_vat_settings(db: AsyncSession, country: str) -> CountryVatSettings | None:
+    result = await db.execute(
+        select(CountryVatSettings).where(CountryVatSettings.country == country)
+    )
+    return result.scalar_one_or_none()
+

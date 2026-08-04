@@ -18,6 +18,7 @@ from app.core.exceptions import (
     BraiderStyleDurationMissingError,
     BraiderStyleNotFoundError,
     BraiderStyleVariationInvalidError,
+    BraiderCountryMissingError,
     MobileLocationOutOfRangeError,
     MobileServiceNotOfferedError,
     StyleNotFoundError,
@@ -68,6 +69,7 @@ class _ResolvedInput:
     client_latitude: Decimal | None
     client_longitude: Decimal | None
     travel_fee: Decimal | None
+    country: str
 
 
 async def _resolve_input(db: AsyncSession, data: BookingCalculationInput) -> _ResolvedInput:
@@ -122,10 +124,13 @@ async def _resolve_input(db: AsyncSession, data: BookingCalculationInput) -> _Re
         for row in selected_rows
     ]
 
+    location = await service_location_repo.get_by_braider_id(db, profile.id)
+    if location is None or location.country is None:
+        raise BraiderCountryMissingError()
+
     travel_fee: Decimal | None = None
     if data.is_mobile:
-        location = await service_location_repo.get_by_braider_id(db, profile.id)
-        if location is None or not location.offers_mobile:
+        if not location.offers_mobile:
             raise MobileServiceNotOfferedError()
         travel_fee = location.travel_fee
         if (
@@ -157,6 +162,7 @@ async def _resolve_input(db: AsyncSession, data: BookingCalculationInput) -> _Re
         client_latitude=data.client_latitude,
         client_longitude=data.client_longitude,
         travel_fee=travel_fee,
+        country=location.country,
     )
 
 
@@ -167,7 +173,7 @@ async def _price(
     *,
     starts_at: datetime | None = None,
 ) -> PricingResult:
-    effective_settings = await get_effective_settings(db, redis)
+    effective_settings = await get_effective_settings(db, redis, country=resolved.country)
 
     if resolved.variation is not None:
         service_component = PricingComponent(

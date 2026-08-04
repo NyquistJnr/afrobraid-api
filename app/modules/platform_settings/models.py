@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, DateTime, Enum, Numeric, func
+from sqlalchemy import CheckConstraint, DateTime, Enum, Numeric, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -63,6 +63,40 @@ class PlatformSettings(Base):
         Enum(SettingValueType, name="setting_value_type"), nullable=False
     )
     deposit_value: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class CountryVatSettings(Base):
+    """Country-specific overrides for VAT rates. If a country exists in this
+    table, its VAT rates override the default PlatformSettings VAT rates."""
+
+    __tablename__ = "country_vat_settings"
+    __table_args__ = (
+        CheckConstraint(
+            "vat_value >= 0 AND vat_platform_fee_value >= 0 AND "
+            "(vat_type != 'PERCENTAGE' OR vat_value <= 100) AND "
+            "(vat_platform_fee_type != 'PERCENTAGE' OR vat_platform_fee_value <= 100)",
+            name="ck_country_vat_settings_value_ranges",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    country: Mapped[str] = mapped_column(String(2), unique=True, index=True, nullable=False)
+    vat_type: Mapped[SettingValueType] = mapped_column(
+        Enum(SettingValueType, name="setting_value_type"), nullable=False
+    )
+    vat_value: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    vat_platform_fee_type: Mapped[SettingValueType] = mapped_column(
+        Enum(SettingValueType, name="setting_value_type"), nullable=False
+    )
+    vat_platform_fee_value: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

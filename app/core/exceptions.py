@@ -407,6 +407,12 @@ class MobileLocationOutOfRangeError(AppError):
     message_key = "booking_calculation.mobile_location_out_of_range"
 
 
+class BraiderCountryMissingError(AppError):
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    code = "BRAIDER_COUNTRY_MISSING"
+    message_key = "booking_calculation.braider_country_missing"
+
+
 def _locale_of(request: Request) -> str:
     return getattr(request.state, "locale", "en")
 

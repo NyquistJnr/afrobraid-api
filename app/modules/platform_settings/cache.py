@@ -67,8 +67,14 @@ def _from_cache_payload(payload: dict) -> EffectivePlatformSettings:
     )
 
 
-async def get_effective_settings(db: AsyncSession, redis: Redis) -> EffectivePlatformSettings:
-    cached = await get_json(redis, PLATFORM_SETTINGS_CACHE_KEY)
+async def get_effective_settings(
+    db: AsyncSession, redis: Redis, country: str | None = None
+) -> EffectivePlatformSettings:
+    cache_key = PLATFORM_SETTINGS_CACHE_KEY
+    if country is not None:
+        cache_key = f"{PLATFORM_SETTINGS_CACHE_KEY}:country:{country}"
+
+    cached = await get_json(redis, cache_key)
     if cached is not None:
         return _from_cache_payload(cached)
 
@@ -83,19 +89,32 @@ async def get_effective_settings(db: AsyncSession, redis: Redis) -> EffectivePla
         settings = await platform_settings_service._get_or_create_settings(db)
         await db.commit()
 
+    vat_service_type = settings.vat_type
+    vat_service_value = settings.vat_value
+    vat_platform_fee_type = settings.vat_platform_fee_type
+    vat_platform_fee_value = settings.vat_platform_fee_value
+
+    if country is not None:
+        country_override = await platform_settings_repo.get_country_vat_settings(db, country)
+        if country_override is not None:
+            vat_service_type = country_override.vat_type
+            vat_service_value = country_override.vat_value
+            vat_platform_fee_type = country_override.vat_platform_fee_type
+            vat_platform_fee_value = country_override.vat_platform_fee_value
+
     effective = EffectivePlatformSettings(
         platform_fee_type=settings.platform_fee_type,
         platform_fee_value=settings.platform_fee_value,
-        vat_service_type=settings.vat_type,
-        vat_service_value=settings.vat_value,
-        vat_platform_fee_type=settings.vat_platform_fee_type,
-        vat_platform_fee_value=settings.vat_platform_fee_value,
+        vat_service_type=vat_service_type,
+        vat_service_value=vat_service_value,
+        vat_platform_fee_type=vat_platform_fee_type,
+        vat_platform_fee_value=vat_platform_fee_value,
         deposit_type=settings.deposit_type,
         deposit_value=settings.deposit_value,
     )
     await set_json(
         redis,
-        PLATFORM_SETTINGS_CACHE_KEY,
+        cache_key,
         _to_cache_payload(effective),
         ttl_seconds=PLATFORM_SETTINGS_CACHE_TTL_SECONDS,
     )
