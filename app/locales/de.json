@@ -107,6 +107,8 @@
   "booking_calculation.not_found": "Dieses Preisangebot existiert nicht oder ist bereits abgelaufen.",
   "booking_calculation.expired": "Dieses Preisangebot ist abgelaufen. Bitte fordern Sie ein neues an.",
   "booking_calculation.already_used": "Dieses Preisangebot wurde bereits für eine Buchung verwendet.",
+  "booking_calculation.mobile_location_out_of_range": "Der ausgewählte Standort liegt außerhalb des Fahrtbereichs der Braiderin/des Braiders.",
+  "booking_calculation.braider_country_missing": "Das Land der Braiderin/des Braiders fehlt, daher können wir die korrekte Mehrwertsteuer nicht berechnen.",
   "booking_calculation.mobile_not_offered": "Diese Braiderin/dieser Braider bietet keine mobilen Termine an.",
   "booking_calculation.client_location_missing": "Der Standort des Kunden (Breitengrad und Längengrad) ist für mobile Termine erforderlich.",
 

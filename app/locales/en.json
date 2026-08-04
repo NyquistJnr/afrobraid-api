@@ -107,6 +107,8 @@
   "booking_calculation.not_found": "This price quote doesn't exist or has already expired.",
   "booking_calculation.expired": "This price quote has expired. Please request a new one.",
   "booking_calculation.already_used": "This price quote has already been used for a booking.",
+  "booking_calculation.mobile_location_out_of_range": "The selected location is outside the braider's travel radius.",
+  "booking_calculation.braider_country_missing": "The braider's country is missing, so we cannot calculate the correct VAT.",
   "booking_calculation.mobile_not_offered": "This braider doesn't offer mobile appointments.",
   "booking_calculation.client_location_missing": "Client location (latitude and longitude) is required for mobile appointments.",
 
