@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Booking + payment test harness (dev only)</title>
+    <script src="https://js.stripe.com/v3/"></script>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 760px;
+        margin: 40px auto;
+        padding: 0 16px;
+      }
+      h1 {
+        margin-bottom: 4px;
+      }
+      h2 {
+        margin-top: 36px;
+        border-top: 1px solid #e4e4e7;
+        padding-top: 20px;
+      }
+      label {
+        display: block;
+        margin-top: 12px;
+        font-weight: 600;
+        font-size: 14px;
+      }
+      input,
+      select {
+        width: 100%;
+        padding: 8px;
+        margin-top: 4px;
+        box-sizing: border-box;
+        font-size: 14px;
+      }
+      button {
+        margin-top: 12px;
+        padding: 8px 16px;
+        cursor: pointer;
+      }
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+      }
+      pre {
+        background: #f4f4f5;
+        padding: 12px;
+        border-radius: 6px;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        word-break: break-all;
+        font-size: 12px;
+      }
+      .hint {
+        color: #71717a;
+        font-size: 13px;
+      }
+      .row {
+        display: flex;
+        gap: 12px;
+      }
+      .row > div {
+        flex: 1;
+      }
+      .braider-item {
+        border: 1px solid #e4e4e7;
+        border-radius: 6px;
+        padding: 10px;
+        margin-top: 8px;
+        cursor: pointer;
+      }
+      .braider-item:hover {
+        background: #f4f4f5;
+      }
+      #card-element {
+        border: 1px solid #d4d4d8;
+        border-radius: 6px;
+        padding: 10px;
+        margin-top: 8px;
+        background: #fff;
+      }
+      .warn {
+        background: #fef3c7;
+        border: 1px solid #f59e0b;
+        border-radius: 6px;
+        padding: 10px 12px;
+        font-size: 13px;
+        margin-top: 12px;
+      }
+      .ok {
+        color: #16a34a;
+        font-weight: 600;
+      }
+      .bad {
+        color: #dc2626;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Booking + payment test harness</h1>
+    <p class="hint">
+      Throwaway dev tool, not part of the app. Walks through the real
+      <code>booking-calculations</code> &rarr; <code>bookings</code> &rarr;
+      Stripe confirm &rarr; webhook flow against your local API.
+    </p>
+    <div class="warn">
+      Serve this folder over <code>http://localhost:5500</code> (already in
+      <code>CORS_ORIGINS</code> — e.g. VS Code's "Live Server" extension, or
+      <code>python -m http.server 5500</code>), don't just double-click the file
+      — opening it as <code>file://</code> sends no CORS origin and the API will
+      reject the requests. <br /><br />
+      For step 6 to actually flip the booking to <strong>CONFIRMED</strong>, you
+      also need running in a terminal: <br /><code
+        >arq app.worker.WorkerSettings</code
+      >
+      <br /><code
+        >stripe listen --forward-to
+        localhost:8000/api/v1/webhooks/stripe/payments</code
+      >
+    </div>
+
+    <label for="apiBase">API base URL</label>
+    <input id="apiBase" value="http://localhost:8000" />
+
+    <label for="pubKey">Stripe publishable key (pk_test_...)</label>
+    <input id="pubKey" placeholder="pk_test_..." />
+
+    <h2>1. Get a customer access token</h2>
+    <p class="hint">
+      Log in with an existing verified CUSTOMER account, or paste a token you
+      already have.
+    </p>
+    <div class="row">
+      <div>
+        <label for="loginEmail">Email</label>
+        <input id="loginEmail" placeholder="customer@example.com" />
+      </div>
+      <div>
+        <label for="loginPassword">Password</label>
+        <input id="loginPassword" type="password" />
+      </div>
+    </div>
+    <button onclick="login()">Log in</button>
+
+    <label for="tokenBox">Access token</label>
+    <input
+      id="tokenBox"
+      placeholder="Paste an access token here if you'd rather skip login"
+    />
+
+    <h2>2. Find a braider + style</h2>
+    <button onclick="searchBraiders()">Search bookable braiders</button>
+    <div id="braiderResults"></div>
+
+    <div class="row">
+      <div>
+        <label for="braiderId">braider_id</label>
+        <input id="braiderId" />
+      </div>
+      <div>
+        <label for="styleId">style_id</label>
+        <input id="styleId" />
+      </div>
+    </div>
+
+    <h2>3. Create a booking calculation</h2>
+    <label
+      ><input
+        type="checkbox"
+        id="isMobile"
+        style="width: auto; display: inline"
+      />
+      is_mobile</label
+    >
+    <button onclick="createCalculation()">Create calculation</button>
+    <pre id="calcResult">(nothing yet)</pre>
+
+    <h2>4. Create the booking</h2>
+    <label for="startsAt">starts_at (local time)</label>
+    <input id="startsAt" type="datetime-local" />
+    <label
+      ><input
+        type="checkbox"
+        id="termsAccepted"
+        checked
+        style="width: auto; display: inline"
+      />
+      terms_accepted</label
+    >
+    <button onclick="createBooking()">Create booking</button>
+    <pre id="bookingResult">(nothing yet)</pre>
+
+    <h2>5. Pay with a Stripe test card</h2>
+    <p class="hint">
+      Test card <code>4242 4242 4242 4242</code>, any future expiry, any
+      CVC/ZIP. Use <code>4000 0000 0000 9995</code> to test a decline.
+    </p>
+    <div id="card-element"></div>
+    <button id="payButton" onclick="pay()" disabled>Pay</button>
+    <pre id="payResult">(nothing yet)</pre>
+
+    <h2>6. Check booking status</h2>
+    <p class="hint">
+      Confirming the card only marks the PaymentIntent as succeeded on Stripe's
+      side — the booking flips to
+      <strong>CONFIRMED</strong> only once the
+      <code>payment_intent.succeeded</code> webhook is delivered and processed
+      (needs <code>stripe listen</code> + the arq worker running, see the note
+      above). Click a few times a couple of seconds apart.
+    </p>
+    <button onclick="checkStatus()">Refresh booking status</button>
+    <pre id="statusResult">(nothing yet)</pre>
+
+    <script>
+      let calculation = null;
+      let booking = null;
+      let stripe = null;
+      let cardElement = null;
+
+      function apiBase() {
+        return document
+          .getElementById("apiBase")
+          .value.trim()
+          .replace(/\/$/, "");
+      }
+
+      function authHeaders() {
+        const token = document.getElementById("tokenBox").value.trim();
+        return token ? { Authorization: `Bearer ${token}` } : {};
+      }
+
+      function show(elId, status, body) {
+        document.getElementById(elId).textContent =
+          `HTTP ${status}\n\n` + JSON.stringify(body, null, 2);
+      }
+
+      async function login() {
+        const email = document.getElementById("loginEmail").value.trim();
+        const password = document.getElementById("loginPassword").value;
+        try {
+          const resp = await fetch(`${apiBase()}/api/v1/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password, remember_me: false }),
+          });
+          const body = await resp.json();
+          if (resp.ok) {
+            document.getElementById("tokenBox").value = body.data.access_token;
+          }
+          alert(
+            resp.ok
+              ? "Logged in - token filled in below."
+              : "Login failed: " + JSON.stringify(body),
+          );
+        } catch (err) {
+          alert("Request failed: " + err);
+        }
+      }
+
+      async function searchBraiders() {
+        const resultsEl = document.getElementById("braiderResults");
+        resultsEl.textContent = "Searching...";
+        try {
+          const resp = await fetch(
+            `${apiBase()}/api/v1/braiders?page=1&page_size=10`,
+          );
+          const body = await resp.json();
+          if (!resp.ok) {
+            resultsEl.textContent = "Search failed: " + JSON.stringify(body);
+            return;
+          }
+          const items = body.data.items;
+          if (!items.length) {
+            resultsEl.textContent =
+              "No bookable braiders found - create one first (payment setup + onboarding must be complete).";
+            return;
+          }
+          resultsEl.innerHTML = "";
+          for (const b of items) {
+            for (const style of b.styles) {
+              const div = document.createElement("div");
+              div.className = "braider-item";
+              div.textContent = `${b.business_name || "(no name)"} — ${style.name} — ${style.base_price} (${style.duration_minutes ?? "?"} min)`;
+              div.onclick = () => {
+                document.getElementById("braiderId").value = b.id;
+                document.getElementById("styleId").value = style.style_id;
+              };
+              resultsEl.appendChild(div);
+            }
+          }
+        } catch (err) {
+          resultsEl.textContent = "Request failed: " + err;
+        }
+      }
+
+      async function createCalculation() {
+        const braiderId = document.getElementById("braiderId").value.trim();
+        const styleId = document.getElementById("styleId").value.trim();
+        const isMobile = document.getElementById("isMobile").checked;
+        if (!braiderId || !styleId) {
+          alert(
+            "Fill in braider_id and style_id first (search above, or paste manually).",
+          );
+          return;
+        }
+        try {
+          const resp = await fetch(`${apiBase()}/api/v1/booking-calculations`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              braider_id: braiderId,
+              style_id: styleId,
+              is_mobile: isMobile,
+            }),
+          });
+          const body = await resp.json();
+          show("calcResult", resp.status, body);
+          if (resp.ok) calculation = body.data;
+        } catch (err) {
+          document.getElementById("calcResult").textContent =
+            "Request failed: " + err;
+        }
+      }
+
+      async function createBooking() {
+        if (!calculation) {
+          alert("Create a calculation first (step 3).");
+          return;
+        }
+        const startsAtLocal = document.getElementById("startsAt").value;
+        const termsAccepted = document.getElementById("termsAccepted").checked;
+        if (!startsAtLocal) {
+          alert("Pick a starts_at date/time.");
+          return;
+        }
+        try {
+          const resp = await fetch(`${apiBase()}/api/v1/bookings`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...authHeaders() },
+            body: JSON.stringify({
+              booking_calculation_id: calculation.id,
+              starts_at: new Date(startsAtLocal).toISOString(),
+              terms_accepted: termsAccepted,
+            }),
+          });
+          const body = await resp.json();
+          show("bookingResult", resp.status, body);
+          if (resp.ok) {
+            booking = body.data;
+            setupStripeCard();
+          }
+        } catch (err) {
+          document.getElementById("bookingResult").textContent =
+            "Request failed: " + err;
+        }
+      }
+
+      function setupStripeCard() {
+        const pubKey = document.getElementById("pubKey").value.trim();
+        if (!pubKey) {
+          alert(
+            "Paste your Stripe publishable key (pk_test_...) before creating the booking.",
+          );
+          return;
+        }
+        if (!stripe) stripe = Stripe(pubKey);
+        if (!cardElement) {
+          const elements = stripe.elements();
+          cardElement = elements.create("card");
+          cardElement.mount("#card-element");
+        }
+        document.getElementById("payButton").disabled = false;
+      }
+
+      async function pay() {
+        if (!booking || !booking.payments || !booking.payments.length) {
+          alert("Create a booking first (step 4).");
+          return;
+        }
+        const clientSecret = booking.payments[0].client_secret;
+        const payButton = document.getElementById("payButton");
+        payButton.disabled = true;
+        document.getElementById("payResult").textContent =
+          "Confirming payment with Stripe...";
+        try {
+          const result = await stripe.confirmCardPayment(clientSecret, {
+            payment_method: { card: cardElement },
+          });
+          if (result.error) {
+            document.getElementById("payResult").innerHTML =
+              `<span class="bad">${result.error.message}</span>`;
+          } else {
+            document.getElementById("payResult").innerHTML =
+              `<span class="ok">PaymentIntent status: ${result.paymentIntent.status}</span>\n\n` +
+              JSON.stringify(result.paymentIntent, null, 2);
+          }
+        } catch (err) {
+          document.getElementById("payResult").textContent =
+            "Request failed: " + err;
+        } finally {
+          payButton.disabled = false;
+        }
+      }
+
+      async function checkStatus() {
+        if (!booking) {
+          alert("Create a booking first (step 4).");
+          return;
+        }
+        try {
+          const resp = await fetch(`${apiBase()}/bookings/${booking.id}`, {
+            headers: { ...authHeaders() },
+          });
+          const body = await resp.json();
+          show("statusResult", resp.status, body);
+        } catch (err) {
+          document.getElementById("statusResult").textContent =
+            "Request failed: " + err;
+        }
+      }
+
+      // Default starts_at to 10 hours from now, formatted for datetime-local.
+      (function setDefaultStartsAt() {
+        const d = new Date(Date.now() + 10 * 60 * 60 * 1000);
+        d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+        document.getElementById("startsAt").value = d
+          .toISOString()
+          .slice(0, 16);
+      })();
+    </script>
+  </body>
+</html>

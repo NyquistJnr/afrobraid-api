@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Stripe payment confirm test (dev only)</title>
+    <script src="https://js.stripe.com/v3/"></script>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 480px;
+        margin: 40px auto;
+        padding: 0 16px;
+      }
+      h1 {
+        margin-bottom: 4px;
+      }
+      label {
+        display: block;
+        margin-top: 16px;
+        font-weight: 600;
+        font-size: 14px;
+      }
+      input {
+        width: 100%;
+        padding: 8px;
+        margin-top: 4px;
+        box-sizing: border-box;
+        font-size: 14px;
+      }
+      button {
+        margin-top: 16px;
+        padding: 10px 16px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+      }
+      pre {
+        background: #f4f4f5;
+        padding: 12px;
+        border-radius: 6px;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        word-break: break-all;
+        font-size: 12px;
+      }
+      .hint {
+        color: #71717a;
+        font-size: 13px;
+      }
+      #card-element {
+        border: 1px solid #d4d4d8;
+        border-radius: 6px;
+        padding: 10px;
+        margin-top: 8px;
+        background: #fff;
+      }
+      .ok {
+        color: #16a34a;
+        font-weight: 600;
+      }
+      .bad {
+        color: #dc2626;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Stripe payment confirm test</h1>
+    <p class="hint">
+      Throwaway dev tool, not part of the app. Paste a
+      <code>client_secret</code> (from a booking's
+      <code>payments[i].client_secret</code>) and your Stripe publishable key,
+      then pay with a test card. Doesn't call your API at all — talks to
+      Stripe directly, so <code>file://</code> is fine, no need to serve it.
+    </p>
+
+    <label for="pubKey">Stripe publishable key (pk_test_...)</label>
+    <input id="pubKey" placeholder="pk_test_..." />
+
+    <label for="clientSecret">PaymentIntent client_secret</label>
+    <input id="clientSecret" placeholder="pi_..._secret_..." />
+
+    <button id="mountButton" onclick="mountCard()">Continue</button>
+
+    <div id="card-element" style="display: none"></div>
+    <p class="hint" id="cardHint" style="display: none">
+      Test card <code>4242 4242 4242 4242</code>, any future expiry, any
+      CVC/ZIP. Use <code>4000 0000 0000 9995</code> to test a decline.
+    </p>
+    <button id="payButton" onclick="pay()" style="display: none">Pay</button>
+
+    <pre id="result">(nothing yet)</pre>
+
+    <script>
+      let stripe = null;
+      let cardElement = null;
+
+      function mountCard() {
+        const pubKey = document.getElementById("pubKey").value.trim();
+        const clientSecret = document.getElementById("clientSecret").value.trim();
+        if (!pubKey || !clientSecret) {
+          alert("Fill in both the publishable key and the client_secret first.");
+          return;
+        }
+        if (!stripe) stripe = Stripe(pubKey);
+        if (!cardElement) {
+          const elements = stripe.elements();
+          cardElement = elements.create("card");
+          cardElement.mount("#card-element");
+        }
+        document.getElementById("card-element").style.display = "block";
+        document.getElementById("cardHint").style.display = "block";
+        document.getElementById("payButton").style.display = "inline-block";
+        document.getElementById("mountButton").disabled = true;
+      }
+
+      async function pay() {
+        const clientSecret = document.getElementById("clientSecret").value.trim();
+        const payButton = document.getElementById("payButton");
+        const resultEl = document.getElementById("result");
+        payButton.disabled = true;
+        resultEl.textContent = "Confirming payment with Stripe...";
+        try {
+          const result = await stripe.confirmCardPayment(clientSecret, {
+            payment_method: { card: cardElement },
+          });
+          if (result.error) {
+            resultEl.innerHTML = `<span class="bad">${result.error.message}</span>`;
+          } else {
+            resultEl.innerHTML =
+              `<span class="ok">PaymentIntent status: ${result.paymentIntent.status}</span>\n\n` +
+              JSON.stringify(result.paymentIntent, null, 2);
+          }
+        } catch (err) {
+          resultEl.textContent = "Request failed: " + err;
+        } finally {
+          payButton.disabled = false;
+        }
+      }
+    </script>
+  </body>
+</html>
