@@ -11,10 +11,14 @@ from app.core.logging import configure_logging
 # unless the referenced table has been registered somewhere first.
 from app.modules.auth import models as auth_models  # noqa: F401,E402
 from app.modules.auth.tasks import send_otp_email_task
+from app.modules.bookings import models as bookings_models  # noqa: F401,E402
 from app.modules.bookings.calculations import (
     models as booking_calculations_models,  # noqa: F401,E402
 )
 from app.modules.bookings.calculations.cron import expire_booking_calculations_cron
+from app.modules.bookings.cron import expire_booking_holds_cron
+from app.modules.bookings.payments import models as booking_payments_models  # noqa: F401,E402
+from app.modules.bookings.tasks import send_booking_confirmed_email_task
 from app.modules.braiders import models as braiders_models  # noqa: F401,E402
 from app.modules.braiders.offerings import models as braider_offerings_models  # noqa: F401,E402
 from app.modules.braiders.portfolio import models as braider_portfolio_models  # noqa: F401,E402
@@ -37,9 +41,13 @@ class WorkerSettings:
         translate_bio_task,
         translate_style_text_task,
         translate_portfolio_caption_task,
+        send_booking_confirmed_email_task,
     ]
-    # Hourly, well ahead of the 2h calculation TTL - see
-    # app.modules.bookings.calculations.cron.
-    cron_jobs = [cron(expire_booking_calculations_cron, minute=0)]
+    cron_jobs = [
+        # Hourly, well ahead of the 2h calculation TTL - see
+        # app.modules.bookings.calculations.cron.
+        cron(expire_booking_calculations_cron, minute=0),
+        cron(expire_booking_holds_cron, second=0),
+    ]
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
     on_startup = startup

@@ -118,5 +118,20 @@
   "booking_calculation.platform_fee_label": "Frais de service",
   "booking_calculation.vat_service_label": "TVA",
   "booking_calculation.vat_platform_fee_label": "TVA sur les frais de service",
-  "booking_calculation.deposit_note": "Cet acompte est indicatif. Le montant exact et l'échéancier de paiement sont confirmés lorsque vous choisissez un horaire de rendez-vous."
+  "booking_calculation.deposit_note": "Cet acompte est indicatif. Le montant exact et l'échéancier de paiement sont confirmés lorsque vous choisissez un horaire de rendez-vous.",
+
+  "booking.not_found": "Cette réservation n'existe pas.",
+  "booking.starts_in_past": "L'heure du rendez-vous doit être dans le futur.",
+  "booking.braider_not_payable": "Ce ou cette braideur/braideuse ne peut pas accepter de paiements pour le moment. Veuillez réessayer plus tard.",
+  "booking.price_drift": "Le prix a changé depuis la création de votre devis. Veuillez demander un nouveau devis et réessayer.",
+  "booking.slot_unavailable": "Ce créneau vient d'être réservé par quelqu'un d'autre. Veuillez choisir un autre horaire.",
+  "booking.terms_not_accepted": "Vous devez accepter les conditions pour finaliser cette réservation.",
+
+  "payment.webhook_metadata_missing": "L'événement webhook Stripe ne contient pas les métadonnées requises.",
+
+  "email.booking_confirmed_subject": "Votre réservation Afrobraid {reference} est confirmée",
+  "email.booking_confirmed_greeting": "Bonjour {first_name},",
+  "email.booking_confirmed_body": "Votre rendez-vous pour {style_name} avec {braider_name} est confirmé pour le {when}.",
+  "email.booking_confirmed_reference_label": "Référence de réservation",
+  "email.booking_confirmed_total_label": "Total"
 }

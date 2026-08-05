@@ -9,7 +9,10 @@ from app.core.i18n import LocaleMiddleware
 from app.core.logging import configure_logging
 from app.core.queue import create_arq_pool
 from app.modules.auth.router import router as auth_router
+from app.modules.bookings.braider_router import router as braider_bookings_router
 from app.modules.bookings.calculations.router import router as booking_calculations_router
+from app.modules.bookings.payments.webhook import router as stripe_payments_webhook_router
+from app.modules.bookings.router import router as bookings_router
 from app.modules.braiders.availability.router import (
     public_router as braider_availability_public_router,
 )
@@ -84,6 +87,9 @@ def create_app() -> FastAPI:
     app.include_router(braider_payment_setup_router)
     app.include_router(stripe_webhook_router)
     app.include_router(booking_calculations_router)
+    app.include_router(bookings_router)
+    app.include_router(braider_bookings_router)
+    app.include_router(stripe_payments_webhook_router)
 
     @app.get("/health", tags=["Health"])
     async def health() -> dict[str, str]:

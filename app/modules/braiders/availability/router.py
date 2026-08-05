@@ -171,9 +171,9 @@ async def delete_exception(
     response_model=APIResponse[list[AvailableSlotResponse]],
     summary="Get bookable slots for a braider's style",
     description=(
-        "Computed from the braider's weekly hours, date exceptions, and the "
-        "style's duration - returned as UTC start/end datetimes. Doesn't yet "
-        "exclude already-booked times (there's no booking system yet)."
+        "Computed from the braider's weekly hours, date exceptions, the "
+        "style's duration, and already-booked times - returned as UTC "
+        "start/end datetimes."
     ),
 )
 async def get_available_slots(

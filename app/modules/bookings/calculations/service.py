@@ -57,7 +57,7 @@ _AddonEntry = tuple[uuid.UUID, uuid.UUID, AddOn | None, Decimal, bool]
 
 
 @dataclass(frozen=True)
-class _ResolvedInput:
+class ResolvedInput:
     braider_id: uuid.UUID
     style: Style
     braider_style: BraiderStyle
@@ -73,7 +73,15 @@ class _ResolvedInput:
     country: str
 
 
-async def _resolve_input(db: AsyncSession, data: BookingCalculationInput) -> _ResolvedInput:
+async def resolve_calculation_input(db: AsyncSession, data: BookingCalculationInput) -> ResolvedInput:
+    """Re-derives and re-authorizes a calculator input from scratch - visible
+    braider, active braider_style, valid variation/addons, mobile radius
+    check, country resolution. Public because `bookings/service.py` reuses
+    this exact path (constructing a `BookingCalculationInput` from a
+    persisted `BookingCalculation`'s stored ids) to re-validate a DRAFT
+    calculation at booking-creation time rather than trusting the frozen
+    snapshot - a braider's location, radius, or menu may have changed since
+    the quote was created."""
     profile = await discovery_repo.get_visible_profile_by_id(db, data.braider_id)
     if profile is None:
         raise BraiderNotFoundError()
@@ -154,7 +162,7 @@ async def _resolve_input(db: AsyncSession, data: BookingCalculationInput) -> _Re
     client_latitude = data.client_latitude if data.is_mobile else None
     client_longitude = data.client_longitude if data.is_mobile else None
 
-    return _ResolvedInput(
+    return ResolvedInput(
         braider_id=profile.id,
         style=style,
         braider_style=braider_style,
@@ -171,8 +179,8 @@ async def _resolve_input(db: AsyncSession, data: BookingCalculationInput) -> _Re
     )
 
 
-async def _price(
-    resolved: _ResolvedInput,
+async def price_resolved_input(
+    resolved: ResolvedInput,
     db: AsyncSession,
     redis: Redis,
     *,
@@ -275,7 +283,7 @@ def _pricing_result_items(
 
 
 def _to_preview_response(
-    resolved: _ResolvedInput,
+    resolved: ResolvedInput,
     result: PricingResult,
     *,
     addon_catalog: dict[uuid.UUID, AddOn],
@@ -437,8 +445,8 @@ async def _stored_preview_response(
 async def preview(
     db: AsyncSession, redis: Redis, *, data: BookingCalculationInput, locale: str
 ) -> BookingCalculationPreviewResponse:
-    resolved = await _resolve_input(db, data)
-    result = await _price(resolved, db, redis)
+    resolved = await resolve_calculation_input(db, data)
+    result = await price_resolved_input(resolved, db, redis)
     addon_catalog = {
         addon_id: addon for _, addon_id, addon, _, _ in resolved.addon_entries if addon is not None
     }
@@ -454,8 +462,8 @@ async def create_calculation(
     user_id: uuid.UUID | None,
     client_ip: str | None,
 ) -> BookingCalculationResponse:
-    resolved = await _resolve_input(db, data)
-    result = await _price(resolved, db, redis)
+    resolved = await resolve_calculation_input(db, data)
+    result = await price_resolved_input(resolved, db, redis)
 
     expires_at = datetime.now(UTC) + timedelta(hours=settings.booking_calculation_ttl_hours)
 
@@ -565,8 +573,8 @@ async def update_calculation(
         client_longitude=data.client_longitude if "client_longitude" in fields_set else calculation.client_longitude,
     )
 
-    resolved = await _resolve_input(db, merged_input)
-    result = await _price(resolved, db, redis)
+    resolved = await resolve_calculation_input(db, merged_input)
+    result = await price_resolved_input(resolved, db, redis)
 
     calculation.braider_id = resolved.braider_id
     calculation.braider_style_id = resolved.braider_style.id

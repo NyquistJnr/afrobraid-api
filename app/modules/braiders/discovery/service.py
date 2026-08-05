@@ -88,6 +88,7 @@ def _to_location_response(
         country=location.country,
         offers_mobile=location.offers_mobile,
         travel_radius_km=location.travel_radius_km,
+        travel_fee=location.travel_fee,
     )
 
 

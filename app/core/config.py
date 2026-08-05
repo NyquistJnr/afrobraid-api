@@ -72,6 +72,15 @@ class Settings(BaseSettings):
     stripe_webhook_secret: str = ""
     stripe_connect_refresh_url: str = ""
     stripe_connect_return_url: str = ""
+    # Separate secret from stripe_webhook_secret above - that one signs
+    # Connect account events (account.updated), this one signs platform
+    # payment events (payment_intent.*) on the new webhooks/stripe/payments
+    # route. Two endpoints, two secrets, per Stripe's own recommendation for
+    # apps that receive both event families.
+    stripe_payments_webhook_secret: str = ""
+    # Pinned explicitly (design correction #8) so Stripe can't reshape
+    # webhook/API payloads out from under this app on their own schedule.
+    stripe_api_version: str = "2024-06-20"
 
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
@@ -96,6 +105,20 @@ class Settings(BaseSettings):
     # before it's stored (booking_calculations.client_ip_hash) - an IP is
     # personal data under GDPR, so the raw address is never persisted.
     client_ip_hash_salt: str = ""
+
+    # A booking sits in PENDING_PAYMENT (holding the calendar slot via the
+    # exclusion constraint) until its first payment_intent.succeeds. Past
+    # this many minutes with no successful payment, expire_booking_holds
+    # (Phase 3+) reclaims the slot.
+    booking_hold_minutes: int = 30
+    # Customer may cancel for a full-refund-free (deposit forfeited) outcome
+    # up to this many hours before the appointment.
+    booking_cancellation_cutoff_hours: int = 24
+    # balance_charge_due_at = cancellation cutoff + this grace period - kept
+    # apart from the cutoff itself so the sweeper never fires right as the
+    # cancel window closes (design correction #3).
+    booking_balance_charge_grace_minutes: int = 45
+    booking_terms_version: str = "1.0"
 
     @property
     def supported_locales_list(self) -> list[str]:

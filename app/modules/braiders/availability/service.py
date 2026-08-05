@@ -1,6 +1,6 @@
 import uuid
 import zoneinfo
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +15,7 @@ from app.core.exceptions import (
     OverlappingAvailabilityWindowError,
     WeeklyWindowNotFoundError,
 )
+from app.modules.bookings import repository as bookings_repo
 from app.modules.braiders import repository as braiders_repo
 from app.modules.braiders.availability import repository as availability_repo
 from app.modules.braiders.availability.models import (
@@ -296,12 +297,34 @@ async def compute_available_slots(
     if range_start > range_end:
         return []
 
+    # Batch-fetched once for the whole range rather than once per day (the
+    # previous N+1) - `list_exceptions` already supports a date_from/date_to
+    # filter, so this is a pure query-count fix, no new repo method needed.
+    range_exceptions = await availability_repo.list_exceptions(
+        db, braider_id, date_from=range_start, date_to=range_end
+    )
+    exceptions_by_date: dict[date, list[BraiderAvailabilityException]] = {}
+    for exception in range_exceptions:
+        exceptions_by_date.setdefault(exception.date, []).append(exception)
+
+    # Already-booked spans in this window - subtracted below so a slot that
+    # would overlap an existing booking is never offered as available.
+    blocked_ranges = await bookings_repo.list_blocked_ranges(
+        db,
+        braider_id,
+        range_start=datetime.combine(range_start, time.min, tzinfo=tz),
+        range_end=datetime.combine(range_end + timedelta(days=1), time.min, tzinfo=tz),
+    )
+
+    def _overlaps_booking(slot_start: datetime, slot_end: datetime) -> bool:
+        return any(slot_start < until and start < slot_end for start, until in blocked_ranges)
+
     weekly_windows_by_day: dict[DayOfWeek, list[BraiderWeeklyAvailability]] = {}
     slots: list[AvailableSlotResponse] = []
 
     current = range_start
     while current <= range_end:
-        day_exceptions = await availability_repo.list_exceptions_for_date(db, braider_id, current)
+        day_exceptions = exceptions_by_date.get(current, [])
         if any(e.exception_type == AvailabilityExceptionType.CLOSED for e in day_exceptions):
             current += timedelta(days=1)
             continue
@@ -327,7 +350,7 @@ async def compute_available_slots(
             slot_start = window_start
             while slot_start + duration <= window_end:
                 slot_end = slot_start + duration
-                if slot_start >= earliest_start:
+                if slot_start >= earliest_start and not _overlaps_booking(slot_start, slot_end):
                     slots.append(
                         AvailableSlotResponse(
                             start_at=slot_start.astimezone(UTC),

@@ -431,6 +431,59 @@ class BraiderCountryMissingError(AppError):
     message_key = "booking_calculation.braider_country_missing"
 
 
+class BookingNotFoundError(AppError):
+    status_code = status.HTTP_404_NOT_FOUND
+    code = "BOOKING_NOT_FOUND"
+    message_key = "booking.not_found"
+
+
+class BookingStartsInPastError(AppError):
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    code = "BOOKING_STARTS_IN_PAST"
+    message_key = "booking.starts_in_past"
+
+
+class BraiderNotPayableError(AppError):
+    """A braider without a fully-capable Stripe Connect account can't be
+    booked - discovery already hides a braider who never finished payment
+    setup, so in practice this only fires for one whose capabilities were
+    later revoked by Stripe (payment_setup_completed_at doesn't un-set
+    itself)."""
+
+    status_code = status.HTTP_409_CONFLICT
+    code = "BRAIDER_NOT_PAYABLE"
+    message_key = "booking.braider_not_payable"
+
+
+class BookingPriceDriftError(AppError):
+    """The braider's catalog (price, duration, ...) or the effective
+    platform settings changed between the calculation and the booking
+    attempt. Never silently re-price - the customer must fetch a fresh
+    quote and confirm the new total."""
+
+    status_code = status.HTTP_409_CONFLICT
+    code = "BOOKING_PRICE_DRIFT"
+    message_key = "booking.price_drift"
+
+
+class BookingSlotUnavailableError(AppError):
+    status_code = status.HTTP_409_CONFLICT
+    code = "BOOKING_SLOT_UNAVAILABLE"
+    message_key = "booking.slot_unavailable"
+
+
+class TermsNotAcceptedError(AppError):
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    code = "TERMS_NOT_ACCEPTED"
+    message_key = "booking.terms_not_accepted"
+
+
+class StripeWebhookMetadataMissingError(AppError):
+    status_code = status.HTTP_400_BAD_REQUEST
+    code = "STRIPE_WEBHOOK_METADATA_MISSING"
+    message_key = "payment.webhook_metadata_missing"
+
+
 def _locale_of(request: Request) -> str:
     return getattr(request.state, "locale", "en")
 

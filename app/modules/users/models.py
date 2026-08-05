@@ -38,6 +38,10 @@ class User(Base):
     user_type: Mapped[UserType] = mapped_column(Enum(UserType, name="user_type"), nullable=False)
     is_email_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # Cached rather than looked up per-booking - Stripe Customers live on the
+    # platform account (see bookings/payments), so this is a 1:1 mirror, not
+    # something that needs its own table.
+    stripe_customer_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

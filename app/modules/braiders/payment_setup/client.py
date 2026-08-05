@@ -7,6 +7,11 @@ from app.core.config import get_settings
 
 settings = get_settings()
 stripe.api_key = settings.stripe_secret_key
+# Pinned so Stripe can't reshape request/response/webhook payloads under this
+# app on their own release schedule (design correction #8). `stripe.api_version`
+# is a single process-wide setting on the SDK module, so setting it here also
+# covers every other Stripe client in the app (see bookings/payments/client.py).
+stripe.api_version = settings.stripe_api_version
 
 
 class StripeApiError(Exception):

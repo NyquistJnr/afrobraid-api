@@ -24,6 +24,11 @@ class BraiderLocationResponse(BaseModel):
     country: str | None
     offers_mobile: bool
     travel_radius_km: int | None
+    # Mandatory-charge transparency for mobile appointments (EU price
+    # transparency rules require showing this pre-order, not just at
+    # checkout) - also what the booking calculator needs to price a mobile
+    # job before the customer commits to anything.
+    travel_fee: Decimal | None
 
 
 class BraiderSearchItemResponse(BaseModel):

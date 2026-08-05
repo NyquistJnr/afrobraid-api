@@ -118,5 +118,20 @@
   "booking_calculation.platform_fee_label": "Service fee",
   "booking_calculation.vat_service_label": "VAT",
   "booking_calculation.vat_platform_fee_label": "VAT on service fee",
-  "booking_calculation.deposit_note": "This deposit is indicative. The exact amount and payment schedule are confirmed when you choose an appointment time."
+  "booking_calculation.deposit_note": "This deposit is indicative. The exact amount and payment schedule are confirmed when you choose an appointment time.",
+
+  "booking.not_found": "This booking doesn't exist.",
+  "booking.starts_in_past": "The appointment time must be in the future.",
+  "booking.braider_not_payable": "This braider can't accept payments right now. Please try again later.",
+  "booking.price_drift": "The price changed since your quote was created. Please request a new quote and try again.",
+  "booking.slot_unavailable": "This time slot was just booked by someone else. Please choose another time.",
+  "booking.terms_not_accepted": "You must accept the terms to complete this booking.",
+
+  "payment.webhook_metadata_missing": "Stripe webhook event is missing required metadata.",
+
+  "email.booking_confirmed_subject": "Your Afrobraid booking {reference} is confirmed",
+  "email.booking_confirmed_greeting": "Hi {first_name},",
+  "email.booking_confirmed_body": "Your appointment for {style_name} with {braider_name} is confirmed for {when}.",
+  "email.booking_confirmed_reference_label": "Booking reference",
+  "email.booking_confirmed_total_label": "Total"
 }

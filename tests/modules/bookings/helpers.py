@@ -10,6 +10,7 @@ from app.modules.braiders.offerings.models import (
     BraiderStyleAddon,
     BraiderStyleVariation,
 )
+from app.modules.braiders.payment_setup.models import StripeConnectAccount
 from app.modules.braiders.service_location.models import BraiderServiceLocation, LocationType
 from app.modules.styles.models import AddOn, Style, StyleVariation
 from app.modules.users.models import UserType
@@ -30,12 +31,18 @@ async def create_bookable_braider(
     offers_mobile: bool = False,
     travel_fee: str | None = "15.00",
     country: str = "DE",
+    payable: bool = True,
 ) -> dict:
     """Builds a publicly-visible, bookable braider (every onboarding step
     complete, payment setup included - see
     braiders.discovery.repository._REQUIRED_ONBOARDING_FIELDS) with one
     offered style, directly via the ORM, mirroring
-    tests/modules/braiders/test_discovery.py's _make_completed_braider."""
+    tests/modules/braiders/test_discovery.py's _make_completed_braider.
+
+    `payable=True` (the default) also gives the braider a Stripe Connect
+    account with charges_enabled/payouts_enabled set, satisfying
+    bookings.service.create_booking's payability gate - pass False to
+    exercise the BRAIDER_NOT_PAYABLE 409 path."""
     user, _ = await create_user_with_token(db_session, user_type=UserType.BRAIDER)
     profile = BraiderProfile(user_id=user.id, business_name=business_name, bio_en="Great braids")
     db_session.add(profile)
@@ -69,6 +76,17 @@ async def create_bookable_braider(
             travel_fee=Decimal(travel_fee) if (offers_mobile and travel_fee is not None) else None,
         )
     )
+
+    if payable:
+        db_session.add(
+            StripeConnectAccount(
+                braider_id=profile.id,
+                stripe_account_id=f"acct_test_{uuid.uuid4().hex[:16]}",
+                charges_enabled=True,
+                payouts_enabled=True,
+                details_submitted=True,
+            )
+        )
 
     style = Style(slug=f"style-{uuid.uuid4().hex[:10]}", name_en="Knotless Braids", is_active=True)
     db_session.add(style)
