@@ -103,6 +103,8 @@
   "payment_setup.country_required": "Please complete your service location first - we need your country to set up your payout account.",
 
   "platform_settings.invalid_percentage_value": "A percentage-based value must be between 0 and 100.",
+  "platform_settings.invalid_country_code": "Country must be a 2-letter ISO code, e.g. \"DE\".",
+  "platform_settings.country_vat_not_found": "No VAT override exists for this country.",
 
   "booking_calculation.not_found": "This price quote doesn't exist or has already expired.",
   "booking_calculation.expired": "This price quote has expired. Please request a new one.",

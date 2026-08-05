@@ -3,11 +3,17 @@ needs the fee/VAT/deposit configuration on a hot path (chiefly the booking
 pricing engine) without hitting Postgres on every request.
 
 TTL is 7 days - comfortably over the "cache at least 24 hours" requirement.
-`update_settings` double-deletes the key around its commit (delete -> commit
--> delete again) so a read racing the write can't repopulate the cache from
-the pre-commit snapshot. The admin GET/PATCH endpoints always read the DB
-directly - only `get_effective_settings` goes through this cache, so an
-admin can never be shown a stale value for their own change.
+Writes double-delete around their commit (delete -> commit -> delete again)
+so a read racing the write can't repopulate the cache from the pre-commit
+snapshot. The admin GET/PATCH endpoints always read the DB directly - only
+`get_effective_settings` goes through this cache, so an admin can never be
+shown a stale value for their own change.
+
+Per-country entries (`cache:platform_settings:v1:country:{CC}`) are tracked
+in a Redis set (`_TRACKED_COUNTRIES_KEY`) as they're populated, so a global
+`PlatformSettings` write - which changes the *fallback* every country
+without its own override is silently using - can find and invalidate all of
+them too, not just the base key.
 """
 
 from dataclasses import dataclass
@@ -22,6 +28,11 @@ from app.modules.platform_settings.models import SettingValueType
 
 PLATFORM_SETTINGS_CACHE_KEY = "cache:platform_settings:v1"
 PLATFORM_SETTINGS_CACHE_TTL_SECONDS = 60 * 60 * 24 * 7  # 7 days
+_TRACKED_COUNTRIES_KEY = "cache:platform_settings:v1:countries"
+
+
+def _country_cache_key(country: str) -> str:
+    return f"{PLATFORM_SETTINGS_CACHE_KEY}:country:{country}"
 
 
 @dataclass(frozen=True)
@@ -70,9 +81,7 @@ def _from_cache_payload(payload: dict) -> EffectivePlatformSettings:
 async def get_effective_settings(
     db: AsyncSession, redis: Redis, country: str | None = None
 ) -> EffectivePlatformSettings:
-    cache_key = PLATFORM_SETTINGS_CACHE_KEY
-    if country is not None:
-        cache_key = f"{PLATFORM_SETTINGS_CACHE_KEY}:country:{country}"
+    cache_key = _country_cache_key(country) if country is not None else PLATFORM_SETTINGS_CACHE_KEY
 
     cached = await get_json(redis, cache_key)
     if cached is not None:
@@ -118,8 +127,21 @@ async def get_effective_settings(
         _to_cache_payload(effective),
         ttl_seconds=PLATFORM_SETTINGS_CACHE_TTL_SECONDS,
     )
+    if country is not None:
+        await redis.sadd(_TRACKED_COUNTRIES_KEY, country)
     return effective
 
 
 async def invalidate(redis: Redis) -> None:
-    await delete(redis, PLATFORM_SETTINGS_CACHE_KEY)
+    """Invalidates the global rate. Also flushes every country-scoped entry
+    that's ever been cached, since an unoverridden country silently inherits
+    the global rate as its fallback - leaving those keys alone after a
+    global-rate change would keep serving the old value for up to the full
+    TTL."""
+    countries = await redis.smembers(_TRACKED_COUNTRIES_KEY)
+    country_keys = [_country_cache_key(c) for c in countries]
+    await delete(redis, PLATFORM_SETTINGS_CACHE_KEY, *country_keys)
+
+
+async def invalidate_country(redis: Redis, country: str) -> None:
+    await delete(redis, _country_cache_key(country))

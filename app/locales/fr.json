@@ -103,6 +103,8 @@
   "payment_setup.country_required": "Veuillez d'abord compléter votre localisation - nous avons besoin de votre pays pour configurer votre compte de paiement.",
 
   "platform_settings.invalid_percentage_value": "Une valeur en pourcentage doit être comprise entre 0 et 100.",
+  "platform_settings.invalid_country_code": "Le pays doit être un code ISO à 2 lettres, par exemple \"DE\".",
+  "platform_settings.country_vat_not_found": "Aucune TVA spécifique n'existe pour ce pays.",
 
   "booking_calculation.not_found": "Ce devis n'existe pas ou a déjà expiré.",
   "booking_calculation.expired": "Ce devis a expiré. Veuillez en demander un nouveau.",

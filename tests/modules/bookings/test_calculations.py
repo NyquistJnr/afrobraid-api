@@ -1,5 +1,6 @@
 import uuid
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 import pytest
 from httpx import AsyncClient
@@ -9,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.bookings.calculations import repository as calculations_repo
 from app.modules.bookings.calculations.cron import expire_booking_calculations_cron
 from app.modules.bookings.calculations.models import BookingCalculation, BookingCalculationStatus
+from app.modules.braiders.service_location.models import BraiderServiceLocation
+from app.modules.platform_settings.models import CountryVatSettings, SettingValueType
 from app.modules.styles.models import Style
 from tests.modules.bookings.helpers import create_bookable_braider
 
@@ -18,7 +21,10 @@ CALC_URL = "/api/v1/booking-calculations"
 
 
 async def test_create_calculation_basic(client: AsyncClient, db_session: AsyncSession):
-    braider = await create_bookable_braider(db_session, base_price="180.00")
+    # AT has no country_vat_settings override, so this exercises the global
+    # 20% fallback rate - keeps this test's numbers independent of the
+    # DE/FR-specific overrides covered separately in test_country_vat.py.
+    braider = await create_bookable_braider(db_session, base_price="180.00", country="AT")
 
     resp = await client.post(
         CALC_URL, json={"braider_id": str(braider["braider_id"]), "style_id": str(braider["style_id"])}
@@ -182,6 +188,8 @@ async def test_create_calculation_mobile_adds_travel_fee(
             "braider_id": str(braider["braider_id"]),
             "style_id": str(braider["style_id"]),
             "is_mobile": True,
+            "client_latitude": "52.520000",
+            "client_longitude": "13.404999",
         },
     )
     assert resp.status_code == 201, resp.text
@@ -203,6 +211,8 @@ async def test_create_calculation_null_travel_fee_is_free(
             "braider_id": str(braider["braider_id"]),
             "style_id": str(braider["style_id"]),
             "is_mobile": True,
+            "client_latitude": "52.520000",
+            "client_longitude": "13.404999",
         },
     )
     assert resp.status_code == 201, resp.text
@@ -275,7 +285,14 @@ async def test_patch_recomputes_when_mobile_toggled(client: AsyncClient, db_sess
     calculation_id = create_resp.json()["data"]["id"]
     assert create_resp.json()["data"]["subtotal"] == "100.00"
 
-    patch_resp = await client.patch(f"{CALC_URL}/{calculation_id}", json={"is_mobile": True})
+    patch_resp = await client.patch(
+        f"{CALC_URL}/{calculation_id}",
+        json={
+            "is_mobile": True,
+            "client_latitude": "52.520000",
+            "client_longitude": "13.404999",
+        },
+    )
     assert patch_resp.status_code == 200, patch_resp.text
     assert patch_resp.json()["data"]["subtotal"] == "120.00"
     assert patch_resp.json()["data"]["travel_fee"] == "20.00"
@@ -432,3 +449,186 @@ async def test_cleanup_cron_deletes_only_expired_drafts(
     assert remaining is not None
     gone = await calculations_repo.get_calculation_by_id(db_session, expired_id)
     assert gone is None
+
+
+async def test_create_calculation_uses_country_vat_override(
+    client: AsyncClient, db_session: AsyncSession
+):
+    db_session.add(
+        CountryVatSettings(
+            country="DE",
+            vat_type=SettingValueType.PERCENTAGE,
+            vat_value=Decimal("19.00"),
+            vat_platform_fee_type=SettingValueType.PERCENTAGE,
+            vat_platform_fee_value=Decimal("19.00"),
+        )
+    )
+    await db_session.commit()
+
+    braider = await create_bookable_braider(db_session, base_price="100.00", country="DE")
+    resp = await client.post(
+        CALC_URL, json={"braider_id": str(braider["braider_id"]), "style_id": str(braider["style_id"])}
+    )
+    assert resp.status_code == 201, resp.text
+    data = resp.json()["data"]
+    # subtotal 100 -> fee 10% = 10 -> vat_service 19% of 100 = 19.00 ->
+    # vat_platform_fee 19% of 10 = 1.90.
+    assert data["country"] == "DE"
+    assert data["platform_fee"] == "10.00"
+    assert data["vat_on_service"] == "19.00"
+    assert data["vat_on_platform_fee"] == "1.90"
+
+
+async def test_create_calculation_falls_back_to_global_vat_when_no_country_override(
+    client: AsyncClient, db_session: AsyncSession
+):
+    braider = await create_bookable_braider(db_session, base_price="100.00", country="NG")
+    resp = await client.post(
+        CALC_URL, json={"braider_id": str(braider["braider_id"]), "style_id": str(braider["style_id"])}
+    )
+    assert resp.status_code == 201, resp.text
+    data = resp.json()["data"]
+    # No override for NG - falls back to the seeded global 20% rate.
+    assert data["country"] == "NG"
+    assert data["vat_on_service"] == "20.00"
+    assert data["vat_on_platform_fee"] == "2.00"
+
+
+async def test_create_calculation_mobile_requires_client_location(
+    client: AsyncClient, db_session: AsyncSession
+):
+    braider = await create_bookable_braider(db_session, base_price="100.00", offers_mobile=True)
+
+    resp = await client.post(
+        CALC_URL,
+        json={
+            "braider_id": str(braider["braider_id"]),
+            "style_id": str(braider["style_id"]),
+            "is_mobile": True,
+        },
+    )
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "CLIENT_LOCATION_MISSING"
+
+
+async def test_create_calculation_mobile_outside_travel_radius_rejected(
+    client: AsyncClient, db_session: AsyncSession
+):
+    braider = await create_bookable_braider(
+        db_session, base_price="100.00", offers_mobile=True, travel_fee="15.00"
+    )
+    location_result = await db_session.execute(
+        select(BraiderServiceLocation).where(
+            BraiderServiceLocation.braider_id == braider["braider_id"]
+        )
+    )
+    location = location_result.scalar_one()
+    location.latitude = Decimal("52.520000")  # Berlin
+    location.longitude = Decimal("13.404999")
+    location.travel_radius_km = 20
+    await db_session.commit()
+
+    resp = await client.post(
+        CALC_URL,
+        json={
+            "braider_id": str(braider["braider_id"]),
+            "style_id": str(braider["style_id"]),
+            "is_mobile": True,
+            # Munich - ~500km from the braider's Berlin location, well
+            # outside the 20km travel radius.
+            "client_latitude": "48.135101",
+            "client_longitude": "11.581980",
+        },
+    )
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "MOBILE_LOCATION_OUT_OF_RANGE"
+
+
+async def test_create_calculation_mobile_within_travel_radius_accepted(
+    client: AsyncClient, db_session: AsyncSession
+):
+    braider = await create_bookable_braider(
+        db_session, base_price="100.00", offers_mobile=True, travel_fee="15.00"
+    )
+    location_result = await db_session.execute(
+        select(BraiderServiceLocation).where(
+            BraiderServiceLocation.braider_id == braider["braider_id"]
+        )
+    )
+    location = location_result.scalar_one()
+    location.latitude = Decimal("52.520000")
+    location.longitude = Decimal("13.404999")
+    location.travel_radius_km = 20
+    await db_session.commit()
+
+    resp = await client.post(
+        CALC_URL,
+        json={
+            "braider_id": str(braider["braider_id"]),
+            "style_id": str(braider["style_id"]),
+            "is_mobile": True,
+            # A few km away, still inside Berlin.
+            "client_address": "Alexanderplatz 1, Berlin",
+            "client_latitude": "52.521900",
+            "client_longitude": "13.413200",
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    data = resp.json()["data"]
+    assert data["client_address"] == "Alexanderplatz 1, Berlin"
+    assert data["client_latitude"] == "52.521900"
+    assert data["client_longitude"] == "13.413200"
+
+
+async def test_create_calculation_non_mobile_ignores_client_location(
+    client: AsyncClient, db_session: AsyncSession
+):
+    """Even if the client sends lat/long/address, they're nulled out
+    server-side whenever is_mobile is false - see _resolve_input."""
+    braider = await create_bookable_braider(db_session, base_price="100.00")
+
+    resp = await client.post(
+        CALC_URL,
+        json={
+            "braider_id": str(braider["braider_id"]),
+            "style_id": str(braider["style_id"]),
+            "is_mobile": False,
+            "client_address": "Should be dropped",
+            "client_latitude": "52.520000",
+            "client_longitude": "13.404999",
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    data = resp.json()["data"]
+    assert data["client_address"] is None
+    assert data["client_latitude"] is None
+    assert data["client_longitude"] is None
+
+
+async def test_patch_toggling_mobile_off_clears_client_location(
+    client: AsyncClient, db_session: AsyncSession
+):
+    braider = await create_bookable_braider(
+        db_session, base_price="100.00", offers_mobile=True, travel_fee="15.00"
+    )
+    create_resp = await client.post(
+        CALC_URL,
+        json={
+            "braider_id": str(braider["braider_id"]),
+            "style_id": str(braider["style_id"]),
+            "is_mobile": True,
+            "client_address": "Somewhere",
+            "client_latitude": "52.520000",
+            "client_longitude": "13.404999",
+        },
+    )
+    assert create_resp.status_code == 201, create_resp.text
+    calculation_id = create_resp.json()["data"]["id"]
+    assert create_resp.json()["data"]["client_address"] == "Somewhere"
+
+    patch_resp = await client.patch(f"{CALC_URL}/{calculation_id}", json={"is_mobile": False})
+    assert patch_resp.status_code == 200, patch_resp.text
+    data = patch_resp.json()["data"]
+    assert data["client_address"] is None
+    assert data["client_latitude"] is None
+    assert data["client_longitude"] is None

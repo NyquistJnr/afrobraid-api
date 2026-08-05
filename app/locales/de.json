@@ -103,6 +103,8 @@
   "payment_setup.country_required": "Bitte vervollständigen Sie zuerst Ihren Standort - wir benötigen Ihr Land, um Ihr Auszahlungskonto einzurichten.",
 
   "platform_settings.invalid_percentage_value": "Ein prozentualer Wert muss zwischen 0 und 100 liegen.",
+  "platform_settings.invalid_country_code": "Das Land muss ein 2-stelliger ISO-Code sein, z. B. \"DE\".",
+  "platform_settings.country_vat_not_found": "Für dieses Land existiert keine abweichende Mehrwertsteuerregelung.",
 
   "booking_calculation.not_found": "Dieses Preisangebot existiert nicht oder ist bereits abgelaufen.",
   "booking_calculation.expired": "Dieses Preisangebot ist abgelaufen. Bitte fordern Sie ein neues an.",

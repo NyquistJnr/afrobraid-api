@@ -357,6 +357,18 @@ class InvalidSettingValueError(AppError):
     message_key = "platform_settings.invalid_percentage_value"
 
 
+class InvalidCountryCodeError(AppError):
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    code = "INVALID_COUNTRY_CODE"
+    message_key = "platform_settings.invalid_country_code"
+
+
+class CountryVatSettingsNotFoundError(AppError):
+    status_code = status.HTTP_404_NOT_FOUND
+    code = "COUNTRY_VAT_SETTINGS_NOT_FOUND"
+    message_key = "platform_settings.country_vat_not_found"
+
+
 class RateLimitedError(AppError):
     status_code = status.HTTP_429_TOO_MANY_REQUESTS
     code = "RATE_LIMITED"

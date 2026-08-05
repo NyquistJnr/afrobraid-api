@@ -13,12 +13,12 @@ from app.core.exceptions import (
     BookingCalculationAlreadyUsedError,
     BookingCalculationExpiredError,
     BookingCalculationNotFoundError,
+    BraiderCountryMissingError,
     BraiderNotFoundError,
     BraiderStyleAddonInvalidError,
     BraiderStyleDurationMissingError,
     BraiderStyleNotFoundError,
     BraiderStyleVariationInvalidError,
-    BraiderCountryMissingError,
     ClientLocationMissingError,
     MobileLocationOutOfRangeError,
     MobileServiceNotOfferedError,
@@ -141,14 +141,14 @@ async def _resolve_input(db: AsyncSession, data: BookingCalculationInput) -> _Re
             and location.latitude is not None
             and location.longitude is not None
         ):
-                distance = calculate_distance_km(
-                    lat1=location.latitude,
-                    lon1=location.longitude,
-                    lat2=data.client_latitude,
-                    lon2=data.client_longitude
-                )
-                if distance > location.travel_radius_km:
-                    raise MobileLocationOutOfRangeError()
+            distance = calculate_distance_km(
+                lat1=location.latitude,
+                lon1=location.longitude,
+                lat2=data.client_latitude,
+                lon2=data.client_longitude,
+            )
+            if distance > location.travel_radius_km:
+                raise MobileLocationOutOfRangeError()
 
     client_address = data.client_address if data.is_mobile else None
     client_latitude = data.client_latitude if data.is_mobile else None

@@ -31,11 +31,11 @@ async def create_bookable_braider(
     travel_fee: str | None = "15.00",
     country: str = "DE",
 ) -> dict:
-    """Builds a publicly-visible, bookable braider (all onboarding steps
-    complete except payment setup - discovery deliberately doesn't require
-    it, see braiders.discovery.repository) with one offered style, directly
-    via the ORM, mirroring tests/modules/braiders/test_discovery.py's
-    _make_completed_braider."""
+    """Builds a publicly-visible, bookable braider (every onboarding step
+    complete, payment setup included - see
+    braiders.discovery.repository._REQUIRED_ONBOARDING_FIELDS) with one
+    offered style, directly via the ORM, mirroring
+    tests/modules/braiders/test_discovery.py's _make_completed_braider."""
     user, _ = await create_user_with_token(db_session, user_type=UserType.BRAIDER)
     profile = BraiderProfile(user_id=user.id, business_name=business_name, bio_en="Great braids")
     db_session.add(profile)
@@ -52,6 +52,7 @@ async def create_bookable_braider(
             portfolio_completed_at=onboarded_at,
             service_location_completed_at=onboarded_at,
             availability_completed_at=onboarded_at,
+            payment_setup_completed_at=onboarded_at,
         )
     )
 
