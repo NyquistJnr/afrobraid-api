@@ -24,19 +24,19 @@ def _locale(request: Request) -> str:
     summary="Search braiders",
     description=(
         "Public, no auth required. Only returns braiders who've completed "
-        "onboarding (payment setup excepted - a braider can be listed while "
-        "that step is still pending). Pass `lat`+`lng` together to sort by "
-        "distance and optionally filter with `radius_km`. Filter to braiders "
-        "offering a specific style with `style_id` or `style_slug` (if both "
-        "are given, `style_id` wins). Pass `date_from`+`date_to` together "
-        "(max 90 days apart) to only show braiders with at least one "
-        "structurally-open day in that range - this doesn't check bookable "
-        "slots for a specific style/duration, see "
+        "onboarding, payment setup included. Pass `lat`+`lng` together to "
+        "sort by distance and optionally filter with `radius_km`. Filter to "
+        "braiders offering a specific style with `style_id` or `style_slug` "
+        "(if both are given, `style_id` wins). Pass `date_from`+`date_to` "
+        "together (max 90 days apart) to only show braiders with at least "
+        "one structurally-open day in that range - this doesn't check "
+        "bookable slots for a specific style/duration, see "
         "`/braiders/{braider_id}/availability/slots` for that. Filter by "
         "price with `min_amount`/`max_amount` (matches braiders with at "
-        "least one offered style priced within the range) and by "
-        "`country_code` (ISO 3166-1 alpha-2). Each result's `styles` list is "
-        "capped at 5 entries."
+        "least one offered style priced within the range), by "
+        "`country_code` (ISO 3166-1 alpha-2), and by `is_mobile` (braiders "
+        "who offer a mobile service at their service location). Each "
+        "result's `styles` list is capped at 5 entries."
     ),
 )
 async def search_braiders(
@@ -52,6 +52,7 @@ async def search_braiders(
     min_amount: Decimal | None = Query(None, ge=0),
     max_amount: Decimal | None = Query(None, ge=0),
     country_code: str | None = Query(None, min_length=2, max_length=2),
+    is_mobile: bool | None = Query(None),
     params: PaginationParams = Depends(),
     db: AsyncSession = Depends(get_db),
 ) -> APIResponse[PaginatedData[BraiderSearchItemResponse]]:
@@ -68,6 +69,7 @@ async def search_braiders(
         min_amount=min_amount,
         max_amount=max_amount,
         country_code=country_code.upper() if country_code else None,
+        is_mobile=is_mobile,
         params=params,
         locale=_locale(request),
     )

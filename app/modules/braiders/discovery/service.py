@@ -105,6 +105,7 @@ async def search_braiders(
     min_amount: Decimal | None,
     max_amount: Decimal | None,
     country_code: str | None,
+    is_mobile: bool | None,
     params: PaginationParams,
     locale: str,
 ) -> PaginatedData[BraiderSearchItemResponse]:
@@ -139,6 +140,7 @@ async def search_braiders(
         min_amount=min_amount,
         max_amount=max_amount,
         country_code=country_code,
+        is_mobile=is_mobile,
     )
     rows, meta = await _paginate_rows(db, stmt, params)
 

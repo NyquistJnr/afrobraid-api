@@ -2,6 +2,7 @@ from datetime import UTC, date, datetime, time, timedelta
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.braiders.availability.models import (
@@ -296,11 +297,12 @@ async def test_search_by_availability_date_range(client: AsyncClient, db_session
     assert resp.json()["error"]["code"] == "INVALID_SEARCH_DATE_RANGE"
 
 
-async def test_payment_setup_pending_braider_is_still_shown(
+async def test_payment_setup_pending_braider_is_hidden(
     client: AsyncClient, db_session: AsyncSession
 ):
-    """Every onboarding step is required to be publicly listed, except
-    payment setup - a braider can go live while that's still pending."""
+    """Every onboarding step, payment setup included, is required to be
+    publicly listed - a braider who can't get paid yet shouldn't be
+    bookable."""
     user, _ = await create_user_with_token(db_session, user_type=UserType.BRAIDER)
     profile = BraiderProfile(user_id=user.id, business_name="Payment Pending")
     db_session.add(profile)
@@ -325,10 +327,37 @@ async def test_payment_setup_pending_braider_is_still_shown(
 
     resp = await client.get("/api/v1/braiders")
     ids = [item["id"] for item in resp.json()["data"]["items"]]
-    assert str(profile.id) in ids
+    assert str(profile.id) not in ids
 
     resp = await client.get(f"/api/v1/braiders/{profile.id}")
-    assert resp.status_code == 200
+    assert resp.status_code == 404
+
+
+async def test_search_by_is_mobile(client: AsyncClient, db_session: AsyncSession):
+    mobile = await _make_completed_braider(
+        db_session, business_name="Mobile Braids", lat=LAT_NEAR, lng=LNG_NEAR
+    )
+    location_result = await db_session.execute(
+        select(BraiderServiceLocation).where(BraiderServiceLocation.braider_id == mobile.id)
+    )
+    mobile_location = location_result.scalar_one()
+    mobile_location.offers_mobile = True
+    mobile_location.travel_radius_km = 20
+
+    salon_only = await _make_completed_braider(
+        db_session, business_name="Salon Only", lat=LAT_NEAR, lng=LNG_NEAR
+    )
+    await db_session.commit()
+
+    resp = await client.get("/api/v1/braiders?is_mobile=true")
+    ids = {item["id"] for item in resp.json()["data"]["items"]}
+    assert str(mobile.id) in ids
+    assert str(salon_only.id) not in ids
+
+    resp = await client.get("/api/v1/braiders?is_mobile=false")
+    ids = {item["id"] for item in resp.json()["data"]["items"]}
+    assert str(salon_only.id) in ids
+    assert str(mobile.id) not in ids
 
 
 async def test_search_by_price_range(client: AsyncClient, db_session: AsyncSession):

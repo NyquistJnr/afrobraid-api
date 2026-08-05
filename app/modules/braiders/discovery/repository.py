@@ -101,10 +101,8 @@ def _available_in_range_filter(date_from: date, date_to: date):
     return exists(select(1).select_from(day_series).where(or_(has_weekly, has_custom), ~is_closed))
 
 
-# Every onboarding step except PAYMENT_SETUP - a braider can be publicly
-# listed while payment setup is still pending, so this deliberately doesn't
-# use BraiderOnboardingStatus.completed_at (which requires *all* steps,
-# payment setup included; see app.modules.braiders.completion._STEP_ORDER).
+# Every onboarding step, including PAYMENT_SETUP - a braider can't be
+# publicly listed until they can actually get paid.
 _REQUIRED_ONBOARDING_FIELDS = (
     BraiderOnboardingStatus.business_info_completed_at,
     BraiderOnboardingStatus.phone_verification_completed_at,
@@ -113,6 +111,7 @@ _REQUIRED_ONBOARDING_FIELDS = (
     BraiderOnboardingStatus.portfolio_completed_at,
     BraiderOnboardingStatus.service_location_completed_at,
     BraiderOnboardingStatus.availability_completed_at,
+    BraiderOnboardingStatus.payment_setup_completed_at,
 )
 
 
@@ -152,6 +151,7 @@ def build_search_stmt(
     min_amount: Decimal | None = None,
     max_amount: Decimal | None = None,
     country_code: str | None = None,
+    is_mobile: bool | None = None,
 ) -> Select:
     """Row shape is (BraiderProfile, BraiderServiceLocation | None, distance_km | None)
     plus (BraiderStyle, Style) appended when `style_id` is given - callers must
@@ -193,6 +193,9 @@ def build_search_stmt(
 
     if country_code:
         stmt = stmt.where(BraiderServiceLocation.country == country_code)
+
+    if is_mobile is not None:
+        stmt = stmt.where(BraiderServiceLocation.offers_mobile.is_(is_mobile))
 
     if lat is not None and lng is not None:
         stmt = stmt.where(
