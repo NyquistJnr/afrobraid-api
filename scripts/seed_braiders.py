@@ -30,6 +30,7 @@ from app.modules.braiders.completion import mark_step_complete
 from app.modules.braiders.models import BioSource, Gender, OnboardingStep
 from app.modules.braiders.offerings import repository as offerings_repo
 from app.modules.braiders.payment_setup.models import StripeConnectAccount
+from app.modules.braiders.portfolio import repository as portfolio_repo
 from app.modules.braiders.service_location import repository as service_location_repo
 from app.modules.braiders.service_location.models import LocationType
 from app.modules.styles import repository as styles_repo
@@ -40,6 +41,14 @@ random.seed(20260808)  # deterministic re-runs
 
 SEED_PASSWORD = "SeedBraider123!"
 SEED_EMAIL_DOMAIN = "seed.afrobraid.dev"
+
+# Same real uploaded image reused for every seeded braider's logo and cover
+# photo - not per-braider content, just a placeholder so search results and
+# profile cards render something instead of blank space.
+SHARED_LOGO_KEY = "braiders/877177d1-1e8b-47b6-a96d-81a008b2653f/logo/442d42f0-94ec-46de-8476-9315a73ca435.jpg"
+SHARED_PORTFOLIO_KEY = (
+    "braiders/877177d1-1e8b-47b6-a96d-81a008b2653f/portfolio/144ca43d-811d-426e-91fc-21d2df1b0d2f.jpg"
+)
 
 
 class CitySeed(TypedDict):
@@ -154,12 +163,17 @@ async def _seed_one(db: AsyncSession, index: int, city: CitySeed) -> bool:
     profile = await braiders_repo.create_profile_for_user(db, user.id)
     profile.business_name = business_name
     profile.gender = random.choice(list(Gender))
+    profile.logo_object_key = SHARED_LOGO_KEY
     profile.bio_en = f"{business_name} - professional braiding in {city['city']}."
     profile.bio_de = f"{business_name} - professionelles Braiding in {city['city']}."
     profile.bio_fr = f"{business_name} - tressage professionnel a {city['city']}."
     profile.bio_en_source = BioSource.HUMAN
     profile.bio_de_source = BioSource.MACHINE
     profile.bio_fr_source = BioSource.MACHINE
+
+    await portfolio_repo.create_image(
+        db, braider_id=profile.id, object_key=SHARED_PORTFOLIO_KEY, position=0
+    )
 
     location = await service_location_repo.create_for_braider(db, profile.id)
     location.location_type = LocationType.SALON
