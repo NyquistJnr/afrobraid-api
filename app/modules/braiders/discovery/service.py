@@ -1,5 +1,5 @@
-import hashlib
 import math
+import random
 import uuid
 from datetime import date
 from decimal import Decimal
@@ -46,15 +46,15 @@ _EARTH_RADIUS_M = 6_371_000
 _HOME_LOCATION_FUZZ_RADIUS_M = 400
 
 
-def _fuzz_coordinates(lat: Decimal, lng: Decimal, seed: uuid.UUID) -> tuple[Decimal, Decimal]:
-    """Deterministically offsets a coordinate by up to `_HOME_LOCATION_FUZZ_RADIUS_M`
-    meters. Seeded by the braider id so the same fuzzed point comes back on every
-    request instead of jumping around on a map; the sqrt on the radial draw makes
+def _fuzz_coordinates(lat: Decimal, lng: Decimal) -> tuple[Decimal, Decimal]:
+    """Offsets a coordinate by up to `_HOME_LOCATION_FUZZ_RADIUS_M` meters in a
+    random direction, freshly drawn on every call - the same braider's fuzzed
+    point moves between requests instead of staying fixed, so repeated queries
+    can't be used to triangulate the real one. The sqrt on the radial draw makes
     the offset uniform over the disc's area instead of clustering near the true
     point."""
-    digest = hashlib.sha256(seed.bytes).digest()
-    u1 = int.from_bytes(digest[:8], "big") / 2**64
-    u2 = int.from_bytes(digest[8:16], "big") / 2**64
+    u1 = random.random()
+    u2 = random.random()
 
     radius_m = _HOME_LOCATION_FUZZ_RADIUS_M * math.sqrt(u1)
     bearing = 2 * math.pi * u2
@@ -115,7 +115,7 @@ def _to_location_response(
 
     latitude, longitude = location.latitude, location.longitude
     if not show_exact_address and latitude is not None and longitude is not None:
-        latitude, longitude = _fuzz_coordinates(latitude, longitude, location.braider_id)
+        latitude, longitude = _fuzz_coordinates(latitude, longitude)
 
     return BraiderLocationResponse(
         location_type=location.location_type,

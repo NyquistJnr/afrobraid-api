@@ -23,7 +23,7 @@ class BraiderLocationResponse(BaseModel):
     city: str | None
     country: str | None
     # Exact for SALON, matching the address fields above. For HOME_STUDIO /
-    # mobile-only braiders this is deterministically fuzzed (see
+    # mobile-only braiders this is randomly fuzzed on every request (see
     # `_fuzz_coordinates` in service.py) so it doesn't reveal a home address.
     latitude: Decimal | None
     longitude: Decimal | None
