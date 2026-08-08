@@ -1,3 +1,5 @@
+import hashlib
+import math
 import uuid
 from datetime import date
 from decimal import Decimal
@@ -35,6 +37,35 @@ from app.modules.styles.models import Style
 
 _MAX_DATE_RANGE_DAYS = 90
 _MAX_SEARCH_STYLES = 5
+_EARTH_RADIUS_M = 6_371_000
+# Max jitter offset for HOME_STUDIO/mobile-only coordinates - close enough to
+# be useful on a map, far enough not to pinpoint a home address.
+_HOME_LOCATION_FUZZ_RADIUS_M = 400
+
+
+def _fuzz_coordinates(lat: Decimal, lng: Decimal, seed: uuid.UUID) -> tuple[Decimal, Decimal]:
+    """Deterministically offsets a coordinate by up to `_HOME_LOCATION_FUZZ_RADIUS_M`
+    meters. Seeded by the braider id so the same fuzzed point comes back on every
+    request instead of jumping around on a map; the sqrt on the radial draw makes
+    the offset uniform over the disc's area instead of clustering near the true
+    point."""
+    digest = hashlib.sha256(seed.bytes).digest()
+    u1 = int.from_bytes(digest[:8], "big") / 2**64
+    u2 = int.from_bytes(digest[8:16], "big") / 2**64
+
+    radius_m = _HOME_LOCATION_FUZZ_RADIUS_M * math.sqrt(u1)
+    bearing = 2 * math.pi * u2
+
+    lat_rad = math.radians(float(lat))
+    delta_lat_deg = math.degrees((radius_m * math.cos(bearing)) / _EARTH_RADIUS_M)
+    delta_lng_deg = math.degrees(
+        (radius_m * math.sin(bearing)) / (_EARTH_RADIUS_M * math.cos(lat_rad))
+    )
+
+    return (
+        Decimal(str(round(float(lat) + delta_lat_deg, 6))),
+        Decimal(str(round(float(lng) + delta_lng_deg, 6))),
+    )
 
 
 async def _paginate_rows(db: AsyncSession, stmt, params: PaginationParams):
@@ -78,6 +109,11 @@ def _to_location_response(
     if location is None:
         return None
     show_exact_address = location.location_type == LocationType.SALON
+
+    latitude, longitude = location.latitude, location.longitude
+    if not show_exact_address and latitude is not None and longitude is not None:
+        latitude, longitude = _fuzz_coordinates(latitude, longitude, location.braider_id)
+
     return BraiderLocationResponse(
         location_type=location.location_type,
         salon_name=location.salon_name if show_exact_address else None,
@@ -86,6 +122,8 @@ def _to_location_response(
         postal_code=location.postal_code if show_exact_address else None,
         city=location.city,
         country=location.country,
+        latitude=latitude,
+        longitude=longitude,
         offers_mobile=location.offers_mobile,
         travel_radius_km=location.travel_radius_km,
         travel_fee=location.travel_fee,
