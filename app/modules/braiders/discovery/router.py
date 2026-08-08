@@ -25,7 +25,8 @@ def _locale(request: Request) -> str:
     description=(
         "Public, no auth required. Only returns braiders who've completed "
         "onboarding, payment setup included. Pass `lat`+`lng` together to "
-        "sort by distance and optionally filter with `radius_km`. Filter to "
+        "sort by distance; results are also filtered to `radius_km` if "
+        "given, otherwise a default 100km radius applies. Filter to "
         "braiders offering a specific style with `style_id` or `style_slug` "
         "(if both are given, `style_id` wins). Pass `date_from`+`date_to` "
         "together (max 90 days apart) to only show braiders with at least "

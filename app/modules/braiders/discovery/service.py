@@ -37,6 +37,9 @@ from app.modules.styles.models import Style
 
 _MAX_DATE_RANGE_DAYS = 90
 _MAX_SEARCH_STYLES = 5
+# Applied when lat/lng are given but radius_km isn't, so "near me" searches
+# can't surface braiders continents away just because nothing closer matched.
+_DEFAULT_SEARCH_RADIUS_KM = 100
 _EARTH_RADIUS_M = 6_371_000
 # Max jitter offset for HOME_STUDIO/mobile-only coordinates - close enough to
 # be useful on a map, far enough not to pinpoint a home address.
@@ -163,6 +166,10 @@ async def search_braiders(
     if min_amount is not None and max_amount is not None and max_amount < min_amount:
         raise InvalidSearchPriceRangeError()
 
+    resolved_radius_km = radius_km
+    if lat is not None and lng is not None and resolved_radius_km is None:
+        resolved_radius_km = _DEFAULT_SEARCH_RADIUS_KM
+
     resolved_style_id = style_id
     if resolved_style_id is None and style_slug:
         style = await styles_repo.get_style_by_slug(db, style_slug)
@@ -171,7 +178,7 @@ async def search_braiders(
     stmt = discovery_repo.build_search_stmt(
         lat=lat,
         lng=lng,
-        radius_km=radius_km,
+        radius_km=resolved_radius_km,
         style_id=resolved_style_id,
         search=search,
         date_from=date_from,

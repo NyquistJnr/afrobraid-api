@@ -189,6 +189,25 @@ async def test_search_by_location_and_detail_and_style(
     assert resp.json()["error"]["code"] == "BRAIDER_NOT_FOUND"
 
 
+async def test_search_by_location_without_radius_defaults_to_100km(
+    client: AsyncClient, db_session: AsyncSession
+):
+    near = await _make_completed_braider(
+        db_session, business_name="Near Braids", lat=LAT_NEAR, lng=LNG_NEAR
+    )
+    far = await _make_completed_braider(
+        db_session, business_name="Far Braids", lat=LAT_FAR, lng=LNG_FAR
+    )
+
+    # No radius_km given - should still exclude the ~500km-away braider
+    # instead of returning every braider worldwide sorted by distance.
+    resp = await client.get(f"/api/v1/braiders?lat={LAT_NEAR}&lng={LNG_NEAR}")
+    assert resp.status_code == 200, resp.text
+    ids = {item["id"] for item in resp.json()["data"]["items"]}
+    assert str(near.id) in ids
+    assert str(far.id) not in ids
+
+
 async def test_incomplete_onboarding_braider_is_hidden(
     client: AsyncClient, db_session: AsyncSession
 ):
