@@ -28,4 +28,4 @@ async def signup_and_verify(
     code = fake_queue.last_job_kwargs(TASK_SEND_OTP_EMAIL)["code"]
     verify_resp = await client.post(VERIFY_URL, json={"email": email, "code": code})
     assert verify_resp.status_code == 200, verify_resp.text
-    return verify_resp.json()
+    return verify_resp.json()["data"]

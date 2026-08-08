@@ -36,7 +36,7 @@ async def test_login_success(client: AsyncClient, fake_queue):
 
     resp = await client.post(LOGIN_URL, json={"email": EMAIL, "password": PASSWORD})
     assert resp.status_code == 200
-    body = resp.json()
+    body = resp.json()["data"]
     assert body["email"] == EMAIL
     assert body["user_type"] == "CUSTOMER"
     assert "access_token" in body
@@ -70,10 +70,10 @@ async def test_login_remember_me_extends_refresh_token_ttl(
     )
 
     normal_token = await get_refresh_token_by_hash(
-        db_session, hash_token(normal_resp.json()["refresh_token"])
+        db_session, hash_token(normal_resp.json()["data"]["refresh_token"])
     )
     remember_token = await get_refresh_token_by_hash(
-        db_session, hash_token(remember_resp.json()["refresh_token"])
+        db_session, hash_token(remember_resp.json()["data"]["refresh_token"])
     )
 
     normal_lifetime = normal_token.expires_at - normal_token.created_at

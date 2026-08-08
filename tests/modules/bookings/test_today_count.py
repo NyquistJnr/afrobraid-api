@@ -12,7 +12,7 @@ pytestmark = pytest.mark.asyncio
 
 CALC_URL = "/api/v1/booking-calculations"
 BOOKINGS_URL = "/api/v1/bookings"
-TODAY_COUNT_URL = "/api/v1/admin/bookings/today-count"
+TODAY_COUNT_URL = "/api/v1/bookings/today-count"
 
 
 async def _create_booking(
@@ -36,13 +36,16 @@ async def _create_booking(
     assert book_resp.status_code == 201, book_resp.text
 
 
+async def test_today_count_is_public(client: AsyncClient, db_session: AsyncSession):
+    resp = await client.get(TODAY_COUNT_URL)
+    assert resp.status_code == 200, resp.text
+    assert isinstance(resp.json()["data"], int)
+
+
 async def test_today_count_reflects_bookings_created_today(
     client: AsyncClient, db_session: AsyncSession
 ):
-    _, admin_token = await create_user_with_token(db_session, user_type=UserType.ADMIN)
-    admin_headers = {"Authorization": f"Bearer {admin_token}"}
-
-    baseline = await client.get(TODAY_COUNT_URL, headers=admin_headers)
+    baseline = await client.get(TODAY_COUNT_URL)
     assert baseline.status_code == 200, baseline.text
     baseline_count = baseline.json()["data"]
 
@@ -52,20 +55,12 @@ async def test_today_count_reflects_bookings_created_today(
     await _create_booking(client, braider, customer_headers, hours_from_now=10)
     await _create_booking(client, braider, customer_headers, hours_from_now=30)
 
-    after = await client.get(TODAY_COUNT_URL, headers=admin_headers)
+    after = await client.get(TODAY_COUNT_URL)
     assert after.status_code == 200, after.text
     assert after.json()["data"] == baseline_count + 2
 
 
-async def test_today_count_requires_admin(client: AsyncClient, db_session: AsyncSession):
-    _, token = await create_user_with_token(db_session, user_type=UserType.CUSTOMER)
-    resp = await client.get(TODAY_COUNT_URL, headers={"Authorization": f"Bearer {token}"})
-    assert resp.status_code == 403
-    assert resp.json()["error"]["code"] == "FORBIDDEN"
-
-
-async def test_today_count_needs_no_params(client: AsyncClient, db_session: AsyncSession):
-    _, admin_token = await create_user_with_token(db_session, user_type=UserType.ADMIN)
-    resp = await client.get(TODAY_COUNT_URL, headers={"Authorization": f"Bearer {admin_token}"})
+async def test_today_count_needs_no_params_or_auth(client: AsyncClient, db_session: AsyncSession):
+    resp = await client.get(TODAY_COUNT_URL)
     assert resp.status_code == 200
     assert isinstance(resp.json()["data"], int)

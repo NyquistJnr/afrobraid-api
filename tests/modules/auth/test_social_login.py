@@ -49,7 +49,7 @@ async def test_social_login_new_user_success(
         SOCIAL_URL, json={"provider_token": "fake-token", "user_type": "CUSTOMER"}
     )
     assert resp.status_code == 200
-    body = resp.json()
+    body = resp.json()["data"]
     assert body["email"] == "ada@example.com"
     assert body["user_type"] == "CUSTOMER"
     assert "access_token" in body
@@ -67,7 +67,7 @@ async def test_social_login_existing_identity_logs_into_same_user(
 
     assert first.status_code == 200
     assert second.status_code == 200
-    assert first.json()["id"] == second.json()["id"]
+    assert first.json()["data"]["id"] == second.json()["data"]["id"]
 
 
 async def test_social_login_links_existing_email_account(
@@ -79,4 +79,4 @@ async def test_social_login_links_existing_email_account(
 
     resp = await client.post(SOCIAL_URL, json={"provider_token": "fake-token"})
     assert resp.status_code == 200
-    assert resp.json()["id"] == existing["id"]
+    assert resp.json()["data"]["id"] == existing["id"]

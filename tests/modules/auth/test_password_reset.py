@@ -29,7 +29,7 @@ async def test_forgot_password_unknown_email_same_generic_response(client: Async
     known_resp = await client.post(FORGOT_URL, json={"email": "nobody@example.com"})
     assert known_resp.status_code == 200
     # Anti-enumeration: response message is identical whether or not the account exists.
-    assert "message" in known_resp.json()
+    assert "message" in known_resp.json()["data"]
 
 
 async def test_reset_password_success_and_revokes_sessions(client: AsyncClient, fake_queue):

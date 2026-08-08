@@ -89,6 +89,18 @@ async def list_bookings(
     return APIResponse(data=result)
 
 
+@router.get(
+    "/today-count",
+    response_model=APIResponse[int],
+    summary="Total bookings made today",
+    description="Public, no auth required. No params. Counts every booking created "
+    "today (UTC calendar day), regardless of status.",
+)
+async def get_bookings_today_count(db: AsyncSession = Depends(get_db)) -> APIResponse[int]:
+    result = await service.count_bookings_today(db)
+    return APIResponse(data=result)
+
+
 @router.get("/{booking_id}", response_model=APIResponse[BookingResponse], summary="Get a booking")
 async def get_booking(
     booking_id: uuid.UUID,

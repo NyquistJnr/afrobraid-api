@@ -17,7 +17,7 @@ async def test_refresh_rotates_token(client: AsyncClient, fake_queue):
 
     resp = await client.post(REFRESH_URL, json={"refresh_token": old_refresh})
     assert resp.status_code == 200
-    new_tokens = resp.json()
+    new_tokens = resp.json()["data"]
     assert new_tokens["refresh_token"] != old_refresh
     assert new_tokens["access_token"] != tokens["access_token"]
 

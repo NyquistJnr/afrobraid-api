@@ -27,7 +27,7 @@ async def test_signup_email_success(client: AsyncClient, db_session: AsyncSessio
     resp = await client.post(SIGNUP_URL, json=_valid_payload())
 
     assert resp.status_code == 201
-    body = resp.json()
+    body = resp.json()["data"]
     assert body["email"] == "ada@example.com"
 
     result = await db_session.execute(select(User).where(User.email == "ada@example.com"))
