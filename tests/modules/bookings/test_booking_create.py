@@ -8,7 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import create_access_token
 from app.modules.bookings.calculations.models import BookingCalculation, BookingCalculationStatus
+from app.modules.bookings.enums import BookingStatus
+from app.modules.bookings.models import Booking
 from app.modules.braiders.offerings.models import BraiderStyle
+from app.modules.styles.models import Style
+from app.modules.users import repository as users_repo
 from app.modules.users.models import UserType
 from tests.helpers import create_user_with_token
 from tests.modules.bookings.helpers import create_bookable_braider
@@ -298,3 +302,160 @@ async def test_braider_can_list_and_get_own_booking(client: AsyncClient, db_sess
     )
     assert get_resp.status_code == 200, get_resp.text
     assert get_resp.json()["data"]["reference"] == resp.json()["data"]["reference"]
+
+
+async def _book(client: AsyncClient, headers: dict, braider: dict, starts_at: datetime) -> dict:
+    calc = await _create_calculation(client, braider)
+    resp = await client.post(
+        BOOKINGS_URL,
+        json={"booking_calculation_id": calc["id"], "starts_at": _iso(starts_at), "terms_accepted": True},
+        headers=headers,
+    )
+    assert resp.status_code == 201, resp.text
+    return resp.json()["data"]
+
+
+async def test_booking_responses_include_braider_and_customer_name(
+    client: AsyncClient, db_session: AsyncSession
+):
+    braider = await create_bookable_braider(
+        db_session, business_name="Amina's Braids", base_price="180.00", country="AT"
+    )
+    headers = await _customer_headers(db_session)
+    starts_at = datetime.now(UTC) + timedelta(hours=10)
+    created = await _book(client, headers, braider, starts_at)
+    assert created["braider_name"] == "Amina's Braids"
+    assert created["customer_name"] == "Test User"
+
+    detail_resp = await client.get(f"{BOOKINGS_URL}/{created['id']}", headers=headers)
+    detail = detail_resp.json()["data"]
+    assert detail["braider_name"] == "Amina's Braids"
+    assert detail["customer_name"] == "Test User"
+
+    list_resp = await client.get(BOOKINGS_URL, headers=headers)
+    summary = list_resp.json()["data"]["items"][0]
+    assert summary["braider_name"] == "Amina's Braids"
+    assert summary["customer_name"] == "Test User"
+
+    token, _ = create_access_token(user_id=braider["user"].id, user_type="BRAIDER")
+    braider_headers = {"Authorization": f"Bearer {token}"}
+    braider_detail = (
+        await client.get(f"/api/v1/braiders/me/bookings/{created['id']}", headers=braider_headers)
+    ).json()["data"]
+    assert braider_detail["braider_name"] == "Amina's Braids"
+    assert braider_detail["customer_name"] == "Test User"
+
+
+async def test_bookings_filter_by_status(client: AsyncClient, db_session: AsyncSession):
+    braider = await create_bookable_braider(db_session, base_price="180.00", country="AT")
+    headers = await _customer_headers(db_session)
+    starts_at = datetime.now(UTC) + timedelta(hours=10)
+    pending = await _book(client, headers, braider, starts_at)
+
+    confirmed = await _book(client, headers, braider, starts_at + timedelta(days=1))
+    booking = await db_session.get(Booking, uuid.UUID(confirmed["id"]))
+    booking.status = BookingStatus.CONFIRMED
+    await db_session.commit()
+
+    resp = await client.get(BOOKINGS_URL, params={"status": "CONFIRMED"}, headers=headers)
+    ids = {item["id"] for item in resp.json()["data"]["items"]}
+    assert ids == {confirmed["id"]}
+
+    resp = await client.get(BOOKINGS_URL, params={"status": "PENDING_PAYMENT"}, headers=headers)
+    ids = {item["id"] for item in resp.json()["data"]["items"]}
+    assert ids == {pending["id"]}
+
+
+async def test_bookings_filter_by_date_range(client: AsyncClient, db_session: AsyncSession):
+    braider = await create_bookable_braider(db_session, base_price="180.00", country="AT")
+    headers = await _customer_headers(db_session)
+    soon = datetime.now(UTC) + timedelta(hours=10)
+    far = datetime.now(UTC) + timedelta(days=40)
+    near_booking = await _book(client, headers, braider, soon)
+    await _book(client, headers, braider, far)
+
+    resp = await client.get(
+        BOOKINGS_URL,
+        params={
+            "date_from": soon.date().isoformat(),
+            "date_to": soon.date().isoformat(),
+        },
+        headers=headers,
+    )
+    ids = {item["id"] for item in resp.json()["data"]["items"]}
+    assert ids == {near_booking["id"]}
+
+    bad_range = await client.get(
+        BOOKINGS_URL,
+        params={"date_from": far.date().isoformat(), "date_to": soon.date().isoformat()},
+        headers=headers,
+    )
+    assert bad_range.status_code == 400
+    assert bad_range.json()["error"]["code"] == "INVALID_BOOKING_DATE_RANGE"
+
+
+async def test_bookings_search_by_style_and_braider_name(client: AsyncClient, db_session: AsyncSession):
+    braider_a = await create_bookable_braider(
+        db_session, business_name="Amina's Braids", base_price="180.00", country="AT"
+    )
+    braider_b = await create_bookable_braider(
+        db_session, business_name="Zoe Styling", base_price="180.00", country="AT"
+    )
+    # Give braider_b's offering a distinctive, searchable style name.
+    style = await db_session.get(Style, braider_b["style_id"])
+    style.name_en = "Fulani Cornrows"
+    await db_session.commit()
+
+    headers = await _customer_headers(db_session)
+    starts_at = datetime.now(UTC) + timedelta(hours=10)
+    booking_a = await _book(client, headers, braider_a, starts_at)
+    booking_b = await _book(client, headers, braider_b, starts_at + timedelta(days=1))
+
+    by_braider_name = await client.get(BOOKINGS_URL, params={"search": "Amina"}, headers=headers)
+    ids = {item["id"] for item in by_braider_name.json()["data"]["items"]}
+    assert ids == {booking_a["id"]}
+
+    by_style_name = await client.get(BOOKINGS_URL, params={"search": "Cornrows"}, headers=headers)
+    ids = {item["id"] for item in by_style_name.json()["data"]["items"]}
+    assert ids == {booking_b["id"]}
+
+
+async def test_braider_bookings_search_by_style_and_customer_name(
+    client: AsyncClient, db_session: AsyncSession
+):
+    braider = await create_bookable_braider(db_session, base_price="180.00", country="AT")
+
+    customer_1 = await users_repo.create_user(
+        db_session,
+        first_name="Chidinma",
+        last_name="Okafor",
+        email=f"{uuid.uuid4()}@example.com",
+        phone_number=None,
+        password_hash=None,
+        user_type=UserType.CUSTOMER,
+        is_email_verified=True,
+    )
+    await db_session.commit()
+    token_1, _ = create_access_token(user_id=customer_1.id, user_type="CUSTOMER")
+    headers_1 = {"Authorization": f"Bearer {token_1}"}
+
+    headers_2 = await _customer_headers(db_session)
+
+    starts_at = datetime.now(UTC) + timedelta(hours=10)
+    booking_1 = await _book(client, headers_1, braider, starts_at)
+    booking_2 = await _book(client, headers_2, braider, starts_at + timedelta(days=1))
+
+    braider_token, _ = create_access_token(user_id=braider["user"].id, user_type="BRAIDER")
+    braider_headers = {"Authorization": f"Bearer {braider_token}"}
+
+    by_customer_name = await client.get(
+        "/api/v1/braiders/me/bookings", params={"search": "Chidinma"}, headers=braider_headers
+    )
+    ids = {item["id"] for item in by_customer_name.json()["data"]["items"]}
+    assert ids == {booking_1["id"]}
+
+    by_style_name = await client.get(
+        "/api/v1/braiders/me/bookings", params={"search": "Knotless"}, headers=braider_headers
+    )
+    ids = {item["id"] for item in by_style_name.json()["data"]["items"]}
+    assert ids == {booking_1["id"], booking_2["id"]}
