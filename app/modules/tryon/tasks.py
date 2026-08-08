@@ -23,7 +23,7 @@ async def generate_hairstyle_tryon_task(ctx: dict, *, tryon_id: str) -> None:
 
         source_key = tryon.source_object_key
         original_bytes = storage.get_object(source_key) if source_key else None
-        if original_bytes is None:
+        if original_bytes is None or source_key is None:
             logger.error("Try-on %s: source photo %r is missing", tryon_id, source_key)
             tryon.status = TryOnStatus.FAILED
             tryon.source_object_key = None
