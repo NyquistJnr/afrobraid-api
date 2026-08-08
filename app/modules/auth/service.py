@@ -121,6 +121,7 @@ def _to_auth_response(
         email=user.email,
         phone_number=user.phone_number,
         user_type=user.user_type,
+        chat_locale=user.chat_locale,
         access_token=access_token,
         refresh_token=refresh_token,
         expires_in=expires_in,

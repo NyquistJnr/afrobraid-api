@@ -153,7 +153,6 @@
   "chat.not_available": "Chat unlocks once your deposit (or full payment) for this booking has gone through.",
   "chat.thread_not_found": "This conversation doesn't exist.",
   "chat.access_denied": "You don't have access to this conversation.",
-  "chat.message_empty": "Message can't be empty.",
   "chat.message_not_found": "This message doesn't exist.",
   "chat.report_not_found": "This report doesn't exist.",
   "chat.message_flagged_notice": "This message was withheld because it looks like it shares contact details or payment/account information, which isn't allowed. Please keep all communication and payments on Afrobraid so you stay covered by our protections.",

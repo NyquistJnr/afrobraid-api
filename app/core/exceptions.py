@@ -576,12 +576,6 @@ class ChatAccessDeniedError(AppError):
     message_key = "chat.access_denied"
 
 
-class ChatMessageEmptyError(AppError):
-    status_code = status.HTTP_400_BAD_REQUEST
-    code = "CHAT_MESSAGE_EMPTY"
-    message_key = "chat.message_empty"
-
-
 class ChatMessageNotFoundError(AppError):
     status_code = status.HTTP_404_NOT_FOUND
     code = "CHAT_MESSAGE_NOT_FOUND"

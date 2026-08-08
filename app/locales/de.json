@@ -153,7 +153,6 @@
   "chat.not_available": "Der Chat wird freigeschaltet, sobald Ihre Anzahlung (oder vollständige Zahlung) für diese Buchung eingegangen ist.",
   "chat.thread_not_found": "Diese Unterhaltung existiert nicht.",
   "chat.access_denied": "Sie haben keinen Zugriff auf diese Unterhaltung.",
-  "chat.message_empty": "Die Nachricht darf nicht leer sein.",
   "chat.message_not_found": "Diese Nachricht existiert nicht.",
   "chat.report_not_found": "Diese Meldung existiert nicht.",
   "chat.message_flagged_notice": "Diese Nachricht wurde zurückgehalten, da sie offenbar Kontaktdaten oder Zahlungs-/Kontoinformationen enthält, was nicht erlaubt ist. Bitte wickeln Sie die gesamte Kommunikation und alle Zahlungen über Afrobraid ab, damit Sie durch unseren Schutz abgesichert sind.",
