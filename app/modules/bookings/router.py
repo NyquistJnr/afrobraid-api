@@ -1,7 +1,8 @@
 import uuid
+from datetime import date
 
 from arq import ArqRedis
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +13,7 @@ from app.core.redis import get_redis
 from app.core.response import APIResponse
 from app.modules.auth.dependencies import require_roles
 from app.modules.bookings import service
+from app.modules.bookings.enums import BookingStatus
 from app.modules.bookings.schemas import (
     BookingCreateRequest,
     BookingResponse,
@@ -53,14 +55,37 @@ async def create_booking(
     return APIResponse(data=result)
 
 
-@router.get("", response_model=APIResponse[PaginatedBookingsResponse], summary="List your bookings")
+@router.get(
+    "",
+    response_model=APIResponse[PaginatedBookingsResponse],
+    summary="List your bookings",
+    description=(
+        "Filter by `status`, by appointment date with `date_from`/`date_to` "
+        "(bounds `starts_at`, not when the booking was made; either side "
+        "can be given alone), and free-text `search` (matches the style "
+        "name or the braider's business/personal name)."
+    ),
+)
 async def list_bookings(
     request: Request,
+    status_filter: BookingStatus | None = Query(default=None, alias="status"),
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
+    search: str | None = Query(default=None),
     params: PaginationParams = Depends(),
     user: User = Depends(_require_customer),
     db: AsyncSession = Depends(get_db),
 ) -> APIResponse[PaginatedBookingsResponse]:
-    result = await service.list_bookings(db, user=user, params=params, locale=_locale(request))
+    result = await service.list_bookings(
+        db,
+        user=user,
+        params=params,
+        locale=_locale(request),
+        status=status_filter,
+        date_from=date_from,
+        date_to=date_to,
+        search=search,
+    )
     return APIResponse(data=result)
 
 

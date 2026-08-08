@@ -478,6 +478,12 @@ class TermsNotAcceptedError(AppError):
     message_key = "booking.terms_not_accepted"
 
 
+class InvalidBookingDateRangeError(AppError):
+    status_code = status.HTTP_400_BAD_REQUEST
+    code = "INVALID_BOOKING_DATE_RANGE"
+    message_key = "booking.invalid_date_range"
+
+
 class StripeWebhookMetadataMissingError(AppError):
     status_code = status.HTTP_400_BAD_REQUEST
     code = "STRIPE_WEBHOOK_METADATA_MISSING"

@@ -1,6 +1,6 @@
 import random
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from arq import ArqRedis
 from redis.asyncio import Redis
@@ -18,6 +18,7 @@ from app.core.exceptions import (
     BookingSlotUnavailableError,
     BookingStartsInPastError,
     BraiderNotPayableError,
+    InvalidBookingDateRangeError,
 )
 from app.core.i18n import localize_field
 from app.core.i18n import t as translate
@@ -31,6 +32,7 @@ from app.modules.bookings.calculations.schemas import BookingCalculationInput
 from app.modules.bookings.enums import (
     BalanceChargeState,
     BookingItemType,
+    BookingStatus,
     PaymentPurpose,
     PaymentSchedule,
 )
@@ -50,6 +52,7 @@ from app.modules.braiders.availability import repository as availability_repo
 from app.modules.braiders.payment_setup import repository as payment_setup_repo
 from app.modules.styles import repository as styles_repo
 from app.modules.styles.models import AddOn, Style, StyleVariation
+from app.modules.users import repository as users_repo
 from app.modules.users.models import User
 
 settings = get_settings()
@@ -314,12 +317,16 @@ async def _to_response(
     payments = await bookings_repo.list_payments(db, booking.id) if payment is None else [payment]
     style = await styles_repo.get_style_by_id(db, booking.style_id)
     style_name = (localize_field(style, "name", locale) or style.name_en) if style else ""
+    braider_names = await braiders_repo.list_display_names(db, [booking.braider_id])
+    customer_names = await users_repo.list_full_names(db, [booking.customer_id])
 
     return BookingResponse(
         id=booking.id,
         reference=booking.reference,
         status=booking.status,
         braider_id=booking.braider_id,
+        braider_name=braider_names.get(booking.braider_id, ""),
+        customer_name=customer_names.get(booking.customer_id, ""),
         style_id=booking.style_id,
         style_name=style_name,
         duration_minutes=booking.duration_minutes,
@@ -387,12 +394,20 @@ async def get_braider_booking(
     return await _to_response(db, booking, locale=locale)
 
 
-def _to_summary(booking: Booking, *, style_names: dict[uuid.UUID, str]) -> BookingSummaryResponse:
+def _to_summary(
+    booking: Booking,
+    *,
+    style_names: dict[uuid.UUID, str],
+    braider_names: dict[uuid.UUID, str],
+    customer_names: dict[uuid.UUID, str],
+) -> BookingSummaryResponse:
     return BookingSummaryResponse(
         id=booking.id,
         reference=booking.reference,
         status=booking.status,
         braider_id=booking.braider_id,
+        braider_name=braider_names.get(booking.braider_id, ""),
+        customer_name=customer_names.get(booking.customer_id, ""),
         style_name=style_names.get(booking.style_id, ""),
         starts_at=booking.starts_at,
         ends_at=booking.ends_at,
@@ -411,17 +426,44 @@ async def _style_names_for(db: AsyncSession, bookings: list[Booking], *, locale:
     return names
 
 
+def _validate_date_range(date_from: date | None, date_to: date | None) -> None:
+    if date_from is not None and date_to is not None and date_to < date_from:
+        raise InvalidBookingDateRangeError()
+
+
 async def list_bookings(
-    db: AsyncSession, *, user: User, params: PaginationParams, locale: str
+    db: AsyncSession,
+    *,
+    user: User,
+    params: PaginationParams,
+    locale: str,
+    status: BookingStatus | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    search: str | None = None,
 ) -> PaginatedBookingsResponse:
-    items, meta = await bookings_repo.list_bookings_for_customer(db, user.id, params=params)
+    _validate_date_range(date_from, date_to)
+    items, meta = await bookings_repo.list_bookings_for_customer(
+        db, user.id, params=params, status=status, date_from=date_from, date_to=date_to, search=search
+    )
     style_names = await _style_names_for(db, items, locale=locale)
-    return _paginated_response(items, meta, style_names)
+    braider_names = await braiders_repo.list_display_names(db, [b.braider_id for b in items])
+    customer_names = await users_repo.list_full_names(db, [b.customer_id for b in items])
+    return _paginated_response(items, meta, style_names, braider_names, customer_names)
 
 
 async def list_braider_bookings(
-    db: AsyncSession, *, user_id: uuid.UUID, params: PaginationParams, locale: str
+    db: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    params: PaginationParams,
+    locale: str,
+    status: BookingStatus | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    search: str | None = None,
 ) -> PaginatedBookingsResponse:
+    _validate_date_range(date_from, date_to)
     profile = await braiders_repo.get_profile_by_user_id(db, user_id)
     if profile is None:
         return PaginatedBookingsResponse(
@@ -433,16 +475,29 @@ async def list_braider_bookings(
             has_next=False,
             has_previous=False,
         )
-    items, meta = await bookings_repo.list_bookings_for_braider(db, profile.id, params=params)
+    items, meta = await bookings_repo.list_bookings_for_braider(
+        db, profile.id, params=params, status=status, date_from=date_from, date_to=date_to, search=search
+    )
     style_names = await _style_names_for(db, items, locale=locale)
-    return _paginated_response(items, meta, style_names)
+    braider_names = await braiders_repo.list_display_names(db, [b.braider_id for b in items])
+    customer_names = await users_repo.list_full_names(db, [b.customer_id for b in items])
+    return _paginated_response(items, meta, style_names, braider_names, customer_names)
 
 
 def _paginated_response(
-    items: list[Booking], meta: PaginationMeta, style_names: dict[uuid.UUID, str]
+    items: list[Booking],
+    meta: PaginationMeta,
+    style_names: dict[uuid.UUID, str],
+    braider_names: dict[uuid.UUID, str],
+    customer_names: dict[uuid.UUID, str],
 ) -> PaginatedBookingsResponse:
     return PaginatedBookingsResponse(
-        items=[_to_summary(b, style_names=style_names) for b in items],
+        items=[
+            _to_summary(
+                b, style_names=style_names, braider_names=braider_names, customer_names=customer_names
+            )
+            for b in items
+        ],
         page=meta.page,
         page_size=meta.page_size,
         total_items=meta.total_items,

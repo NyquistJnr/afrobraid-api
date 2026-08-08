@@ -15,6 +15,17 @@ async def get_user_by_id(db: AsyncSession, user_id: uuid.UUID) -> User | None:
     return await db.get(User, user_id)
 
 
+async def list_full_names(db: AsyncSession, user_ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
+    """Batched display-name lookup - avoids one query per row when rendering
+    a list (e.g. a braider's bookings, each naming its customer)."""
+    if not user_ids:
+        return {}
+    result = await db.execute(
+        select(User.id, User.first_name, User.last_name).where(User.id.in_(user_ids))
+    )
+    return {row.id: f"{row.first_name} {row.last_name or ''}".strip() for row in result.all()}
+
+
 async def get_user_by_phone(db: AsyncSession, phone_number: str) -> User | None:
     result = await db.execute(select(User).where(User.phone_number == phone_number))
     return result.scalar_one_or_none()

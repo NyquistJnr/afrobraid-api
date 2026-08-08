@@ -1,9 +1,10 @@
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app.core.currency import Currency
 from app.core.pagination import PaginationParams, paginate
@@ -17,7 +18,10 @@ from app.modules.bookings.enums import (
     PaymentStatus,
 )
 from app.modules.bookings.models import Booking, BookingItem, BookingPayment
+from app.modules.braiders.models import BraiderProfile
 from app.modules.platform_settings.models import SettingValueType
+from app.modules.styles.models import Style
+from app.modules.users.models import User
 
 
 async def get_booking_by_id(db: AsyncSession, booking_id: uuid.UUID) -> Booking | None:
@@ -71,23 +75,96 @@ async def get_pending_payment(
     return result.scalars().first()
 
 
+def _apply_common_filters(
+    stmt,
+    *,
+    status: BookingStatus | None,
+    date_from: date | None,
+    date_to: date | None,
+):
+    """Shared status/appointment-date filters for both the customer's and
+    the braider's booking lists. Dates bound `starts_at` (the appointment
+    time), not `created_at` - what a user wants to browse by is when the
+    appointment is, not when they booked it. Bounds are whole UTC calendar
+    days, inclusive on both ends."""
+    if status is not None:
+        stmt = stmt.where(Booking.status == status)
+    if date_from is not None:
+        stmt = stmt.where(Booking.starts_at >= datetime.combine(date_from, time.min, tzinfo=UTC))
+    if date_to is not None:
+        stmt = stmt.where(
+            Booking.starts_at < datetime.combine(date_to + timedelta(days=1), time.min, tzinfo=UTC)
+        )
+    return stmt
+
+
 async def list_bookings_for_customer(
-    db: AsyncSession, customer_id: uuid.UUID, *, params: PaginationParams
+    db: AsyncSession,
+    customer_id: uuid.UUID,
+    *,
+    params: PaginationParams,
+    status: BookingStatus | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    search: str | None = None,
 ) -> tuple[list[Booking], object]:
-    stmt = (
-        select(Booking)
-        .where(Booking.customer_id == customer_id)
-        .order_by(Booking.starts_at.desc())
-    )
+    stmt = select(Booking).where(Booking.customer_id == customer_id)
+    stmt = _apply_common_filters(stmt, status=status, date_from=date_from, date_to=date_to)
+
+    if search:
+        pattern = f"%{search}%"
+        braider_user = aliased(User)
+        stmt = (
+            stmt.join(Style, Style.id == Booking.style_id)
+            .join(BraiderProfile, BraiderProfile.id == Booking.braider_id)
+            .join(braider_user, braider_user.id == BraiderProfile.user_id)
+            .where(
+                or_(
+                    Style.name_en.ilike(pattern),
+                    Style.name_de.ilike(pattern),
+                    Style.name_fr.ilike(pattern),
+                    BraiderProfile.business_name.ilike(pattern),
+                    braider_user.first_name.ilike(pattern),
+                    braider_user.last_name.ilike(pattern),
+                )
+            )
+        )
+
+    stmt = stmt.order_by(Booking.starts_at.desc())
     return await paginate(db, stmt, params)
 
 
 async def list_bookings_for_braider(
-    db: AsyncSession, braider_id: uuid.UUID, *, params: PaginationParams
+    db: AsyncSession,
+    braider_id: uuid.UUID,
+    *,
+    params: PaginationParams,
+    status: BookingStatus | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    search: str | None = None,
 ) -> tuple[list[Booking], object]:
-    stmt = (
-        select(Booking).where(Booking.braider_id == braider_id).order_by(Booking.starts_at.desc())
-    )
+    stmt = select(Booking).where(Booking.braider_id == braider_id)
+    stmt = _apply_common_filters(stmt, status=status, date_from=date_from, date_to=date_to)
+
+    if search:
+        pattern = f"%{search}%"
+        customer_user = aliased(User)
+        stmt = (
+            stmt.join(Style, Style.id == Booking.style_id)
+            .join(customer_user, customer_user.id == Booking.customer_id)
+            .where(
+                or_(
+                    Style.name_en.ilike(pattern),
+                    Style.name_de.ilike(pattern),
+                    Style.name_fr.ilike(pattern),
+                    customer_user.first_name.ilike(pattern),
+                    customer_user.last_name.ilike(pattern),
+                )
+            )
+        )
+
+    stmt = stmt.order_by(Booking.starts_at.desc())
     return await paginate(db, stmt, params)
 
 

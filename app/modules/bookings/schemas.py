@@ -52,6 +52,8 @@ class BookingResponse(BaseModel):
     reference: str
     status: BookingStatus
     braider_id: uuid.UUID
+    braider_name: str
+    customer_name: str
     style_id: uuid.UUID
     style_name: str
     duration_minutes: int
@@ -85,6 +87,8 @@ class BookingSummaryResponse(BaseModel):
     reference: str
     status: BookingStatus
     braider_id: uuid.UUID
+    braider_name: str
+    customer_name: str
     style_name: str
     starts_at: datetime
     ends_at: datetime

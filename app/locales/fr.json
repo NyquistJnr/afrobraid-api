@@ -126,6 +126,7 @@
   "booking.price_drift": "Le prix a changé depuis la création de votre devis. Veuillez demander un nouveau devis et réessayer.",
   "booking.slot_unavailable": "Ce créneau vient d'être réservé par quelqu'un d'autre. Veuillez choisir un autre horaire.",
   "booking.terms_not_accepted": "Vous devez accepter les conditions pour finaliser cette réservation.",
+  "booking.invalid_date_range": "date_to doit être postérieure ou égale à date_from.",
 
   "payment.webhook_metadata_missing": "L'événement webhook Stripe ne contient pas les métadonnées requises.",
 

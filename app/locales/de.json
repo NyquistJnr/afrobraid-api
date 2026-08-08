@@ -126,6 +126,7 @@
   "booking.price_drift": "Der Preis hat sich seit Erstellung Ihres Angebots geändert. Bitte fordern Sie ein neues Angebot an und versuchen Sie es erneut.",
   "booking.slot_unavailable": "Dieser Termin wurde soeben von jemand anderem gebucht. Bitte wählen Sie einen anderen Termin.",
   "booking.terms_not_accepted": "Sie müssen die Bedingungen akzeptieren, um diese Buchung abzuschließen.",
+  "booking.invalid_date_range": "date_to muss am oder nach date_from liegen.",
 
   "payment.webhook_metadata_missing": "Dem Stripe-Webhook-Ereignis fehlen erforderliche Metadaten.",
 

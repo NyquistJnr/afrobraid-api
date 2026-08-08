@@ -126,6 +126,7 @@
   "booking.price_drift": "The price changed since your quote was created. Please request a new quote and try again.",
   "booking.slot_unavailable": "This time slot was just booked by someone else. Please choose another time.",
   "booking.terms_not_accepted": "You must accept the terms to complete this booking.",
+  "booking.invalid_date_range": "date_to must be on or after date_from.",
 
   "payment.webhook_metadata_missing": "Stripe webhook event is missing required metadata.",
 
