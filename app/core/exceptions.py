@@ -502,6 +502,36 @@ class StripeWebhookMetadataMissingError(AppError):
     message_key = "payment.webhook_metadata_missing"
 
 
+class InvalidTryOnImageUploadError(AppError):
+    status_code = status.HTTP_400_BAD_REQUEST
+    code = "INVALID_TRYON_IMAGE_UPLOAD"
+    message_key = "tryon.invalid_image_upload"
+
+
+class TryOnNotFoundError(AppError):
+    status_code = status.HTTP_404_NOT_FOUND
+    code = "TRYON_NOT_FOUND"
+    message_key = "tryon.not_found"
+
+
+class TryOnStyleOrDescriptionRequiredError(AppError):
+    status_code = status.HTTP_400_BAD_REQUEST
+    code = "TRYON_STYLE_OR_DESCRIPTION_REQUIRED"
+    message_key = "tryon.style_or_description_required"
+
+
+class TryOnStyleVariationInvalidError(AppError):
+    status_code = status.HTTP_400_BAD_REQUEST
+    code = "TRYON_STYLE_VARIATION_INVALID"
+    message_key = "tryon.invalid_style_variation"
+
+
+class MaxPendingTryOnsReachedError(AppError):
+    status_code = status.HTTP_400_BAD_REQUEST
+    code = "MAX_PENDING_TRYONS_REACHED"
+    message_key = "tryon.max_pending_reached"
+
+
 class ReviewNotEligibleError(AppError):
     """Raised when a customer tries to review a braider they've never had a
     successfully-paid booking with."""

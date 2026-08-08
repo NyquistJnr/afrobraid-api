@@ -59,5 +59,26 @@ def delete_object(object_key: str) -> None:
     get_r2_client().delete_object(Bucket=settings.r2_bucket_name, Key=object_key)
 
 
+def get_object(object_key: str) -> bytes | None:
+    """Fetches an object's bytes directly (as opposed to the client-facing
+    presigned-URL flow) - for server-side processing like handing a user's
+    uploaded photo to an external image API."""
+    try:
+        response = get_r2_client().get_object(Bucket=settings.r2_bucket_name, Key=object_key)
+    except ClientError as exc:
+        if exc.response.get("Error", {}).get("Code") in ("404", "NoSuchKey"):
+            return None
+        raise
+    return response["Body"].read()
+
+
+def put_object(object_key: str, data: bytes, *, content_type: str) -> None:
+    """Server-side upload of bytes we already hold in memory (e.g. a
+    generated image) - the presigned-URL flow is for client uploads only."""
+    get_r2_client().put_object(
+        Bucket=settings.r2_bucket_name, Key=object_key, Body=data, ContentType=content_type
+    )
+
+
 def build_public_url(object_key: str) -> str:
     return f"{settings.r2_public_base_url.rstrip('/')}/{object_key}"

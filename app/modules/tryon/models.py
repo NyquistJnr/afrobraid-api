@@ -1,0 +1,51 @@
+import enum
+import uuid
+from datetime import datetime
+
+from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, func
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.core.database import Base
+
+
+class TryOnStatus(str, enum.Enum):
+    PROCESSING = "PROCESSING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+
+
+class HairstyleTryOn(Base):
+    __tablename__ = "hairstyle_tryons"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    style_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("styles.id", ondelete="SET NULL"), nullable=True
+    )
+    style_variation_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("style_variations.id", ondelete="SET NULL"), nullable=True
+    )
+    description: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # The instruction actually sent to the model (style name + variation +
+    # description combined) - kept for support/debugging so a failed or
+    # odd-looking result can be traced back to exactly what was asked for.
+    prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    # The client's original photo. Cleared (and deleted from storage) once
+    # processing finishes, successfully or not - it's only ever needed to
+    # produce the result, never retained afterwards.
+    source_object_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    result_object_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    status: Mapped[TryOnStatus] = mapped_column(
+        Enum(TryOnStatus, name="tryon_status"), nullable=False, default=TryOnStatus.PROCESSING
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )

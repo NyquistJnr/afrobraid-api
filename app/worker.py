@@ -28,6 +28,8 @@ from app.modules.reviews import models as reviews_models  # noqa: F401,E402
 from app.modules.reviews.tasks import translate_review_comment_task
 from app.modules.styles import models as styles_models  # noqa: F401,E402
 from app.modules.styles.tasks import translate_style_text_task
+from app.modules.tryon import models as tryon_models  # noqa: F401,E402
+from app.modules.tryon.tasks import generate_hairstyle_tryon_task
 from app.modules.users import models as users_models  # noqa: F401,E402
 
 settings = get_settings()
@@ -45,6 +47,7 @@ class WorkerSettings:
         translate_portfolio_caption_task,
         send_booking_confirmed_email_task,
         translate_review_comment_task,
+        generate_hairstyle_tryon_task,
     ]
     cron_jobs = [
         # Hourly, well ahead of the 2h calculation TTL - see

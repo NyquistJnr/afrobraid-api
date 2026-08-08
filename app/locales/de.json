@@ -90,6 +90,13 @@
   "portfolio.image_not_found": "Wir konnten das hochgeladene Foto nicht finden. Bitte versuchen Sie es erneut.",
   "portfolio.max_images_reached": "Ihr Portfolio kann höchstens 20 Fotos enthalten. Entfernen Sie eines, bevor Sie ein weiteres hinzufügen.",
 
+  "tryon.invalid_image_upload": "Das hochgeladene Foto ist ungültig. Bitte laden Sie ein JPEG-, PNG- oder WebP-Bild mit maximal 10MB hoch.",
+  "tryon.not_found": "Wir konnten diesen Try-on nicht finden.",
+  "tryon.style_or_description_required": "Wählen Sie eine Frisur aus, beschreiben Sie die gewünschte Frisur, oder beides.",
+  "tryon.invalid_style_variation": "Diese Variante gehört nicht zur ausgewählten Frisur.",
+  "tryon.max_pending_reached": "Sie haben bereits {limit} Try-ons in Bearbeitung. Warten Sie, bis einer abgeschlossen ist, bevor Sie einen weiteren starten.",
+  "tryon.generation_failed": "Wir konnten Ihren Frisur-Try-on nicht erstellen. Bitte versuchen Sie es erneut.",
+
   "availability.settings_not_configured": "Dieser Braider hat seine Verfügbarkeit noch nicht eingerichtet.",
   "availability.invalid_timezone": "Das ist keine gültige Zeitzone. Bitte geben Sie einen gültigen IANA-Zeitzonennamen an, z. B. \"Africa/Lagos\".",
   "availability.window_not_found": "Dieses Verfügbarkeitsfenster existiert nicht.",

@@ -120,6 +120,22 @@ class Settings(BaseSettings):
     booking_balance_charge_grace_minutes: int = 45
     booking_terms_version: str = "1.0"
 
+    # Hugging Face (AI hairstyle try-on) - hf_api_url is the serverless
+    # Inference API base; hf_model_id is appended to it to form the full
+    # endpoint. Point hf_api_url at a dedicated Inference Endpoint instead
+    # for production traffic - the free serverless tier can be slow/unstable
+    # for image-to-image models like instruct-pix2pix.
+    hf_api_key: str = ""
+    hf_api_url: str = "https://api-inference.huggingface.co/models"
+    hf_model_id: str = "timbrooks/instruct-pix2pix"
+    # Generous timeout: paired with the `X-Wait-For-Model` header, a cold
+    # serverless model can take a good while to spin up before it ever
+    # starts inferring.
+    hf_request_timeout_seconds: int = 120
+    # Caps how many try-ons a single user can have in flight at once, so a
+    # burst of requests can't run up inference costs or flood the queue.
+    tryon_max_pending_per_user: int = 3
+
     @property
     def supported_locales_list(self) -> list[str]:
         return [loc.strip() for loc in self.supported_locales.split(",") if loc.strip()]

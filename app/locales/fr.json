@@ -90,6 +90,13 @@
   "portfolio.image_not_found": "Nous n'avons pas trouvé la photo téléchargée. Veuillez réessayer de la télécharger.",
   "portfolio.max_images_reached": "Votre portfolio peut contenir au maximum 20 photos. Retirez-en une avant d'en ajouter une autre.",
 
+  "tryon.invalid_image_upload": "La photo téléchargée est invalide. Veuillez télécharger une image JPEG, PNG ou WebP de 10 Mo maximum.",
+  "tryon.not_found": "Nous n'avons pas trouvé cet essai.",
+  "tryon.style_or_description_required": "Choisissez une coiffure, décrivez celle que vous voulez, ou les deux.",
+  "tryon.invalid_style_variation": "Cette variante n'appartient pas à la coiffure sélectionnée.",
+  "tryon.max_pending_reached": "Vous avez déjà {limit} essais en cours. Attendez qu'un essai se termine avant d'en démarrer un autre.",
+  "tryon.generation_failed": "Nous n'avons pas pu générer votre essai de coiffure. Veuillez réessayer.",
+
   "availability.settings_not_configured": "Cette tresseuse/ce tresseur n'a pas encore configuré ses disponibilités.",
   "availability.invalid_timezone": "Ce n'est pas un fuseau horaire reconnu. Veuillez indiquer un nom de fuseau horaire IANA valide, par ex. \"Africa/Lagos\".",
   "availability.window_not_found": "Ce créneau de disponibilité n'existe pas.",

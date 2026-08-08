@@ -43,7 +43,7 @@ async def _clean_state() -> AsyncGenerator[None]:
                 "platform_settings, country_vat_settings, "
                 "addons, style_variations, "
                 "style_images, styles, style_categories, braider_onboarding_statuses, "
-                "braider_profiles, users "
+                "braider_profiles, hairstyle_tryons, users "
                 "RESTART IDENTITY CASCADE"
             )
         )

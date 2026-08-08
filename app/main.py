@@ -33,6 +33,7 @@ from app.modules.reviews.admin_router import router as reviews_admin_router
 from app.modules.reviews.router import router as reviews_router
 from app.modules.styles.admin_router import router as styles_admin_router
 from app.modules.styles.router import router as styles_router
+from app.modules.tryon.router import router as tryon_router
 from app.modules.users.router import router as users_router
 
 settings = get_settings()
@@ -94,6 +95,7 @@ def create_app() -> FastAPI:
     app.include_router(stripe_payments_webhook_router)
     app.include_router(reviews_router)
     app.include_router(reviews_admin_router)
+    app.include_router(tryon_router)
 
     @app.get("/health", tags=["Health"])
     async def health() -> dict[str, str]:
