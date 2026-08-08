@@ -9,6 +9,7 @@ from app.core.i18n import LocaleMiddleware
 from app.core.logging import configure_logging
 from app.core.queue import create_arq_pool
 from app.modules.auth.router import router as auth_router
+from app.modules.bookings.admin_router import router as bookings_admin_router
 from app.modules.bookings.braider_router import router as braider_bookings_router
 from app.modules.bookings.calculations.router import router as booking_calculations_router
 from app.modules.bookings.payments.webhook import router as stripe_payments_webhook_router
@@ -29,6 +30,8 @@ from app.modules.braiders.veriff.router import router as veriff_router
 from app.modules.braiders.veriff.webhook import router as veriff_webhook_router
 from app.modules.media.router import router as media_router
 from app.modules.platform_settings.router import router as platform_settings_router
+from app.modules.reviews.admin_router import router as reviews_admin_router
+from app.modules.reviews.router import router as reviews_router
 from app.modules.styles.admin_router import router as styles_admin_router
 from app.modules.styles.router import router as styles_router
 from app.modules.users.router import router as users_router
@@ -89,7 +92,10 @@ def create_app() -> FastAPI:
     app.include_router(booking_calculations_router)
     app.include_router(bookings_router)
     app.include_router(braider_bookings_router)
+    app.include_router(bookings_admin_router)
     app.include_router(stripe_payments_webhook_router)
+    app.include_router(reviews_router)
+    app.include_router(reviews_admin_router)
 
     @app.get("/health", tags=["Health"])
     async def health() -> dict[str, str]:

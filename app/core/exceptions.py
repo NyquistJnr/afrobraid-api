@@ -490,6 +490,21 @@ class StripeWebhookMetadataMissingError(AppError):
     message_key = "payment.webhook_metadata_missing"
 
 
+class ReviewNotEligibleError(AppError):
+    """Raised when a customer tries to review a braider they've never had a
+    successfully-paid booking with."""
+
+    status_code = status.HTTP_403_FORBIDDEN
+    code = "REVIEW_NOT_ELIGIBLE"
+    message_key = "reviews.not_eligible"
+
+
+class ReviewNotFoundError(AppError):
+    status_code = status.HTTP_404_NOT_FOUND
+    code = "REVIEW_NOT_FOUND"
+    message_key = "reviews.not_found"
+
+
 def _locale_of(request: Request) -> str:
     return getattr(request.state, "locale", "en")
 

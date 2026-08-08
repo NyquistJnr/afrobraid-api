@@ -1,8 +1,9 @@
 import enum
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, func
+from sqlalchemy import DateTime, Enum, ForeignKey, Integer, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -63,6 +64,11 @@ class BraiderProfile(Base):
         Enum(BioSource, name="bio_source"), nullable=True
     )
     gender: Mapped[Gender | None] = mapped_column(Enum(Gender, name="gender"), nullable=True)
+    # Cached aggregate over app.modules.reviews.models.Review, recomputed by
+    # reviews.repository.recompute_braider_rating on every rating change -
+    # reading this avoids an AVG()/COUNT() join on every search result row.
+    average_rating: Mapped[Decimal | None] = mapped_column(Numeric(3, 2), nullable=True)
+    rating_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

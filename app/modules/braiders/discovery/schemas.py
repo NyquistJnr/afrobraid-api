@@ -45,6 +45,7 @@ class BraiderSearchItemResponse(BaseModel):
     cover_photo_url: str | None
     matched_style: MatchedStyleResponse | None
     styles: list[MatchedStyleResponse]
+    rating: Decimal | None
 
 
 class PortfolioImagePublicResponse(BaseModel):
@@ -86,3 +87,4 @@ class BraiderDetailResponse(BaseModel):
     location: BraiderLocationResponse | None
     portfolio: list[PortfolioImagePublicResponse]
     styles: list[BraiderOfferedStyleResponse]
+    rating: Decimal | None

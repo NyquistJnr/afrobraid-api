@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
@@ -186,6 +186,22 @@ async def list_blocked_ranges(
         )
     )
     return [(row.blocked_from, row.blocked_until) for row in result.all()]
+
+
+async def count_bookings_created_today(db: AsyncSession) -> int:
+    """Every booking whose `created_at` falls within today's UTC calendar
+    day, regardless of status - a simple "how many booking attempts came in
+    today" count, not filtered to paid/confirmed ones."""
+    today = datetime.now(UTC).date()
+    start = datetime.combine(today, time.min, tzinfo=UTC)
+    end = start + timedelta(days=1)
+    return (
+        await db.scalar(
+            select(func.count()).select_from(Booking).where(
+                Booking.created_at >= start, Booking.created_at < end
+            )
+        )
+    ) or 0
 
 
 async def expire_stale_holds(db: AsyncSession, *, limit: int) -> int:

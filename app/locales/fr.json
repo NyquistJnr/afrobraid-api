@@ -130,6 +130,9 @@
 
   "payment.webhook_metadata_missing": "L'événement webhook Stripe ne contient pas les métadonnées requises.",
 
+  "reviews.not_eligible": "Vous ne pouvez évaluer un ou une braideur/braideuse qu'après une réservation avec elle/lui ayant abouti à un paiement réussi.",
+  "reviews.not_found": "Cet avis n'existe pas.",
+
   "email.booking_confirmed_subject": "Votre réservation Afrobraid {reference} est confirmée",
   "email.booking_confirmed_greeting": "Bonjour {first_name},",
   "email.booking_confirmed_body": "Votre rendez-vous pour {style_name} avec {braider_name} est confirmé pour le {when}.",

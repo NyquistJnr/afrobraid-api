@@ -377,6 +377,10 @@ def _item_to_response(item: BookingItem, locale: str) -> BookingItemResponse:
     )
 
 
+async def count_bookings_today(db: AsyncSession) -> int:
+    return await bookings_repo.count_bookings_created_today(db)
+
+
 async def get_booking(db: AsyncSession, booking_id: uuid.UUID, *, user: User, locale: str) -> BookingResponse:
     booking = await bookings_repo.get_booking_by_id(db, booking_id)
     if booking is None or booking.customer_id != user.id:

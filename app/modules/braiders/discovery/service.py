@@ -225,6 +225,7 @@ async def search_braiders(
                 cover_photo_url=storage.build_public_url(cover.object_key) if cover else None,
                 matched_style=matched_style,
                 styles=styles,
+                rating=profile.average_rating,
             )
         )
 
@@ -305,4 +306,5 @@ async def get_braider_detail(
             for image in portfolio_images
         ],
         styles=styles_out,
+        rating=profile.average_rating,
     )

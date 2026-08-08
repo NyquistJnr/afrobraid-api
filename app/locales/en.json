@@ -130,6 +130,9 @@
 
   "payment.webhook_metadata_missing": "Stripe webhook event is missing required metadata.",
 
+  "reviews.not_eligible": "You can only review a braider after a booking with them that's reached a successful payment.",
+  "reviews.not_found": "This review doesn't exist.",
+
   "email.booking_confirmed_subject": "Your Afrobraid booking {reference} is confirmed",
   "email.booking_confirmed_greeting": "Hi {first_name},",
   "email.booking_confirmed_body": "Your appointment for {style_name} with {braider_name} is confirmed for {when}.",
