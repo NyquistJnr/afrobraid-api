@@ -1,7 +1,7 @@
 import math
 import random
 import uuid
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy import func, select
@@ -13,6 +13,8 @@ from app.core.exceptions import (
     InvalidSearchDateRangeError,
     InvalidSearchLocationError,
     InvalidSearchPriceRangeError,
+    InvalidSearchRatingRangeError,
+    InvalidTrendingLocationError,
 )
 from app.core.i18n import localize_field
 from app.core.pagination import PaginatedData, PaginationMeta, PaginationParams
@@ -41,6 +43,11 @@ _MAX_SEARCH_STYLES = 5
 # can't surface braiders continents away just because nothing closer matched.
 _DEFAULT_SEARCH_RADIUS_KM = 100
 _EARTH_RADIUS_M = 6_371_000
+# How far back a braider counts as "new" (New Braiders list, and the
+# recency boost in Recommended For You).
+_NEW_BRAIDER_WINDOW_DAYS = 30
+# Rolling window of recent booking activity that "Trending" ranks on.
+_TRENDING_WINDOW_DAYS = 30
 # Max jitter offset for HOME_STUDIO/mobile-only coordinates - close enough to
 # be useful on a map, far enough not to pinpoint a home address.
 _HOME_LOCATION_FUZZ_RADIUS_M = 400
@@ -133,63 +140,18 @@ def _to_location_response(
     )
 
 
-async def search_braiders(
+async def _rows_to_items(
     db: AsyncSession,
+    rows,
     *,
-    lat: float | None,
-    lng: float | None,
-    radius_km: float | None,
-    style_id: uuid.UUID | None,
-    style_slug: str | None,
-    search: str | None,
-    date_from: date | None,
-    date_to: date | None,
-    min_amount: Decimal | None,
-    max_amount: Decimal | None,
-    country_code: str | None,
-    is_mobile: bool | None,
-    params: PaginationParams,
     locale: str,
-) -> PaginatedData[BraiderSearchItemResponse]:
-    if (lat is None) != (lng is None):
-        raise InvalidSearchLocationError()
-
-    if (date_from is None) != (date_to is None):
-        raise InvalidSearchDateRangeError(max_days=_MAX_DATE_RANGE_DAYS)
-    if (
-        date_from is not None
-        and date_to is not None
-        and (date_to < date_from or (date_to - date_from).days > _MAX_DATE_RANGE_DAYS)
-    ):
-        raise InvalidSearchDateRangeError(max_days=_MAX_DATE_RANGE_DAYS)
-
-    if min_amount is not None and max_amount is not None and max_amount < min_amount:
-        raise InvalidSearchPriceRangeError()
-
-    resolved_radius_km = radius_km
-    if lat is not None and lng is not None and resolved_radius_km is None:
-        resolved_radius_km = _DEFAULT_SEARCH_RADIUS_KM
-
-    resolved_style_id = style_id
-    if resolved_style_id is None and style_slug:
-        style = await styles_repo.get_style_by_slug(db, style_slug)
-        resolved_style_id = style.id if style else uuid.uuid4()  # no match -> empty page
-
-    stmt = discovery_repo.build_search_stmt(
-        lat=lat,
-        lng=lng,
-        radius_km=resolved_radius_km,
-        style_id=resolved_style_id,
-        search=search,
-        date_from=date_from,
-        date_to=date_to,
-        min_amount=min_amount,
-        max_amount=max_amount,
-        country_code=country_code,
-        is_mobile=is_mobile,
-    )
-    rows, meta = await _paginate_rows(db, stmt, params)
-
+    resolved_style_id: uuid.UUID | None = None,
+) -> list[BraiderSearchItemResponse]:
+    """Shared row -> response mapping for every braider-list endpoint
+    (search, new, recommended, trending, top-rated). All of them select
+    `(BraiderProfile, BraiderServiceLocation, distance_km, ...)` as the first
+    three columns - `resolved_style_id` only applies to search, where two
+    extra columns (BraiderStyle, Style) are appended per row."""
     braider_ids = [row.BraiderProfile.id for row in rows]
     covers = await discovery_repo.list_cover_photos(db, braider_ids)
     offered_styles_by_braider = await discovery_repo.list_offered_styles_for_braiders(
@@ -229,6 +191,162 @@ async def search_braiders(
             )
         )
 
+    return items
+
+
+async def search_braiders(
+    db: AsyncSession,
+    *,
+    lat: float | None,
+    lng: float | None,
+    radius_km: float | None,
+    style_id: uuid.UUID | None,
+    style_slug: str | None,
+    search: str | None,
+    date_from: date | None,
+    date_to: date | None,
+    min_amount: Decimal | None,
+    max_amount: Decimal | None,
+    min_rate: Decimal | None,
+    max_rate: Decimal | None,
+    country_code: str | None,
+    is_mobile: bool | None,
+    params: PaginationParams,
+    locale: str,
+) -> PaginatedData[BraiderSearchItemResponse]:
+    if (lat is None) != (lng is None):
+        raise InvalidSearchLocationError()
+
+    if (date_from is None) != (date_to is None):
+        raise InvalidSearchDateRangeError(max_days=_MAX_DATE_RANGE_DAYS)
+    if (
+        date_from is not None
+        and date_to is not None
+        and (date_to < date_from or (date_to - date_from).days > _MAX_DATE_RANGE_DAYS)
+    ):
+        raise InvalidSearchDateRangeError(max_days=_MAX_DATE_RANGE_DAYS)
+
+    if min_amount is not None and max_amount is not None and max_amount < min_amount:
+        raise InvalidSearchPriceRangeError()
+
+    if min_rate is not None and max_rate is not None and max_rate < min_rate:
+        raise InvalidSearchRatingRangeError()
+
+    resolved_radius_km = radius_km
+    if lat is not None and lng is not None and resolved_radius_km is None:
+        resolved_radius_km = _DEFAULT_SEARCH_RADIUS_KM
+
+    resolved_style_id = style_id
+    if resolved_style_id is None and style_slug:
+        style = await styles_repo.get_style_by_slug(db, style_slug)
+        resolved_style_id = style.id if style else uuid.uuid4()  # no match -> empty page
+
+    stmt = discovery_repo.build_search_stmt(
+        lat=lat,
+        lng=lng,
+        radius_km=resolved_radius_km,
+        style_id=resolved_style_id,
+        search=search,
+        date_from=date_from,
+        date_to=date_to,
+        min_amount=min_amount,
+        max_amount=max_amount,
+        min_rate=min_rate,
+        max_rate=max_rate,
+        country_code=country_code,
+        is_mobile=is_mobile,
+    )
+    rows, meta = await _paginate_rows(db, stmt, params)
+    items = await _rows_to_items(db, rows, locale=locale, resolved_style_id=resolved_style_id)
+    return PaginatedData(items=items, pagination=meta)
+
+
+async def list_new_braiders(
+    db: AsyncSession,
+    *,
+    lat: float | None,
+    lng: float | None,
+    radius_km: float | None,
+    country_code: str | None,
+    params: PaginationParams,
+    locale: str,
+) -> PaginatedData[BraiderSearchItemResponse]:
+    if (lat is None) != (lng is None):
+        raise InvalidSearchLocationError()
+
+    since = datetime.now(UTC) - timedelta(days=_NEW_BRAIDER_WINDOW_DAYS)
+    stmt = discovery_repo.build_new_braiders_stmt(
+        since=since, lat=lat, lng=lng, radius_km=radius_km, country_code=country_code
+    )
+    rows, meta = await _paginate_rows(db, stmt, params)
+    items = await _rows_to_items(db, rows, locale=locale)
+    return PaginatedData(items=items, pagination=meta)
+
+
+async def list_top_rated_braiders(
+    db: AsyncSession,
+    *,
+    lat: float | None,
+    lng: float | None,
+    radius_km: float | None,
+    country_code: str | None,
+    params: PaginationParams,
+    locale: str,
+) -> PaginatedData[BraiderSearchItemResponse]:
+    if (lat is None) != (lng is None):
+        raise InvalidSearchLocationError()
+
+    stmt = discovery_repo.build_top_rated_stmt(
+        lat=lat, lng=lng, radius_km=radius_km, country_code=country_code
+    )
+    rows, meta = await _paginate_rows(db, stmt, params)
+    items = await _rows_to_items(db, rows, locale=locale)
+    return PaginatedData(items=items, pagination=meta)
+
+
+async def list_trending_braiders(
+    db: AsyncSession,
+    *,
+    lat: float | None,
+    lng: float | None,
+    radius_km: float | None,
+    country_code: str | None,
+    params: PaginationParams,
+    locale: str,
+) -> PaginatedData[BraiderSearchItemResponse]:
+    if (lat is None) != (lng is None):
+        raise InvalidSearchLocationError()
+    if not country_code and lat is None:
+        raise InvalidTrendingLocationError()
+
+    since = datetime.now(UTC) - timedelta(days=_TRENDING_WINDOW_DAYS)
+    stmt = discovery_repo.build_trending_stmt(
+        since=since, lat=lat, lng=lng, radius_km=radius_km, country_code=country_code
+    )
+    rows, meta = await _paginate_rows(db, stmt, params)
+    items = await _rows_to_items(db, rows, locale=locale)
+    return PaginatedData(items=items, pagination=meta)
+
+
+async def list_recommended_braiders(
+    db: AsyncSession,
+    *,
+    lat: float | None,
+    lng: float | None,
+    radius_km: float | None,
+    country_code: str | None,
+    params: PaginationParams,
+    locale: str,
+) -> PaginatedData[BraiderSearchItemResponse]:
+    if (lat is None) != (lng is None):
+        raise InvalidSearchLocationError()
+
+    new_since = datetime.now(UTC) - timedelta(days=_NEW_BRAIDER_WINDOW_DAYS)
+    stmt = discovery_repo.build_recommended_stmt(
+        new_since=new_since, lat=lat, lng=lng, radius_km=radius_km, country_code=country_code
+    )
+    rows, meta = await _paginate_rows(db, stmt, params)
+    items = await _rows_to_items(db, rows, locale=locale)
     return PaginatedData(items=items, pagination=meta)
 
 

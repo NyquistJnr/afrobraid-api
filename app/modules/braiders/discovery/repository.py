@@ -1,5 +1,5 @@
 import uuid
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import Date, and_, case, cast, func, literal, or_, select, text
@@ -7,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 from sqlalchemy.sql import Select, exists
 
+from app.modules.bookings.enums import BookingStatus
+from app.modules.bookings.models import Booking
 from app.modules.braiders.availability.models import (
     AvailabilityExceptionType,
     BraiderAvailabilityException,
@@ -19,6 +21,14 @@ from app.modules.braiders.portfolio.models import PortfolioImage
 from app.modules.braiders.service_location.models import BraiderServiceLocation
 from app.modules.styles.models import AddOn, Style, StyleVariation
 from app.modules.users.models import User, UserType
+
+# Demand signal for "trending" - a braider committed to (not just started
+# paying for, and not cancelled/disputed/no-showed) counts as real demand.
+_TRENDING_BOOKING_STATUSES = (
+    BookingStatus.CONFIRMED,
+    BookingStatus.IN_PROGRESS,
+    BookingStatus.COMPLETED,
+)
 
 # Meters, per Postgres earthdistance's `earth_distance()`/`ll_to_earth()`.
 _METERS_PER_KM = 1000
@@ -150,6 +160,8 @@ def build_search_stmt(
     date_to: date | None = None,
     min_amount: Decimal | None = None,
     max_amount: Decimal | None = None,
+    min_rate: Decimal | None = None,
+    max_rate: Decimal | None = None,
     country_code: str | None = None,
     is_mobile: bool | None = None,
 ) -> Select:
@@ -191,6 +203,11 @@ def build_search_stmt(
     if min_amount is not None or max_amount is not None:
         stmt = stmt.where(_price_range_filter(min_amount, max_amount))
 
+    if min_rate is not None:
+        stmt = stmt.where(BraiderProfile.average_rating >= min_rate)
+    if max_rate is not None:
+        stmt = stmt.where(BraiderProfile.average_rating <= max_rate)
+
     if country_code:
         stmt = stmt.where(BraiderServiceLocation.country == country_code)
 
@@ -215,6 +232,143 @@ def build_search_stmt(
         stmt = stmt.order_by(BraiderProfile.business_name)
 
     return stmt
+
+
+def _browse_stmt(
+    *,
+    lat: float | None,
+    lng: float | None,
+    radius_km: float | None,
+    country_code: str | None,
+) -> Select:
+    """Shared shape for the curated braider lists (new/top-rated/trending/
+    recommended): same row shape and location scoping as `build_search_stmt`
+    minus the style/price/date/search filters those don't need. Callers
+    still need to add their own ORDER BY - distance is only meaningful when
+    lat/lng are given, otherwise callers rank by their own criterion."""
+    distance_expr = (
+        _distance_km_expr(lat, lng) if lat is not None and lng is not None else literal(None)
+    )
+    stmt = (
+        select(BraiderProfile, BraiderServiceLocation, distance_expr.label("distance_km"))
+        .join(User, User.id == BraiderProfile.user_id)
+        .join(BraiderOnboardingStatus, BraiderOnboardingStatus.user_id == User.id)
+        .outerjoin(BraiderServiceLocation, BraiderServiceLocation.braider_id == BraiderProfile.id)
+        .where(*_visibility_filters())
+    )
+
+    if country_code:
+        stmt = stmt.where(BraiderServiceLocation.country == country_code)
+
+    if lat is not None and lng is not None:
+        stmt = stmt.where(
+            BraiderServiceLocation.latitude.is_not(None),
+            BraiderServiceLocation.longitude.is_not(None),
+        )
+        if radius_km is not None:
+            stmt = stmt.where(
+                func.earth_box(func.ll_to_earth(lat, lng), radius_km * _METERS_PER_KM).op("@>")(
+                    func.ll_to_earth(
+                        BraiderServiceLocation.latitude, BraiderServiceLocation.longitude
+                    )
+                )
+            )
+
+    return stmt
+
+
+def build_new_braiders_stmt(
+    *,
+    since: datetime,
+    lat: float | None = None,
+    lng: float | None = None,
+    radius_km: float | None = None,
+    country_code: str | None = None,
+) -> Select:
+    """Braiders whose onboarding (i.e. public visibility) completed on or
+    after `since`. Ordered newest-first."""
+    stmt = _browse_stmt(lat=lat, lng=lng, radius_km=radius_km, country_code=country_code)
+    return stmt.where(BraiderOnboardingStatus.completed_at >= since).order_by(
+        BraiderOnboardingStatus.completed_at.desc()
+    )
+
+
+# Minimum sample size before "top rated" ranking kicks in - low enough that
+# an early-stage catalog (most braiders with just 1-2 reviews so far) still
+# populates this list, while still filtering out completely unrated braiders.
+# Raise this as review volume grows platform-wide.
+_TOP_RATED_MIN_RATING_COUNT = 1
+
+
+def build_top_rated_stmt(
+    *,
+    lat: float | None = None,
+    lng: float | None = None,
+    radius_km: float | None = None,
+    country_code: str | None = None,
+) -> Select:
+    stmt = _browse_stmt(lat=lat, lng=lng, radius_km=radius_km, country_code=country_code)
+    return stmt.where(
+        BraiderProfile.average_rating.is_not(None),
+        BraiderProfile.rating_count >= _TOP_RATED_MIN_RATING_COUNT,
+    ).order_by(BraiderProfile.average_rating.desc(), BraiderProfile.rating_count.desc())
+
+
+def build_trending_stmt(
+    *,
+    since: datetime,
+    lat: float | None = None,
+    lng: float | None = None,
+    radius_km: float | None = None,
+    country_code: str | None = None,
+) -> Select:
+    """Ranked by recent booking volume (bookings created since `since` in a
+    committed/completed state - see `_TRENDING_BOOKING_STATUSES`), scoped to
+    a country or a lat/lng radius. Callers must supply at least one of those
+    scopes - "trending" is inherently relative to a place."""
+    recent_booking_count = (
+        select(func.count(Booking.id))
+        .where(
+            Booking.braider_id == BraiderProfile.id,
+            Booking.created_at >= since,
+            Booking.status.in_(_TRENDING_BOOKING_STATUSES),
+        )
+        .correlate(BraiderProfile)
+        .scalar_subquery()
+    )
+    stmt = _browse_stmt(lat=lat, lng=lng, radius_km=radius_km, country_code=country_code)
+    return (
+        stmt.add_columns(recent_booking_count.label("recent_booking_count"))
+        .where(recent_booking_count > 0)
+        .order_by(recent_booking_count.desc(), BraiderProfile.average_rating.desc().nulls_last())
+    )
+
+
+# Flat bump applied to a braider's rating-based score if they're still within
+# the "new braider" window (see build_new_braiders_stmt) - blends fresh
+# braiders into the ranking instead of letting established, higher-volume
+# ratings always crowd them out.
+_RECOMMENDED_NEW_BRAIDER_BOOST = Decimal("0.5")
+
+
+def build_recommended_stmt(
+    *,
+    new_since: datetime,
+    lat: float | None = None,
+    lng: float | None = None,
+    radius_km: float | None = None,
+    country_code: str | None = None,
+) -> Select:
+    """No personalization signal yet (no purchase/browsing history feeding
+    this): ranks by rating, with a boost for recently-onboarded braiders so
+    the list isn't just a copy of top-rated. Swappable later for a real
+    per-customer signal without changing the endpoint contract."""
+    score = func.coalesce(BraiderProfile.average_rating, 0) + case(
+        (BraiderOnboardingStatus.completed_at >= new_since, _RECOMMENDED_NEW_BRAIDER_BOOST),
+        else_=0,
+    )
+    stmt = _browse_stmt(lat=lat, lng=lng, radius_km=radius_km, country_code=country_code)
+    return stmt.order_by(score.desc(), BraiderProfile.rating_count.desc())
 
 
 async def get_visible_profile_by_id(

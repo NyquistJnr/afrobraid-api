@@ -1,3 +1,4 @@
+import uuid
 from datetime import UTC, date, datetime, time, timedelta
 
 import pytest
@@ -5,6 +6,8 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.bookings.enums import BookingStatus
+from app.modules.bookings.models import Booking
 from app.modules.braiders.availability.models import (
     AvailabilityExceptionType,
     BraiderAvailabilityException,
@@ -18,8 +21,75 @@ from app.modules.braiders.service_location.models import BraiderServiceLocation,
 from app.modules.styles.models import Style
 from app.modules.users.models import UserType
 from tests.helpers import create_user_with_token
+from tests.modules.bookings.helpers import create_bookable_braider
 
 pytestmark = pytest.mark.asyncio
+
+CALC_URL = "/api/v1/booking-calculations"
+BOOKINGS_URL = "/api/v1/bookings"
+
+
+async def _confirmed_booking(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    *,
+    braider: dict,
+    customer_headers: dict,
+    hours_from_now: int = 10,
+) -> None:
+    """Mirrors tests/modules/reviews/test_reviews.py's helper of the same
+    shape: drives the real checkout flow, then flips the resulting booking
+    straight to CONFIRMED in place of a webhook-driven payment success."""
+    calc_resp = await client.post(
+        CALC_URL, json={"braider_id": str(braider["braider_id"]), "style_id": str(braider["style_id"])}
+    )
+    assert calc_resp.status_code == 201, calc_resp.text
+    calc = calc_resp.json()["data"]
+
+    book_resp = await client.post(
+        BOOKINGS_URL,
+        json={
+            "booking_calculation_id": calc["id"],
+            "starts_at": (datetime.now(UTC) + timedelta(hours=hours_from_now)).isoformat(),
+            "terms_accepted": True,
+        },
+        headers=customer_headers,
+    )
+    assert book_resp.status_code == 201, book_resp.text
+    booking_id = uuid.UUID(book_resp.json()["data"]["id"])
+
+    booking = await db_session.get(Booking, booking_id)
+    booking.status = BookingStatus.CONFIRMED
+    await db_session.commit()
+
+
+async def _add_review(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    *,
+    braider: dict,
+    rating: int,
+    hours_from_now: int = 10,
+) -> None:
+    """One eligible, rated review from a fresh customer - average_rating
+    reflects immediately, no admin approval needed (only the comment is
+    moderated, see test_reviews.py)."""
+    _, token = await create_user_with_token(db_session, user_type=UserType.CUSTOMER)
+    customer_headers = {"Authorization": f"Bearer {token}"}
+    await _confirmed_booking(
+        client,
+        db_session,
+        braider=braider,
+        customer_headers=customer_headers,
+        hours_from_now=hours_from_now,
+    )
+
+    resp = await client.put(
+        f"/api/v1/braiders/{braider['braider_id']}/reviews/me",
+        json={"rating": rating},
+        headers=customer_headers,
+    )
+    assert resp.status_code == 200, resp.text
 
 _WEEKDAY_TO_DAY_OF_WEEK = [
     DayOfWeek.MONDAY,
@@ -43,6 +113,7 @@ async def _make_completed_braider(
     lat: float,
     lng: float,
     location_type: LocationType = LocationType.SALON,
+    onboarded_at: datetime | None = None,
 ) -> BraiderProfile:
     user, _ = await create_user_with_token(db_session, user_type=UserType.BRAIDER)
     profile = BraiderProfile(user_id=user.id, business_name=business_name, bio_en="Great braids")
@@ -61,7 +132,7 @@ async def _make_completed_braider(
             longitude=lng,
         )
     )
-    onboarded_at = datetime(2026, 1, 1, tzinfo=UTC)
+    onboarded_at = onboarded_at or datetime(2026, 1, 1, tzinfo=UTC)
     db_session.add(
         BraiderOnboardingStatus(
             user_id=user.id,
@@ -437,3 +508,138 @@ async def test_search_styles_capped_at_five(client: AsyncClient, db_session: Asy
     resp = await client.get("/api/v1/braiders")
     item = next(i for i in resp.json()["data"]["items"] if i["id"] == str(braider.id))
     assert len(item["styles"]) == 5
+
+
+async def test_search_by_rating_range(client: AsyncClient, db_session: AsyncSession):
+    high_rated = await create_bookable_braider(db_session, business_name="High Rated")
+    low_rated = await create_bookable_braider(db_session, business_name="Low Rated")
+    await _add_review(client, db_session, braider=high_rated, rating=5)
+    await _add_review(client, db_session, braider=low_rated, rating=2)
+
+    resp = await client.get("/api/v1/braiders?min_rate=4")
+    ids = {item["id"] for item in resp.json()["data"]["items"]}
+    assert str(high_rated["braider_id"]) in ids
+    assert str(low_rated["braider_id"]) not in ids
+
+    resp = await client.get("/api/v1/braiders?max_rate=3")
+    ids = {item["id"] for item in resp.json()["data"]["items"]}
+    assert str(low_rated["braider_id"]) in ids
+    assert str(high_rated["braider_id"]) not in ids
+
+    resp = await client.get("/api/v1/braiders?min_rate=4&max_rate=1")
+    assert resp.status_code == 400
+    assert resp.json()["error"]["code"] == "INVALID_SEARCH_RATING_RANGE"
+
+
+async def test_new_braiders_list(client: AsyncClient, db_session: AsyncSession):
+    now = datetime.now(UTC)
+    fresh = await _make_completed_braider(
+        db_session,
+        business_name="Fresh Braids",
+        lat=LAT_NEAR,
+        lng=LNG_NEAR,
+        onboarded_at=now - timedelta(days=5),
+    )
+    stale = await _make_completed_braider(
+        db_session,
+        business_name="Stale Braids",
+        lat=LAT_NEAR,
+        lng=LNG_NEAR,
+        onboarded_at=now - timedelta(days=60),
+    )
+
+    resp = await client.get("/api/v1/braiders/new")
+    assert resp.status_code == 200, resp.text
+    ids = [item["id"] for item in resp.json()["data"]["items"]]
+    assert str(fresh.id) in ids
+    assert str(stale.id) not in ids
+
+
+async def test_top_rated_braiders_list(client: AsyncClient, db_session: AsyncSession):
+    well_reviewed = await create_bookable_braider(db_session, business_name="Well Reviewed")
+    for i in range(3):
+        # Default duration is 4h - space bookings out so they don't overlap.
+        await _add_review(
+            client, db_session, braider=well_reviewed, rating=5, hours_from_now=10 + i * 5
+        )
+
+    # A single review is enough to qualify (min rating_count threshold is 1) -
+    # an early-stage catalog shouldn't have an empty top-rated list.
+    once_reviewed = await create_bookable_braider(db_session, business_name="Once Reviewed")
+    await _add_review(client, db_session, braider=once_reviewed, rating=4)
+
+    # Never reviewed at all - genuinely excluded, nothing to rank on.
+    unrated = await create_bookable_braider(db_session, business_name="Unrated")
+
+    resp = await client.get("/api/v1/braiders/top-rated")
+    assert resp.status_code == 200, resp.text
+    ids = [item["id"] for item in resp.json()["data"]["items"]]
+    assert str(well_reviewed["braider_id"]) in ids
+    assert str(once_reviewed["braider_id"]) in ids
+    assert str(unrated["braider_id"]) not in ids
+    # Higher average ranks first.
+    assert ids.index(str(well_reviewed["braider_id"])) < ids.index(str(once_reviewed["braider_id"]))
+
+
+async def test_trending_braiders_list(client: AsyncClient, db_session: AsyncSession):
+    busy = await create_bookable_braider(db_session, business_name="Busy Braids", country="AT")
+    _, token = await create_user_with_token(db_session, user_type=UserType.CUSTOMER)
+    customer_headers = {"Authorization": f"Bearer {token}"}
+    await _confirmed_booking(client, db_session, braider=busy, customer_headers=customer_headers)
+
+    quiet = await create_bookable_braider(db_session, business_name="Quiet Braids", country="AT")
+
+    resp = await client.get("/api/v1/braiders/trending?country_code=AT")
+    assert resp.status_code == 200, resp.text
+    ids = [item["id"] for item in resp.json()["data"]["items"]]
+    assert str(busy["braider_id"]) in ids
+    assert str(quiet["braider_id"]) not in ids
+
+    # No country_code and no lat/lng - "trending" needs a scope.
+    resp = await client.get("/api/v1/braiders/trending")
+    assert resp.status_code == 400
+    assert resp.json()["error"]["code"] == "INVALID_TRENDING_LOCATION"
+
+
+async def test_recommended_braiders_list(client: AsyncClient, db_session: AsyncSession):
+    now = datetime.now(UTC)
+    top_rated_established = await _make_completed_braider(
+        db_session,
+        business_name="Established Star",
+        lat=LAT_NEAR,
+        lng=LNG_NEAR,
+        onboarded_at=now - timedelta(days=200),
+    )
+    top_rated_established.average_rating = 5
+    top_rated_established.rating_count = 10
+
+    new_unrated = await _make_completed_braider(
+        db_session,
+        business_name="Brand New",
+        lat=LAT_NEAR,
+        lng=LNG_NEAR,
+        onboarded_at=now - timedelta(days=1),
+    )
+
+    old_unrated = await _make_completed_braider(
+        db_session,
+        business_name="Old And Unrated",
+        lat=LAT_NEAR,
+        lng=LNG_NEAR,
+        onboarded_at=now - timedelta(days=200),
+    )
+    await db_session.commit()
+
+    resp = await client.get("/api/v1/braiders/recommended")
+    assert resp.status_code == 200, resp.text
+    ids = [item["id"] for item in resp.json()["data"]["items"]]
+    assert str(top_rated_established.id) in ids
+    assert str(new_unrated.id) in ids
+    assert str(old_unrated.id) in ids
+    # Highly rated ranks first; the "new" boost puts the fresh, unrated
+    # braider ahead of the equally-unrated but stale one.
+    assert (
+        ids.index(str(top_rated_established.id))
+        < ids.index(str(new_unrated.id))
+        < ids.index(str(old_unrated.id))
+    )

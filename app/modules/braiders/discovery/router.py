@@ -9,7 +9,9 @@ from app.core.database import get_db
 from app.core.pagination import PaginatedData, PaginationParams
 from app.core.response import APIResponse
 from app.modules.braiders.discovery import service
+from app.modules.braiders.discovery.repository import _TOP_RATED_MIN_RATING_COUNT
 from app.modules.braiders.discovery.schemas import BraiderDetailResponse, BraiderSearchItemResponse
+from app.modules.braiders.discovery.service import _NEW_BRAIDER_WINDOW_DAYS, _TRENDING_WINDOW_DAYS
 
 router = APIRouter(prefix="/api/v1/braiders", tags=["Braiders - Discovery"])
 
@@ -34,10 +36,11 @@ def _locale(request: Request) -> str:
         "bookable slots for a specific style/duration, see "
         "`/braiders/{braider_id}/availability/slots` for that. Filter by "
         "price with `min_amount`/`max_amount` (matches braiders with at "
-        "least one offered style priced within the range), by "
-        "`country_code` (ISO 3166-1 alpha-2), and by `is_mobile` (braiders "
-        "who offer a mobile service at their service location). Each "
-        "result's `styles` list is capped at 5 entries."
+        "least one offered style priced within the range), by rating with "
+        "`min_rate`/`max_rate` (0-5, matches the braider's own average "
+        "rating), by `country_code` (ISO 3166-1 alpha-2), and by "
+        "`is_mobile` (braiders who offer a mobile service at their service "
+        "location). Each result's `styles` list is capped at 5 entries."
     ),
 )
 async def search_braiders(
@@ -52,6 +55,8 @@ async def search_braiders(
     date_to: date | None = Query(None),
     min_amount: Decimal | None = Query(None, ge=0),
     max_amount: Decimal | None = Query(None, ge=0),
+    min_rate: Decimal | None = Query(None, ge=0, le=5),
+    max_rate: Decimal | None = Query(None, ge=0, le=5),
     country_code: str | None = Query(None, min_length=2, max_length=2),
     is_mobile: bool | None = Query(None),
     params: PaginationParams = Depends(),
@@ -69,8 +74,138 @@ async def search_braiders(
         date_to=date_to,
         min_amount=min_amount,
         max_amount=max_amount,
+        min_rate=min_rate,
+        max_rate=max_rate,
         country_code=country_code.upper() if country_code else None,
         is_mobile=is_mobile,
+        params=params,
+        locale=_locale(request),
+    )
+    return APIResponse(data=result)
+
+
+@router.get(
+    "/new",
+    response_model=APIResponse[PaginatedData[BraiderSearchItemResponse]],
+    summary="New braiders",
+    description=(
+        "Public, no auth required. Braiders whose onboarding completed in "
+        f"the last {_NEW_BRAIDER_WINDOW_DAYS} days, newest first. Same "
+        "visibility rules as search. Optionally scope with `country_code` "
+        "or `lat`+`lng` (+ optional `radius_km`)."
+    ),
+)
+async def list_new_braiders(
+    request: Request,
+    lat: float | None = Query(None, ge=-90, le=90),
+    lng: float | None = Query(None, ge=-180, le=180),
+    radius_km: float | None = Query(None, gt=0),
+    country_code: str | None = Query(None, min_length=2, max_length=2),
+    params: PaginationParams = Depends(),
+    db: AsyncSession = Depends(get_db),
+) -> APIResponse[PaginatedData[BraiderSearchItemResponse]]:
+    result = await service.list_new_braiders(
+        db,
+        lat=lat,
+        lng=lng,
+        radius_km=radius_km,
+        country_code=country_code.upper() if country_code else None,
+        params=params,
+        locale=_locale(request),
+    )
+    return APIResponse(data=result)
+
+
+@router.get(
+    "/recommended",
+    response_model=APIResponse[PaginatedData[BraiderSearchItemResponse]],
+    summary="Recommended for you",
+    description=(
+        "Public, no auth required. Currently a blend of highly-rated and "
+        "newly-onboarded braiders (not yet personalized per customer). "
+        "Optionally scope with `country_code` or `lat`+`lng` (+ optional "
+        "`radius_km`)."
+    ),
+)
+async def list_recommended_braiders(
+    request: Request,
+    lat: float | None = Query(None, ge=-90, le=90),
+    lng: float | None = Query(None, ge=-180, le=180),
+    radius_km: float | None = Query(None, gt=0),
+    country_code: str | None = Query(None, min_length=2, max_length=2),
+    params: PaginationParams = Depends(),
+    db: AsyncSession = Depends(get_db),
+) -> APIResponse[PaginatedData[BraiderSearchItemResponse]]:
+    result = await service.list_recommended_braiders(
+        db,
+        lat=lat,
+        lng=lng,
+        radius_km=radius_km,
+        country_code=country_code.upper() if country_code else None,
+        params=params,
+        locale=_locale(request),
+    )
+    return APIResponse(data=result)
+
+
+@router.get(
+    "/trending",
+    response_model=APIResponse[PaginatedData[BraiderSearchItemResponse]],
+    summary="Trending braiders",
+    description=(
+        "Public, no auth required. Braiders ranked by recent booking "
+        f"volume (confirmed or completed bookings in the last {_TRENDING_WINDOW_DAYS} "
+        "days). Requires a scope: either `country_code`, or `lat`+`lng` "
+        "(+ optional `radius_km`, default 100km) for a \"near you\" view."
+    ),
+)
+async def list_trending_braiders(
+    request: Request,
+    lat: float | None = Query(None, ge=-90, le=90),
+    lng: float | None = Query(None, ge=-180, le=180),
+    radius_km: float | None = Query(None, gt=0),
+    country_code: str | None = Query(None, min_length=2, max_length=2),
+    params: PaginationParams = Depends(),
+    db: AsyncSession = Depends(get_db),
+) -> APIResponse[PaginatedData[BraiderSearchItemResponse]]:
+    result = await service.list_trending_braiders(
+        db,
+        lat=lat,
+        lng=lng,
+        radius_km=radius_km,
+        country_code=country_code.upper() if country_code else None,
+        params=params,
+        locale=_locale(request),
+    )
+    return APIResponse(data=result)
+
+
+@router.get(
+    "/top-rated",
+    response_model=APIResponse[PaginatedData[BraiderSearchItemResponse]],
+    summary="Top rated braiders",
+    description=(
+        "Public, no auth required. Braiders with at least "
+        f"{_TOP_RATED_MIN_RATING_COUNT} ratings, ordered by average rating "
+        "descending. Optionally scope with `country_code` or `lat`+`lng` "
+        "(+ optional `radius_km`)."
+    ),
+)
+async def list_top_rated_braiders(
+    request: Request,
+    lat: float | None = Query(None, ge=-90, le=90),
+    lng: float | None = Query(None, ge=-180, le=180),
+    radius_km: float | None = Query(None, gt=0),
+    country_code: str | None = Query(None, min_length=2, max_length=2),
+    params: PaginationParams = Depends(),
+    db: AsyncSession = Depends(get_db),
+) -> APIResponse[PaginatedData[BraiderSearchItemResponse]]:
+    result = await service.list_top_rated_braiders(
+        db,
+        lat=lat,
+        lng=lng,
+        radius_km=radius_km,
+        country_code=country_code.upper() if country_code else None,
         params=params,
         locale=_locale(request),
     )

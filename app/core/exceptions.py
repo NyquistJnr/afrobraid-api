@@ -153,6 +153,18 @@ class InvalidSearchPriceRangeError(AppError):
     message_key = "braider.invalid_search_price_range"
 
 
+class InvalidSearchRatingRangeError(AppError):
+    status_code = status.HTTP_400_BAD_REQUEST
+    code = "INVALID_SEARCH_RATING_RANGE"
+    message_key = "braider.invalid_search_rating_range"
+
+
+class InvalidTrendingLocationError(AppError):
+    status_code = status.HTTP_400_BAD_REQUEST
+    code = "INVALID_TRENDING_LOCATION"
+    message_key = "braider.invalid_trending_location"
+
+
 class VeriffApiUnavailableError(AppError):
     status_code = status.HTTP_502_BAD_GATEWAY
     code = "VERIFF_API_UNAVAILABLE"

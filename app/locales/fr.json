@@ -49,6 +49,8 @@
   "braider.invalid_search_location": "Veuillez fournir à la fois lat et lng, ou aucun des deux.",
   "braider.invalid_search_date_range": "Veuillez fournir date_from et date_to, avec date_to égal ou postérieur à date_from et au maximum {max_days} jours d'écart.",
   "braider.invalid_search_price_range": "max_amount doit être supérieur ou égal à min_amount.",
+  "braider.invalid_search_rating_range": "max_rate doit être supérieur ou égal à min_rate.",
+  "braider.invalid_trending_location": "Veuillez fournir un country_code, ou à la fois lat et lng.",
 
   "media.deleted": "Le fichier a été supprimé.",
 
