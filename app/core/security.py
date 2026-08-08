@@ -57,6 +57,13 @@ def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
+def hash_content(text: str) -> str:
+    """One-way digest for content we deliberately never store in plaintext
+    (see app.modules.chat.moderation) - salted with secret_key so it isn't a
+    plain lookup table for common flagged phrases."""
+    return hashlib.sha256((settings.secret_key + text).encode("utf-8")).hexdigest()
+
+
 def generate_otp_code(length: int | None = None) -> str:
     n = length or settings.otp_length
     return "".join(secrets.choice("0123456789") for _ in range(n))

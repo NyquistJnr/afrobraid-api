@@ -146,5 +146,24 @@
   "email.booking_confirmed_greeting": "Bonjour {first_name},",
   "email.booking_confirmed_body": "Votre rendez-vous pour {style_name} avec {braider_name} est confirmé pour le {when}.",
   "email.booking_confirmed_reference_label": "Référence de réservation",
-  "email.booking_confirmed_total_label": "Total"
+  "email.booking_confirmed_total_label": "Total",
+
+  "users.invalid_chat_locale": "Cette langue de chat n'est pas prise en charge.",
+
+  "chat.not_available": "Le chat se débloque dès que votre acompte (ou paiement intégral) pour cette réservation a été effectué.",
+  "chat.thread_not_found": "Cette conversation n'existe pas.",
+  "chat.access_denied": "Vous n'avez pas accès à cette conversation.",
+  "chat.message_empty": "Le message ne peut pas être vide.",
+  "chat.message_not_found": "Ce message n'existe pas.",
+  "chat.report_not_found": "Ce signalement n'existe pas.",
+  "chat.message_flagged_notice": "Ce message a été retenu car il semble contenir des coordonnées ou des informations de paiement/compte, ce qui n'est pas autorisé. Veuillez conserver toutes vos communications et paiements sur Afrobraid afin de rester couvert par nos protections.",
+
+  "notifications.not_found": "Cette notification n'existe pas.",
+  "notifications.deleted": "Notification supprimée.",
+  "notifications.chat_new_message_title": "Nouveau message",
+  "notifications.chat_new_message_body": "{sender_name} vous a envoyé un message.",
+  "notifications.chat_message_flagged_title": "Message retenu",
+  "notifications.chat_message_flagged_body": "Un message de {sender_name} a été retenu pour non-respect de notre politique de chat.",
+
+  "errors.invalid_date_range": "date_to doit être postérieure ou égale à date_from."
 }

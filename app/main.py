@@ -1,13 +1,17 @@
+import asyncio
+import contextlib
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
+from app.core import ws
 from app.core.config import get_settings
 from app.core.exceptions import register_exception_handlers
 from app.core.i18n import LocaleMiddleware
 from app.core.logging import configure_logging
 from app.core.queue import create_arq_pool
+from app.core.redis import get_redis_client
 from app.modules.auth.router import router as auth_router
 from app.modules.bookings.braider_router import router as braider_bookings_router
 from app.modules.bookings.calculations.router import router as booking_calculations_router
@@ -27,8 +31,12 @@ from app.modules.braiders.router import router as braiders_router
 from app.modules.braiders.service_location.router import router as braider_service_location_router
 from app.modules.braiders.veriff.router import router as veriff_router
 from app.modules.braiders.veriff.webhook import router as veriff_webhook_router
+from app.modules.chat.admin_router import router as chat_admin_router
+from app.modules.chat.router import router as chat_router
 from app.modules.media.router import router as media_router
+from app.modules.notifications.router import router as notifications_router
 from app.modules.platform_settings.router import router as platform_settings_router
+from app.modules.realtime.router import router as realtime_router
 from app.modules.reviews.admin_router import router as reviews_admin_router
 from app.modules.reviews.router import router as reviews_router
 from app.modules.styles.admin_router import router as styles_admin_router
@@ -43,7 +51,16 @@ settings = get_settings()
 async def lifespan(app: FastAPI):
     configure_logging()
     app.state.arq_pool = await create_arq_pool()
+
+    ws_redis_client = get_redis_client()
+    listener_task = asyncio.create_task(ws.redis_listener(ws_redis_client))
+
     yield
+
+    listener_task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await listener_task
+    await ws_redis_client.aclose()
     await app.state.arq_pool.close()
 
 
@@ -96,6 +113,10 @@ def create_app() -> FastAPI:
     app.include_router(reviews_router)
     app.include_router(reviews_admin_router)
     app.include_router(tryon_router)
+    app.include_router(chat_router)
+    app.include_router(chat_admin_router)
+    app.include_router(notifications_router)
+    app.include_router(realtime_router)
 
     @app.get("/health", tags=["Health"])
     async def health() -> dict[str, str]:

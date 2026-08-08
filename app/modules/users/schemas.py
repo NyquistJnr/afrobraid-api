@@ -1,6 +1,6 @@
 import uuid
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.modules.users.models import UserType
 
@@ -18,12 +18,19 @@ class UserPublic(BaseModel):
     email: str
     phone_number: str | None
     user_type: UserType
+    chat_locale: str | None
 
 
 class UserProfileUpdateRequest(BaseModel):
     first_name: str | None = None
     last_name: str | None = None
     phone_number: str | None = None
+    chat_locale: str | None = Field(
+        default=None,
+        description="Language you want to chat in (e.g. \"en\"). Required from both sides of "
+        "a conversation before chat.tasks translates anything - see the chat module. Send "
+        "an empty string to clear it.",
+    )
 
     @field_validator("first_name")
     @classmethod
@@ -66,3 +73,11 @@ class UserProfileUpdateRequest(BaseModel):
                 f"Phone number must be at most {_PHONE_NUMBER_MAX_LENGTH} characters long."
             )
         return v
+
+    @field_validator("chat_locale")
+    @classmethod
+    def _chat_locale_format(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        v = v.strip().lower()
+        return v or None

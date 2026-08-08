@@ -120,17 +120,16 @@ class Settings(BaseSettings):
     booking_balance_charge_grace_minutes: int = 45
     booking_terms_version: str = "1.0"
 
-    # Hugging Face (AI hairstyle try-on) - hf_api_url is the serverless
-    # Inference API base; hf_model_id is appended to it to form the full
-    # endpoint. Point hf_api_url at a dedicated Inference Endpoint instead
-    # for production traffic - the free serverless tier can be slow/unstable
-    # for image-to-image models like instruct-pix2pix.
+    # Hugging Face (AI hairstyle try-on) - routed through Hugging Face's
+    # Inference Providers (huggingface_hub's AsyncInferenceClient), NOT the
+    # old standalone "serverless Inference API" (api-inference.huggingface.co
+    # was fully decommissioned). hf_provider="auto" lets HF pick whichever
+    # partner provider currently serves hf_model_id fastest; pin it to a
+    # specific provider name (e.g. "fal-ai", "replicate") for predictable
+    # billing/latency instead.
     hf_api_key: str = ""
-    hf_api_url: str = "https://api-inference.huggingface.co/models"
-    hf_model_id: str = "timbrooks/instruct-pix2pix"
-    # Generous timeout: paired with the `X-Wait-For-Model` header, a cold
-    # serverless model can take a good while to spin up before it ever
-    # starts inferring.
+    hf_provider: str = "auto"
+    hf_model_id: str = "black-forest-labs/FLUX.1-Kontext-dev"
     hf_request_timeout_seconds: int = 120
     # Caps how many try-ons a single user can have in flight at once, so a
     # burst of requests can't run up inference costs or flood the queue.

@@ -23,3 +23,6 @@ boto3==1.35.97
 
 twilio==9.10.9
 stripe==11.4.1
+
+huggingface_hub==1.27.0
+pillow==12.3.0

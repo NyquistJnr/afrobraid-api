@@ -547,6 +547,65 @@ class ReviewNotFoundError(AppError):
     message_key = "reviews.not_found"
 
 
+class InvalidChatLocaleError(AppError):
+    status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    code = "INVALID_CHAT_LOCALE"
+    message_key = "users.invalid_chat_locale"
+
+
+class ChatNotAvailableError(AppError):
+    """Raised when a booking hasn't reached a successful payment yet - chat
+    unlocks the moment `confirmed_at` is first set (deposit or full payment)
+    and stays unlocked even if the booking is later cancelled, so a dispute
+    can still be discussed."""
+
+    status_code = status.HTTP_403_FORBIDDEN
+    code = "CHAT_NOT_AVAILABLE"
+    message_key = "chat.not_available"
+
+
+class ChatThreadNotFoundError(AppError):
+    status_code = status.HTTP_404_NOT_FOUND
+    code = "CHAT_THREAD_NOT_FOUND"
+    message_key = "chat.thread_not_found"
+
+
+class ChatAccessDeniedError(AppError):
+    status_code = status.HTTP_403_FORBIDDEN
+    code = "CHAT_ACCESS_DENIED"
+    message_key = "chat.access_denied"
+
+
+class ChatMessageEmptyError(AppError):
+    status_code = status.HTTP_400_BAD_REQUEST
+    code = "CHAT_MESSAGE_EMPTY"
+    message_key = "chat.message_empty"
+
+
+class ChatMessageNotFoundError(AppError):
+    status_code = status.HTTP_404_NOT_FOUND
+    code = "CHAT_MESSAGE_NOT_FOUND"
+    message_key = "chat.message_not_found"
+
+
+class ChatReportNotFoundError(AppError):
+    status_code = status.HTTP_404_NOT_FOUND
+    code = "CHAT_REPORT_NOT_FOUND"
+    message_key = "chat.report_not_found"
+
+
+class NotificationNotFoundError(AppError):
+    status_code = status.HTTP_404_NOT_FOUND
+    code = "NOTIFICATION_NOT_FOUND"
+    message_key = "notifications.not_found"
+
+
+class InvalidDateRangeError(AppError):
+    status_code = status.HTTP_400_BAD_REQUEST
+    code = "INVALID_DATE_RANGE"
+    message_key = "errors.invalid_date_range"
+
+
 def _locale_of(request: Request) -> str:
     return getattr(request.state, "locale", "en")
 

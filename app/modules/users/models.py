@@ -42,6 +42,12 @@ class User(Base):
     # platform account (see bookings/payments), so this is a 1:1 mirror, not
     # something that needs its own table.
     stripe_customer_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Explicitly opted-into language for chat translation (app.modules.chat) -
+    # deliberately separate from the request-scoped `?lang=`/Accept-Language
+    # locale (app.core.i18n): chat only translates a message when BOTH
+    # participants have set this, and only ever between those two languages,
+    # never fanned out to every supported locale like reviews/bios are.
+    chat_locale: Mapped[str | None] = mapped_column(String(5), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

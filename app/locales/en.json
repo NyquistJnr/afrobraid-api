@@ -146,5 +146,24 @@
   "email.booking_confirmed_greeting": "Hi {first_name},",
   "email.booking_confirmed_body": "Your appointment for {style_name} with {braider_name} is confirmed for {when}.",
   "email.booking_confirmed_reference_label": "Booking reference",
-  "email.booking_confirmed_total_label": "Total"
+  "email.booking_confirmed_total_label": "Total",
+
+  "users.invalid_chat_locale": "That's not a supported chat language.",
+
+  "chat.not_available": "Chat unlocks once your deposit (or full payment) for this booking has gone through.",
+  "chat.thread_not_found": "This conversation doesn't exist.",
+  "chat.access_denied": "You don't have access to this conversation.",
+  "chat.message_empty": "Message can't be empty.",
+  "chat.message_not_found": "This message doesn't exist.",
+  "chat.report_not_found": "This report doesn't exist.",
+  "chat.message_flagged_notice": "This message was withheld because it looks like it shares contact details or payment/account information, which isn't allowed. Please keep all communication and payments on Afrobraid so you stay covered by our protections.",
+
+  "notifications.not_found": "This notification doesn't exist.",
+  "notifications.deleted": "Notification deleted.",
+  "notifications.chat_new_message_title": "New message",
+  "notifications.chat_new_message_body": "{sender_name} sent you a message.",
+  "notifications.chat_message_flagged_title": "Message withheld",
+  "notifications.chat_message_flagged_body": "A message from {sender_name} was withheld for violating our chat policy.",
+
+  "errors.invalid_date_range": "date_to must be on or after date_from."
 }

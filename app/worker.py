@@ -24,6 +24,9 @@ from app.modules.braiders.offerings import models as braider_offerings_models  #
 from app.modules.braiders.portfolio import models as braider_portfolio_models  # noqa: F401,E402
 from app.modules.braiders.portfolio.tasks import translate_portfolio_caption_task
 from app.modules.braiders.tasks import translate_bio_task
+from app.modules.chat import models as chat_models  # noqa: F401,E402
+from app.modules.chat.tasks import translate_chat_message_task
+from app.modules.notifications import models as notifications_models  # noqa: F401,E402
 from app.modules.reviews import models as reviews_models  # noqa: F401,E402
 from app.modules.reviews.tasks import translate_review_comment_task
 from app.modules.styles import models as styles_models  # noqa: F401,E402
@@ -48,6 +51,7 @@ class WorkerSettings:
         send_booking_confirmed_email_task,
         translate_review_comment_task,
         generate_hairstyle_tryon_task,
+        translate_chat_message_task,
     ]
     cron_jobs = [
         # Hourly, well ahead of the 2h calculation TTL - see
