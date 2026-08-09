@@ -177,5 +177,7 @@
   "notifications.chat_message_flagged_title": "Message withheld",
   "notifications.chat_message_flagged_body": "A message from {sender_name} was withheld for violating our chat policy.",
 
-  "errors.invalid_date_range": "date_to must be on or after date_from."
+  "errors.invalid_date_range": "date_to must be on or after date_from.",
+
+  "contact.submitted": "Thanks for reaching out - we've received your message and will get back to you soon."
 }

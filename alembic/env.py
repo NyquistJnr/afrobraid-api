@@ -23,6 +23,7 @@ from app.modules.braiders.service_location import (
     models as braider_service_location_models,  # noqa: F401
 )
 from app.modules.braiders.veriff import models as veriff_models  # noqa: F401
+from app.modules.contact import models as contact_models  # noqa: F401
 from app.modules.platform_settings import models as platform_settings_models  # noqa: F401
 from app.modules.reviews import models as reviews_models  # noqa: F401
 from app.modules.styles import models as styles_models  # noqa: F401

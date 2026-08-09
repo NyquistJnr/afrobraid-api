@@ -177,5 +177,7 @@
   "notifications.chat_message_flagged_title": "Nachricht zurückgehalten",
   "notifications.chat_message_flagged_body": "Eine Nachricht von {sender_name} wurde zurückgehalten, da sie gegen unsere Chat-Richtlinie verstößt.",
 
-  "errors.invalid_date_range": "date_to muss am oder nach date_from liegen."
+  "errors.invalid_date_range": "date_to muss am oder nach date_from liegen.",
+
+  "contact.submitted": "Vielen Dank für Ihre Nachricht - wir haben sie erhalten und melden uns in Kürze bei Ihnen."
 }

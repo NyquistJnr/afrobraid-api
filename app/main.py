@@ -33,6 +33,7 @@ from app.modules.braiders.veriff.router import router as veriff_router
 from app.modules.braiders.veriff.webhook import router as veriff_webhook_router
 from app.modules.chat.admin_router import router as chat_admin_router
 from app.modules.chat.router import router as chat_router
+from app.modules.contact.router import router as contact_router
 from app.modules.media.router import router as media_router
 from app.modules.notifications.router import router as notifications_router
 from app.modules.platform_settings.router import router as platform_settings_router
@@ -115,6 +116,7 @@ def create_app() -> FastAPI:
     app.include_router(tryon_router)
     app.include_router(chat_router)
     app.include_router(chat_admin_router)
+    app.include_router(contact_router)
     app.include_router(notifications_router)
     app.include_router(realtime_router)
 

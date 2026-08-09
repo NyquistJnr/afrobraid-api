@@ -177,5 +177,7 @@
   "notifications.chat_message_flagged_title": "Message retenu",
   "notifications.chat_message_flagged_body": "Un message de {sender_name} a été retenu pour non-respect de notre politique de chat.",
 
-  "errors.invalid_date_range": "date_to doit être postérieure ou égale à date_from."
+  "errors.invalid_date_range": "date_to doit être postérieure ou égale à date_from.",
+
+  "contact.submitted": "Merci de nous avoir contactés - nous avons bien reçu votre message et vous répondrons bientôt."
 }
