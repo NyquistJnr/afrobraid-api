@@ -85,6 +85,7 @@ class TryOnResponse(BaseModel):
     style: TryOnStyleSummary | None
     style_variation: TryOnStyleVariationSummary | None
     description: str | None
+    original_url: str | None
     result_url: str | None
     error_message: str | None
     created_at: datetime

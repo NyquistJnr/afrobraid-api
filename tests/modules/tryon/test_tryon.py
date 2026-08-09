@@ -211,10 +211,13 @@ async def test_get_list_and_delete(
     client: AsyncClient, db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
 ):
     _mock_storage(monkeypatch)
+    deleted: list[str] = []
+    monkeypatch.setattr(storage, "delete_object", lambda key: deleted.append(key))
     _, token = await create_user_with_token(db_session, user_type=UserType.CUSTOMER)
     headers = {"Authorization": f"Bearer {token}"}
 
     tryon = await _create_tryon(client, headers, description="afro")
+    assert tryon["original_url"] is not None
 
     get_resp = await client.get(f"{TRYON_URL}/{tryon['id']}", headers=headers)
     assert get_resp.status_code == 200
@@ -226,6 +229,8 @@ async def test_get_list_and_delete(
 
     delete_resp = await client.delete(f"{TRYON_URL}/{tryon['id']}", headers=headers)
     assert delete_resp.status_code == 204
+    # Explicit deletion is the only time the original is removed from storage.
+    assert len(deleted) == 1
 
     list_after = await client.get(TRYON_URL, headers=headers)
     assert list_after.json()["data"] == []
@@ -251,7 +256,7 @@ async def test_scoped_to_owning_user(
     assert delete_resp.status_code == 404
 
 
-async def test_generation_task_success_deletes_original_and_saves_result(
+async def test_generation_task_success_keeps_both_photos_for_before_after(
     client: AsyncClient, db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
 ):
     _mock_storage(monkeypatch)
@@ -275,16 +280,24 @@ async def test_generation_task_success_deletes_original_and_saves_result(
     _, token = await create_user_with_token(db_session, user_type=UserType.CUSTOMER)
     headers = {"Authorization": f"Bearer {token}"}
     tryon = await _create_tryon(client, headers, description="afro")
+    assert tryon["original_url"] is not None
     source_key = (await get_tryon_by_id(db_session, uuid.UUID(tryon["id"]))).source_object_key
 
     await tryon_tasks.generate_hairstyle_tryon_task({}, tryon_id=tryon["id"])
 
     updated = await get_tryon_by_id(db_session, uuid.UUID(tryon["id"]))
     assert updated.status == TryOnStatus.COMPLETED
-    assert updated.source_object_key is None
+    # Both photos are kept for a before/after view - neither is deleted
+    # automatically, only when the try-on itself is deleted.
+    assert updated.source_object_key == source_key
     assert updated.result_object_key is not None
     assert put_calls[0][0] == updated.result_object_key
-    assert deleted == [source_key]
+    assert deleted == []
+
+    get_resp = await client.get(f"{TRYON_URL}/{tryon['id']}", headers=headers)
+    body = get_resp.json()["data"]
+    assert body["original_url"] is not None
+    assert body["result_url"] is not None
 
 
 async def test_generation_task_failure_marks_failed_and_keeps_original(

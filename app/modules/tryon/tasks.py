@@ -43,9 +43,11 @@ async def generate_hairstyle_tryon_task(ctx: dict, *, tryon_id: str) -> None:
 
         result_key = f"tryon/{tryon.user_id}/result/{uuid.uuid4()}.jpg"
         storage.put_object(result_key, result_bytes, content_type=_RESULT_CONTENT_TYPE)
-        storage.delete_object(source_key)
 
+        # Both the original and the generated photo are kept (not just the
+        # result) so the client can render a before/after comparison -
+        # they're only removed if the try-on itself is deleted (see
+        # service.delete_tryon).
         tryon.result_object_key = result_key
-        tryon.source_object_key = None
         tryon.status = TryOnStatus.COMPLETED
         await db.commit()

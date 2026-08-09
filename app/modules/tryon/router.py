@@ -50,10 +50,11 @@ async def request_upload_url(
     description=(
         "Call this after successfully PUTing the photo to the `upload_url` from "
         "the previous step. Generation happens in the background - the response "
-        "comes back with `status: PROCESSING`; poll `GET /api/v1/tryon/{id}` (or "
-        "`GET /api/v1/tryon` for your history) until `status` is `COMPLETED` (see "
-        "`result_url`) or `FAILED`. Your original photo is deleted from storage as "
-        "soon as processing finishes."
+        "comes back with `status: PROCESSING` and `original_url` already set (for "
+        "showing a before/after view immediately); poll `GET /api/v1/tryon/{id}` "
+        "(or `GET /api/v1/tryon` for your history) until `status` is `COMPLETED` "
+        "(see `result_url`) or `FAILED`. Both photos are kept until the try-on "
+        "itself is deleted."
     ),
 )
 async def create_tryon(

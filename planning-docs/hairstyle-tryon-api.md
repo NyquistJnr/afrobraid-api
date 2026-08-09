@@ -82,14 +82,14 @@ This is a **client-direct-upload + background-generation** flow, not a single re
         ▼
 4. poll GET /api/v1/tryon/{id} every ~3-5s
         │
-        ├──► status: "COMPLETED" → result_url is set → show the image
+        ├──► status: "COMPLETED" → result_url is set → show before/after (original_url + result_url)
         └──► status: "FAILED"    → error_message is set → offer "try again" (back to step 1)
 ```
 
 Key things this implies for the frontend:
 
 - **The API never receives the photo through a normal request body** — you PUT it straight to object storage using the URL from step 1. This keeps large image uploads off the API server entirely.
-- **The original uploaded photo is deleted automatically** once generation finishes (success or failure) — there's nothing to clean up client-side, and don't expect to be able to re-fetch the original later.
+- **Both photos are kept — the original and the generated result — specifically so you can render a before/after comparison.** `original_url` is populated immediately (even while `status` is still `PROCESSING`), so you can show the "before" photo right away and have the "after" fade in once `result_url` shows up. Neither photo is deleted automatically — they persist until the try-on itself is deleted (§3.5).
 - **Style, description, or both.** At least one of `style_id` / `description` is required in step 3. Sending both combines them — e.g. picking "Knotless Braids" *and* typing "shoulder length, honey blonde" produces a prompt combining both. Pure free-text (no style picked) also works fine.
 - **A user can have at most 3 try-ons `PROCESSING` at once** (server-enforced, see errors below) — surface this as a friendly "wait for one to finish" message, not a generic error.
 
@@ -161,7 +161,7 @@ At least one of `style_id` / `description` is required. All three of `style_id`,
 
 #### Response `202`
 
-`APIResponse<TryOnResponse>` — see §5 for the full field reference. On creation, `status` is always `PROCESSING` and `result_url`/`error_message` are always `null`.
+`APIResponse<TryOnResponse>` — see §5 for the full field reference. On creation, `status` is always `PROCESSING`, `original_url` is already populated, and `result_url`/`error_message` are always `null`.
 
 ```jsonc
 {
@@ -170,6 +170,7 @@ At least one of `style_id` / `description` is required. All three of `style_id`,
   "style": { "id": "9f1c....", "slug": "knotless-braids", "name": "Knotless Braids" },
   "style_variation": null,
   "description": "shoulder length, honey blonde highlights",
+  "original_url": "https://cdn.../tryon/.../original/....webp",
   "result_url": null,
   "error_message": null,
   "created_at": "2026-08-08T17:53:45.297430Z"
@@ -196,7 +197,7 @@ Step 4 of the flow. Any logged-in user — scoped to their own try-ons (someone 
 
 #### Response `200`
 
-Same `TryOnResponse` shape as §3.2. Poll roughly every 3–5 seconds until `status` is no longer `PROCESSING`. On `COMPLETED`, `result_url` is a permanent public image URL. On `FAILED`, `error_message` is a localized, user-safe string (raw error detail is server-side only) — the sensible UX is to let the user retry from step 1 with the same or a new photo.
+Same `TryOnResponse` shape as §3.2. Poll roughly every 3–5 seconds until `status` is no longer `PROCESSING`. On `COMPLETED`, `original_url` and `result_url` are both permanent public image URLs — render them side by side for the before/after. On `FAILED`, `error_message` is a localized, user-safe string (raw error detail is server-side only) — `original_url` is still available even on failure, but there's no "retry this try-on" endpoint, so a retry means uploading fresh via step 1 again.
 
 There's no push/webhook for completion today — polling is the only option.
 
@@ -220,7 +221,7 @@ Any logged-in user. No pagination (this list is expected to stay small) — ever
 
 ### 3.5 Delete a try-on — `DELETE /api/v1/tryon/{id}`
 
-Any logged-in user — scoped to their own. Removes the record and any stored image (original and/or result, whichever still exist).
+Any logged-in user — scoped to their own. Removes the record **and both stored photos** (original and result, whichever still exist) — this is the only way either photo is ever deleted.
 
 #### Response `204`
 
@@ -239,9 +240,9 @@ No body.
 1. Let the user pick a photo (camera or gallery). Call `POST /tryon/upload-url` with that file's mime type, then `PUT` the raw bytes to `upload_url` (§3.1). Show an upload-progress state — this part is typically fast (seconds).
 2. Let the user pick a style from §1's catalog, type a free-text description, or both. Enforce "at least one" client-side to avoid a round trip for `TRYON_STYLE_OR_DESCRIPTION_REQUIRED`.
 3. Call `POST /tryon` (§3.2). On success, immediately show a "generating your look..." state — don't block on a spinner expecting a fast response, this is a multi-second-to-tens-of-seconds background job.
-4. Poll `GET /tryon/{id}` (§3.3) every 3–5 seconds. Recommended: stop showing an indefinite spinner after ~90 seconds and instead show "this is taking longer than usual, we'll keep trying" (keep polling in the background, or let the user navigate away and check `GET /tryon` — §3.4 — later) rather than appearing frozen.
-5. On `COMPLETED`, show `result_url`. On `FAILED`, show `error_message` with a retry action that restarts from step 1 (the failed original photo is already gone server-side, so a fresh upload is required — don't try to resubmit the same `object_key`).
-6. `GET /tryon` (§3.4) is what powers a "your try-ons" history/gallery screen — useful for letting users revisit or delete past results (§3.5) without re-generating.
+4. Poll `GET /tryon/{id}` (§3.3) every 3–5 seconds. Show `original_url` immediately (it's set from the very first response in step 3) as the "before" side of the comparison while you wait. Recommended: stop showing an indefinite spinner after ~90 seconds and instead show "this is taking longer than usual, we'll keep trying" (keep polling in the background, or let the user navigate away and check `GET /tryon` — §3.4 — later) rather than appearing frozen.
+5. On `COMPLETED`, show `result_url` as the "after" side — a before/after slider or side-by-side is the natural UI here. On `FAILED`, show `error_message` with a retry action that restarts from step 1 (there's no endpoint to reuse the same `object_key`/photo for a second attempt, even though it's still stored — always upload fresh).
+6. `GET /tryon` (§3.4) is what powers a "your try-ons" history/gallery screen — each entry already has both `original_url` and `result_url`, so the gallery can show before/after thumbnails directly without extra requests. Users can delete entries (§3.5) they don't want kept.
 
 ---
 
@@ -254,6 +255,7 @@ No body.
   "style": { "id": "uuid", "slug": "string", "name": "string" } | null,
   "style_variation": { "id": "uuid", "name": "string" } | null,
   "description": "string" | null,
+  "original_url": "https://..." | null, // set from creation onward; null only if the upload itself somehow vanished
   "result_url": "https://..." | null,   // only non-null when status == COMPLETED
   "error_message": "string" | null,     // only non-null when status == FAILED, already localized
   "created_at": "2026-08-08T17:53:45.297430Z"

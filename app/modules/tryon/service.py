@@ -204,6 +204,9 @@ async def _to_response(db: AsyncSession, tryon: HairstyleTryOn, *, locale: str) 
         style=style_summary,
         style_variation=variation_summary,
         description=tryon.description,
+        original_url=storage.build_public_url(tryon.source_object_key)
+        if tryon.source_object_key
+        else None,
         result_url=storage.build_public_url(tryon.result_object_key)
         if tryon.result_object_key
         else None,
