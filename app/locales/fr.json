@@ -148,6 +148,19 @@
   "email.booking_confirmed_reference_label": "Référence de réservation",
   "email.booking_confirmed_total_label": "Total",
 
+  "email.receipt_subject": "Votre reçu Afrobraid pour {reference}",
+  "email.receipt_greeting": "Bonjour {first_name},",
+  "email.receipt_body": "Nous avons bien reçu votre {payment_type} pour {style_name} avec {braider_name}, prévu pour le {when}.",
+  "email.receipt_reference_label": "Référence de réservation",
+  "email.receipt_payment_type_label": "Type de paiement",
+  "email.receipt_payment_type_deposit": "Acompte",
+  "email.receipt_payment_type_full": "Paiement intégral",
+  "email.receipt_payment_type_balance": "Solde",
+  "email.receipt_amount_paid_label": "Montant payé",
+  "email.receipt_date_label": "Date de paiement",
+  "email.receipt_balance_due_label": "Solde restant dû",
+  "email.receipt_total_label": "Total de la réservation",
+
   "users.invalid_chat_locale": "Cette langue de chat n'est pas prise en charge.",
 
   "chat.not_available": "Le chat se débloque dès que votre acompte (ou paiement intégral) pour cette réservation a été effectué.",

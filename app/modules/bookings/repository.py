@@ -51,6 +51,10 @@ async def list_payments(db: AsyncSession, booking_id: uuid.UUID) -> list[Booking
     return list(result.scalars().all())
 
 
+async def get_payment_by_id(db: AsyncSession, payment_id: uuid.UUID) -> BookingPayment | None:
+    return await db.get(BookingPayment, payment_id)
+
+
 async def get_payment_by_stripe_intent_id(
     db: AsyncSession, stripe_payment_intent_id: str
 ) -> BookingPayment | None:

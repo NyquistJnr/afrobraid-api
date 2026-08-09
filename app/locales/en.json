@@ -148,6 +148,19 @@
   "email.booking_confirmed_reference_label": "Booking reference",
   "email.booking_confirmed_total_label": "Total",
 
+  "email.receipt_subject": "Your Afrobraid receipt for {reference}",
+  "email.receipt_greeting": "Hi {first_name},",
+  "email.receipt_body": "We've received your {payment_type} for {style_name} with {braider_name}, scheduled for {when}.",
+  "email.receipt_reference_label": "Booking reference",
+  "email.receipt_payment_type_label": "Payment type",
+  "email.receipt_payment_type_deposit": "Deposit",
+  "email.receipt_payment_type_full": "Full payment",
+  "email.receipt_payment_type_balance": "Balance payment",
+  "email.receipt_amount_paid_label": "Amount paid",
+  "email.receipt_date_label": "Payment date",
+  "email.receipt_balance_due_label": "Balance still due",
+  "email.receipt_total_label": "Booking total",
+
   "users.invalid_chat_locale": "That's not a supported chat language.",
 
   "chat.not_available": "Chat unlocks once your deposit (or full payment) for this booking has gone through.",

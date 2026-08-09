@@ -18,7 +18,10 @@ from app.modules.bookings.calculations import (
 from app.modules.bookings.calculations.cron import expire_booking_calculations_cron
 from app.modules.bookings.cron import expire_booking_holds_cron
 from app.modules.bookings.payments import models as booking_payments_models  # noqa: F401,E402
-from app.modules.bookings.tasks import send_booking_confirmed_email_task
+from app.modules.bookings.tasks import (
+    send_booking_confirmed_email_task,
+    send_payment_receipt_email_task,
+)
 from app.modules.braiders import models as braiders_models  # noqa: F401,E402
 from app.modules.braiders.offerings import models as braider_offerings_models  # noqa: F401,E402
 from app.modules.braiders.portfolio import models as braider_portfolio_models  # noqa: F401,E402
@@ -49,6 +52,7 @@ class WorkerSettings:
         translate_style_text_task,
         translate_portfolio_caption_task,
         send_booking_confirmed_email_task,
+        send_payment_receipt_email_task,
         translate_review_comment_task,
         generate_hairstyle_tryon_task,
         translate_chat_message_task,

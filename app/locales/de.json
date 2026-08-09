@@ -148,6 +148,19 @@
   "email.booking_confirmed_reference_label": "Buchungsreferenz",
   "email.booking_confirmed_total_label": "Gesamtbetrag",
 
+  "email.receipt_subject": "Ihre Afrobraid-Quittung für {reference}",
+  "email.receipt_greeting": "Hallo {first_name},",
+  "email.receipt_body": "Wir haben Ihre {payment_type} für {style_name} bei {braider_name} erhalten, geplant für {when}.",
+  "email.receipt_reference_label": "Buchungsreferenz",
+  "email.receipt_payment_type_label": "Zahlungsart",
+  "email.receipt_payment_type_deposit": "Anzahlung",
+  "email.receipt_payment_type_full": "Vollständige Zahlung",
+  "email.receipt_payment_type_balance": "Restzahlung",
+  "email.receipt_amount_paid_label": "Bezahlter Betrag",
+  "email.receipt_date_label": "Zahlungsdatum",
+  "email.receipt_balance_due_label": "Noch fälliger Restbetrag",
+  "email.receipt_total_label": "Gesamtbetrag der Buchung",
+
   "users.invalid_chat_locale": "Das ist keine unterstützte Chat-Sprache.",
 
   "chat.not_available": "Der Chat wird freigeschaltet, sobald Ihre Anzahlung (oder vollständige Zahlung) für diese Buchung eingegangen ist.",

@@ -16,7 +16,10 @@ from app.modules.bookings.enums import (
     WebhookEventSource,
 )
 from app.modules.bookings.payments import repository as payments_repo
-from app.modules.bookings.tasks import TASK_SEND_BOOKING_CONFIRMED_EMAIL
+from app.modules.bookings.tasks import (
+    TASK_SEND_BOOKING_CONFIRMED_EMAIL,
+    TASK_SEND_PAYMENT_RECEIPT_EMAIL,
+)
 
 logger = logging.getLogger("app.webhooks.stripe.payments")
 
@@ -90,6 +93,11 @@ async def _handle_payment_intent_succeeded(db: AsyncSession, queue: ArqRedis, in
             TASK_SEND_BOOKING_CONFIRMED_EMAIL,
             booking_id=str(booking.id),
         )
+
+    await queue.enqueue_job(
+        TASK_SEND_PAYMENT_RECEIPT_EMAIL,
+        payment_id=str(payment.id),
+    )
 
 
 async def _handle_payment_intent_failed(db: AsyncSession, intent: Any) -> None:
