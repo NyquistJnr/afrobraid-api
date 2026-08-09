@@ -173,9 +173,23 @@
   "notifications.not_found": "This notification doesn't exist.",
   "notifications.deleted": "Notification deleted.",
   "notifications.chat_new_message_title": "New message",
-  "notifications.chat_new_message_body": "{sender_name} sent you a message.",
+  "notifications.chat_new_message_body": "{sender_name} sent you a message. View the conversation: {link}",
   "notifications.chat_message_flagged_title": "Message withheld",
-  "notifications.chat_message_flagged_body": "A message from {sender_name} was withheld for violating our chat policy.",
+  "notifications.chat_message_flagged_body": "A message from {sender_name} was withheld for violating our chat policy. View the conversation: {link}",
+
+  "notifications.payment_deposit_succeeded_title": "Deposit received",
+  "notifications.payment_deposit_succeeded_body": "Congratulations! We've received your deposit of {amount} {currency} for your booking. Please note this deposit is non-refundable. The remaining balance of {balance_amount} {currency} will be charged before your appointment. You can chat with your braider, review your booking, or cancel if needed here: {link}. Please remember to be respectful and follow our community guidelines.",
+  "notifications.payment_full_succeeded_title": "Payment received",
+  "notifications.payment_full_succeeded_body": "Congratulations! We've received your full payment of {amount} {currency} for your booking - there's nothing more to pay. You can chat with your braider, review your booking, or cancel if needed here: {link}. Please remember to be respectful and follow our community guidelines.",
+  "notifications.payment_balance_succeeded_title": "Balance payment received",
+  "notifications.payment_balance_succeeded_body": "Congratulations! We've received your final balance payment of {amount} {currency} for your booking - you're all set. You can chat with your braider or review your booking here: {link}. Please remember to be respectful and follow our community guidelines.",
+
+  "notifications.profile_updated_title": "Profile updated",
+  "notifications.profile_updated_body": "Your profile details were just updated. If this wasn't you, please secure your account immediately.",
+  "notifications.password_changed_title": "Password changed",
+  "notifications.password_changed_body": "Your password was just changed. If this wasn't you, please contact support immediately.",
+  "notifications.new_login_title": "New login to your account",
+  "notifications.new_login_body": "We noticed a new login to your Afrobraid account. If this wasn't you, please reset your password immediately.",
 
   "errors.invalid_date_range": "date_to must be on or after date_from.",
 

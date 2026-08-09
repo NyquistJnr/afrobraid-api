@@ -4,6 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.exceptions import InvalidChatLocaleError, PhoneAlreadyExistsError
+from app.core.i18n import get_current_locale
+from app.modules.notifications import service as notifications_service
+from app.modules.notifications.models import NotificationType
 from app.modules.users import repository as users_repo
 from app.modules.users.schemas import UserProfileUpdateRequest, UserPublic
 
@@ -42,6 +45,21 @@ async def update_profile(
             raise InvalidChatLocaleError()
         user.chat_locale = chat_locale
 
-    await db.commit()
-    await db.refresh(user)
+    if updates:
+        locale = get_current_locale()
+        notification = await notifications_service.create(
+            db,
+            user_id=user.id,
+            type=NotificationType.PROFILE_UPDATED,
+            title_key="notifications.profile_updated_title",
+            body_key="notifications.profile_updated_body",
+        )
+        await db.commit()
+        await db.refresh(user)
+        await db.refresh(notification)
+        await notifications_service.publish_realtime(notification, locale=locale)
+    else:
+        await db.commit()
+        await db.refresh(user)
+
     return UserPublic.model_validate(user)

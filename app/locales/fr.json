@@ -173,9 +173,23 @@
   "notifications.not_found": "Cette notification n'existe pas.",
   "notifications.deleted": "Notification supprimée.",
   "notifications.chat_new_message_title": "Nouveau message",
-  "notifications.chat_new_message_body": "{sender_name} vous a envoyé un message.",
+  "notifications.chat_new_message_body": "{sender_name} vous a envoyé un message. Voir la conversation : {link}",
   "notifications.chat_message_flagged_title": "Message retenu",
-  "notifications.chat_message_flagged_body": "Un message de {sender_name} a été retenu pour non-respect de notre politique de chat.",
+  "notifications.chat_message_flagged_body": "Un message de {sender_name} a été retenu pour non-respect de notre politique de chat. Voir la conversation : {link}",
+
+  "notifications.payment_deposit_succeeded_title": "Acompte reçu",
+  "notifications.payment_deposit_succeeded_body": "Félicitations ! Nous avons bien reçu votre acompte de {amount} {currency} pour votre réservation. Veuillez noter que cet acompte n'est pas remboursable. Le solde restant de {balance_amount} {currency} sera débité avant votre rendez-vous. Vous pouvez discuter avec votre braideur/braideuse, consulter votre réservation ou l'annuler si besoin ici : {link}. Merci de rester respectueux et de suivre les règles de notre communauté.",
+  "notifications.payment_full_succeeded_title": "Paiement reçu",
+  "notifications.payment_full_succeeded_body": "Félicitations ! Nous avons bien reçu votre paiement intégral de {amount} {currency} pour votre réservation - il ne reste plus rien à payer. Vous pouvez discuter avec votre braideur/braideuse, consulter votre réservation ou l'annuler si besoin ici : {link}. Merci de rester respectueux et de suivre les règles de notre communauté.",
+  "notifications.payment_balance_succeeded_title": "Solde reçu",
+  "notifications.payment_balance_succeeded_body": "Félicitations ! Nous avons bien reçu votre paiement final de {amount} {currency} pour votre réservation - tout est prêt. Vous pouvez discuter avec votre braideur/braideuse ou consulter votre réservation ici : {link}. Merci de rester respectueux et de suivre les règles de notre communauté.",
+
+  "notifications.profile_updated_title": "Profil mis à jour",
+  "notifications.profile_updated_body": "Les informations de votre profil viennent d'être modifiées. Si ce n'était pas vous, sécurisez votre compte immédiatement.",
+  "notifications.password_changed_title": "Mot de passe modifié",
+  "notifications.password_changed_body": "Votre mot de passe vient d'être modifié. Si ce n'était pas vous, contactez immédiatement le support.",
+  "notifications.new_login_title": "Nouvelle connexion à votre compte",
+  "notifications.new_login_body": "Nous avons détecté une nouvelle connexion à votre compte Afrobraid. Si ce n'était pas vous, réinitialisez immédiatement votre mot de passe.",
 
   "errors.invalid_date_range": "date_to doit être postérieure ou égale à date_from.",
 

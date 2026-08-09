@@ -173,9 +173,23 @@
   "notifications.not_found": "Diese Benachrichtigung existiert nicht.",
   "notifications.deleted": "Benachrichtigung gelöscht.",
   "notifications.chat_new_message_title": "Neue Nachricht",
-  "notifications.chat_new_message_body": "{sender_name} hat Ihnen eine Nachricht gesendet.",
+  "notifications.chat_new_message_body": "{sender_name} hat Ihnen eine Nachricht gesendet. Zur Unterhaltung: {link}",
   "notifications.chat_message_flagged_title": "Nachricht zurückgehalten",
-  "notifications.chat_message_flagged_body": "Eine Nachricht von {sender_name} wurde zurückgehalten, da sie gegen unsere Chat-Richtlinie verstößt.",
+  "notifications.chat_message_flagged_body": "Eine Nachricht von {sender_name} wurde zurückgehalten, da sie gegen unsere Chat-Richtlinie verstößt. Zur Unterhaltung: {link}",
+
+  "notifications.payment_deposit_succeeded_title": "Anzahlung erhalten",
+  "notifications.payment_deposit_succeeded_body": "Herzlichen Glückwunsch! Wir haben Ihre Anzahlung von {amount} {currency} für Ihre Buchung erhalten. Bitte beachten Sie, dass diese Anzahlung nicht erstattungsfähig ist. Der Restbetrag von {balance_amount} {currency} wird vor Ihrem Termin abgebucht. Hier können Sie mit Ihrer Braiderin/Ihrem Braider chatten, Ihre Buchung einsehen oder bei Bedarf stornieren: {link}. Bitte denken Sie daran, respektvoll zu sein und unsere Community-Richtlinien einzuhalten.",
+  "notifications.payment_full_succeeded_title": "Zahlung erhalten",
+  "notifications.payment_full_succeeded_body": "Herzlichen Glückwunsch! Wir haben Ihre vollständige Zahlung von {amount} {currency} für Ihre Buchung erhalten - es ist nichts mehr zu bezahlen. Hier können Sie mit Ihrer Braiderin/Ihrem Braider chatten, Ihre Buchung einsehen oder bei Bedarf stornieren: {link}. Bitte denken Sie daran, respektvoll zu sein und unsere Community-Richtlinien einzuhalten.",
+  "notifications.payment_balance_succeeded_title": "Restzahlung erhalten",
+  "notifications.payment_balance_succeeded_body": "Herzlichen Glückwunsch! Wir haben Ihre abschließende Restzahlung von {amount} {currency} für Ihre Buchung erhalten - alles ist bereit. Hier können Sie mit Ihrer Braiderin/Ihrem Braider chatten oder Ihre Buchung einsehen: {link}. Bitte denken Sie daran, respektvoll zu sein und unsere Community-Richtlinien einzuhalten.",
+
+  "notifications.profile_updated_title": "Profil aktualisiert",
+  "notifications.profile_updated_body": "Ihre Profildaten wurden gerade aktualisiert. Falls Sie das nicht waren, sichern Sie bitte umgehend Ihr Konto.",
+  "notifications.password_changed_title": "Passwort geändert",
+  "notifications.password_changed_body": "Ihr Passwort wurde gerade geändert. Falls Sie das nicht waren, kontaktieren Sie bitte umgehend den Support.",
+  "notifications.new_login_title": "Neue Anmeldung bei Ihrem Konto",
+  "notifications.new_login_body": "Wir haben eine neue Anmeldung bei Ihrem Afrobraid-Konto festgestellt. Falls Sie das nicht waren, setzen Sie bitte umgehend Ihr Passwort zurück.",
 
   "errors.invalid_date_range": "date_to muss am oder nach date_from liegen.",
 

@@ -52,6 +52,10 @@ class Settings(BaseSettings):
     tiktok_client_secret: str = ""
 
     cors_origins: str = "http://localhost:3000"
+    # Base origin of the customer/braider web app - used to build deep-links
+    # embedded in notification/email bodies (e.g. a booking or chat link).
+    # No trailing slash.
+    frontend_url: str = "http://localhost:3000"
 
     r2_account_id: str = ""
     r2_access_key_id: str = ""

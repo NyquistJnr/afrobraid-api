@@ -19,7 +19,7 @@ from app.core.exceptions import (
     UserNotActiveError,
     UserTypeRequiredError,
 )
-from app.core.i18n import t
+from app.core.i18n import get_current_locale, t
 from app.core.rate_limit import check_rate_limit
 from app.core.security import (
     create_access_token,
@@ -53,6 +53,8 @@ from app.modules.auth.tasks import TASK_SEND_OTP_EMAIL
 from app.modules.braiders import repository as braiders_repo
 from app.modules.braiders.completion import compute_current_step
 from app.modules.braiders.models import OnboardingStep
+from app.modules.notifications import service as notifications_service
+from app.modules.notifications.models import NotificationType
 from app.modules.users import repository as users_repo
 from app.modules.users.models import AuthProvider, User, UserType
 
@@ -239,6 +241,20 @@ async def resend_verification(
     return MessageResponse(message=t("auth.verification_resent", locale))
 
 
+async def _notify_new_login(db: AsyncSession, user: User) -> None:
+    locale = get_current_locale()
+    notification = await notifications_service.create(
+        db,
+        user_id=user.id,
+        type=NotificationType.NEW_LOGIN,
+        title_key="notifications.new_login_title",
+        body_key="notifications.new_login_body",
+    )
+    await db.commit()
+    await db.refresh(notification)
+    await notifications_service.publish_realtime(notification, locale=locale)
+
+
 async def login(db: AsyncSession, redis: Redis, *, data: LoginRequest) -> AuthTokenResponse:
     await check_rate_limit(
         redis, key=f"login_attempts:{data.email.lower()}", limit=10, window_seconds=900
@@ -258,6 +274,7 @@ async def login(db: AsyncSession, redis: Redis, *, data: LoginRequest) -> AuthTo
         db, user, remember_me=data.remember_me
     )
     await db.commit()
+    await _notify_new_login(db, user)
 
     braider = None
     if user.user_type == UserType.BRAIDER:
@@ -315,6 +332,7 @@ async def social_login(
 
     access_token, refresh_token, expires_in = await _issue_token_pair(db, user)
     await db.commit()
+    await _notify_new_login(db, user)
 
     braider = None
     if user.user_type == UserType.BRAIDER:
@@ -407,5 +425,16 @@ async def reset_password(
     user.password_hash = hash_password(data.new_password)
     await auth_repo.revoke_all_refresh_tokens_for_user(db, user_id=user.id)
     await db.commit()
+
+    notification = await notifications_service.create(
+        db,
+        user_id=user.id,
+        type=NotificationType.PASSWORD_CHANGED,
+        title_key="notifications.password_changed_title",
+        body_key="notifications.password_changed_body",
+    )
+    await db.commit()
+    await db.refresh(notification)
+    await notifications_service.publish_realtime(notification, locale=locale)
 
     return MessageResponse(message=t("auth.password_reset_success", locale))

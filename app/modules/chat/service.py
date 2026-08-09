@@ -28,6 +28,7 @@ from app.modules.chat.models import (
     ChatTranslationStatus,
 )
 from app.modules.chat.moderation import detect_violations
+from app.shared.links import build_frontend_url
 from app.modules.chat.schemas import (
     AdminChatReportResponse,
     AdminChatReportUpdateRequest,
@@ -216,6 +217,11 @@ async def send_message(
         target_locale = recipient.chat_locale
 
     is_flagged = message.status == ChatMessageStatus.FLAGGED
+    # Computed here (rather than alongside sender_response/recipient_response
+    # below) because the notification's {link} is baked in at creation time,
+    # not re-derived from the reader's locale on every read like title/body.
+    recipient_locale = recipient.chat_locale or settings.default_locale
+    chat_link = build_frontend_url(locale=recipient_locale, path=f"chat/{thread.id}")
     notification = await notifications_service.create(
         db,
         user_id=recipient_id,
@@ -224,7 +230,10 @@ async def send_message(
         if is_flagged
         else "notifications.chat_new_message_title",
         body_key="notifications.chat_message_flagged_body" if is_flagged else "notifications.chat_new_message_body",
-        body_params={"sender_name": f"{sender.first_name} {sender.last_name or ''}".strip()},
+        body_params={
+            "sender_name": f"{sender.first_name} {sender.last_name or ''}".strip(),
+            "link": chat_link,
+        },
         related_type="chat_thread",
         related_id=thread.id,
     )
@@ -250,7 +259,6 @@ async def send_message(
     # the platform default if they haven't set one) since there's no live
     # request to read a locale off of for them.
     sender_response = _to_message_response(message, locale=request_locale)
-    recipient_locale = recipient.chat_locale or settings.default_locale
     recipient_response = _to_message_response(message, locale=recipient_locale)
 
     await ws.publish_event(
