@@ -19,6 +19,7 @@ logger = logging.getLogger("app.tasks.bookings")
 
 TASK_SEND_BOOKING_CONFIRMED_EMAIL = "send_booking_confirmed_email_task"
 TASK_SEND_PAYMENT_RECEIPT_EMAIL = "send_payment_receipt_email_task"
+TASK_SEND_PAYMENT_NOTIFICATION = "send_payment_notification_task"
 
 _PAYMENT_NOTIFICATION = {
     PaymentPurpose.DEPOSIT: (
@@ -107,6 +108,26 @@ async def send_payment_receipt_email_task(ctx: dict, *, payment_id: str) -> None
         await send_email(to=customer.email, subject=subject, html=html)
         logger.info("Sent payment receipt email for %s (%s) to %s", booking.reference, payment.purpose, customer.email)
 
+
+async def send_payment_notification_task(ctx: dict, *, payment_id: str) -> None:
+    """Deliberately its own job, separate from send_payment_receipt_email_task -
+    a Resend outage/retry storm on the email side must never hold up this
+    notification, which only touches the DB and the websocket."""
+    async with AsyncSessionLocal() as db:
+        payment = await bookings_repo.get_payment_by_id(db, uuid.UUID(payment_id))
+        if payment is None:
+            logger.warning("Payment %s not found for payment notification", payment_id)
+            return
+
+        booking = await bookings_repo.get_booking_by_id(db, payment.booking_id)
+        if booking is None:
+            logger.warning("Booking %s not found for payment notification", payment.booking_id)
+            return
+
+        customer = await users_repo.get_user_by_id(db, booking.customer_id)
+        if customer is None:
+            return
+
         notification_type, title_key, body_key = _PAYMENT_NOTIFICATION[payment.purpose]
         body_params = {
             "amount": str(from_minor_units(payment.amount_minor)),
@@ -127,3 +148,4 @@ async def send_payment_receipt_email_task(ctx: dict, *, payment_id: str) -> None
         await db.commit()
         await db.refresh(notification)
         await notifications_service.publish_realtime(notification, locale=booking.locale)
+        logger.info("Sent payment notification for %s (%s) to %s", booking.reference, payment.purpose, customer.id)

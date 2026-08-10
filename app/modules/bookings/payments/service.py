@@ -18,6 +18,7 @@ from app.modules.bookings.enums import (
 from app.modules.bookings.payments import repository as payments_repo
 from app.modules.bookings.tasks import (
     TASK_SEND_BOOKING_CONFIRMED_EMAIL,
+    TASK_SEND_PAYMENT_NOTIFICATION,
     TASK_SEND_PAYMENT_RECEIPT_EMAIL,
 )
 
@@ -96,6 +97,10 @@ async def _handle_payment_intent_succeeded(db: AsyncSession, queue: ArqRedis, in
 
     await queue.enqueue_job(
         TASK_SEND_PAYMENT_RECEIPT_EMAIL,
+        payment_id=str(payment.id),
+    )
+    await queue.enqueue_job(
+        TASK_SEND_PAYMENT_NOTIFICATION,
         payment_id=str(payment.id),
     )
 
