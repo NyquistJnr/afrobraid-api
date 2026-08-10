@@ -140,6 +140,8 @@
   "booking.not_reschedulable": "Cette réservation ne peut pas être reprogrammée.",
   "booking.reschedule_window_closed": "Cette réservation ne peut plus être reprogrammée - le rendez-vous est dans moins de 24 heures.",
 
+  "dashboard.style_other_label": "Autre",
+
   "payment.webhook_metadata_missing": "L'événement webhook Stripe ne contient pas les métadonnées requises.",
 
   "reviews.not_eligible": "Vous ne pouvez évaluer un ou une braideur/braideuse qu'après une réservation avec elle/lui ayant abouti à un paiement réussi.",

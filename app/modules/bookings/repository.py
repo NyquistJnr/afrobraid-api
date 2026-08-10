@@ -314,6 +314,132 @@ async def list_payments_for_braider(
     return await paginate(db, stmt, params)
 
 
+async def get_dashboard_overview_for_braider(
+    db: AsyncSession,
+    braider_id: uuid.UUID,
+    *,
+    date_from: date | None = None,
+    date_to: date | None = None,
+) -> dict:
+    """Everything behind the dashboard's overview tiles in three queries:
+    per-status booking counts, per-customer booking counts (for
+    unique/repeat customer counts), and braider-share revenue from
+    succeeded payments. All three bound `starts_at` via
+    `_apply_common_filters`, so "revenue" here means revenue attributed to
+    appointments in range, not cash collected in range (that's the
+    payments/stats endpoint's job, which bounds `created_at` instead)."""
+    status_stmt = select(Booking.status, func.count()).where(Booking.braider_id == braider_id)
+    status_stmt = _apply_common_filters(status_stmt, status=None, date_from=date_from, date_to=date_to)
+    status_stmt = status_stmt.group_by(Booking.status)
+    counts_by_status: dict[BookingStatus, int] = {
+        row[0]: row[1] for row in (await db.execute(status_stmt)).all()
+    }
+
+    customer_stmt = select(Booking.customer_id, func.count()).where(Booking.braider_id == braider_id)
+    customer_stmt = _apply_common_filters(customer_stmt, status=None, date_from=date_from, date_to=date_to)
+    customer_stmt = customer_stmt.group_by(Booking.customer_id)
+    customer_rows = (await db.execute(customer_stmt)).all()
+
+    revenue_stmt = (
+        select(func.coalesce(func.sum(BookingPayment.braider_share_minor), 0))
+        .join(Booking, Booking.id == BookingPayment.booking_id)
+        .where(Booking.braider_id == braider_id, BookingPayment.status == PaymentStatus.SUCCEEDED)
+    )
+    revenue_stmt = _apply_common_filters(revenue_stmt, status=None, date_from=date_from, date_to=date_to)
+    revenue_minor = (await db.execute(revenue_stmt)).scalar() or 0
+
+    return {
+        "total_bookings": sum(counts_by_status.values()),
+        "completed": counts_by_status.get(BookingStatus.COMPLETED, 0),
+        "cancelled": sum(counts_by_status.get(s, 0) for s in DECLINED_BOOKING_STATUSES),
+        "no_show": counts_by_status.get(BookingStatus.NO_SHOW, 0),
+        "upcoming": sum(counts_by_status.get(s, 0) for s in UPCOMING_BOOKING_STATUSES),
+        "unique_customers": len(customer_rows),
+        "repeat_customers": sum(1 for _, count in customer_rows if count > 1),
+        "revenue_minor": revenue_minor,
+    }
+
+
+async def get_revenue_timeseries_for_braider(
+    db: AsyncSession,
+    braider_id: uuid.UUID,
+    *,
+    date_from: date,
+    date_to: date,
+    interval: str,
+) -> list[tuple[datetime, int, int]]:
+    """One row per bucket: `date_trunc(interval, starts_at)`, summed
+    braider-share revenue (minor units) from succeeded payments, and count
+    of distinct bookings with at least one succeeded payment in that
+    bucket - the raw material for the revenue line graph. `interval` must
+    already be validated to 'day'/'week'/'month' by the caller, same
+    caveat as `get_booking_timeseries_for_braider`."""
+    bucket = func.date_trunc(interval, Booking.starts_at).label("bucket")
+    stmt = (
+        select(
+            bucket,
+            func.coalesce(func.sum(BookingPayment.braider_share_minor), 0),
+            func.count(func.distinct(Booking.id)),
+        )
+        .join(BookingPayment, BookingPayment.booking_id == Booking.id)
+        .where(Booking.braider_id == braider_id, BookingPayment.status == PaymentStatus.SUCCEEDED)
+        .group_by(bucket)
+        .order_by(bucket)
+    )
+    stmt = _apply_common_filters(stmt, status=None, date_from=date_from, date_to=date_to)
+    result = await db.execute(stmt)
+    return [(row[0], row[1], row[2]) for row in result.all()]
+
+
+async def get_bookings_by_weekday_for_braider(
+    db: AsyncSession,
+    braider_id: uuid.UUID,
+    *,
+    date_from: date | None = None,
+    date_to: date | None = None,
+) -> list[tuple[int, int, Decimal]]:
+    """Booking count and braider-share revenue grouped by ISO weekday of
+    `starts_at` (1=Monday..7=Sunday) - the bar-chart view of which days a
+    braider is busiest. Only counts bookings that actually occupied the
+    calendar (`CALENDAR_BLOCKING_STATUSES`) - a cancelled/expired hold
+    never really happened on that day."""
+    weekday = func.extract("isodow", Booking.starts_at).label("weekday")
+    stmt = (
+        select(weekday, func.count(), func.coalesce(func.sum(Booking.braider_share_total), 0))
+        .where(Booking.braider_id == braider_id, Booking.status.in_(CALENDAR_BLOCKING_STATUSES))
+        .group_by(weekday)
+        .order_by(weekday)
+    )
+    stmt = _apply_common_filters(stmt, status=None, date_from=date_from, date_to=date_to)
+    result = await db.execute(stmt)
+    return [(int(row[0]), row[1], row[2]) for row in result.all()]
+
+
+async def get_style_breakdown_for_braider(
+    db: AsyncSession,
+    braider_id: uuid.UUID,
+    *,
+    date_from: date | None = None,
+    date_to: date | None = None,
+) -> list[tuple[uuid.UUID, Style, int, Decimal]]:
+    """Booking count and braider-share revenue grouped by style - the
+    pie-chart view of which styles earn the most. Ordered by revenue
+    descending so the caller can take the top N and fold the rest into an
+    'Other' slice. Same `CALENDAR_BLOCKING_STATUSES` convention as the
+    weekday breakdown."""
+    revenue = func.coalesce(func.sum(Booking.braider_share_total), 0)
+    stmt = (
+        select(Booking.style_id, Style, func.count(), revenue)
+        .join(Style, Style.id == Booking.style_id)
+        .where(Booking.braider_id == braider_id, Booking.status.in_(CALENDAR_BLOCKING_STATUSES))
+        .group_by(Booking.style_id, Style.id)
+        .order_by(revenue.desc())
+    )
+    stmt = _apply_common_filters(stmt, status=None, date_from=date_from, date_to=date_to)
+    result = await db.execute(stmt)
+    return [(row[0], row[1], row[2], row[3]) for row in result.all()]
+
+
 async def list_booking_references(db: AsyncSession, booking_ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
     if not booking_ids:
         return {}

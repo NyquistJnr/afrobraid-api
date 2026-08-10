@@ -140,6 +140,8 @@
   "booking.not_reschedulable": "Diese Buchung kann nicht verschoben werden.",
   "booking.reschedule_window_closed": "Diese Buchung kann nicht mehr verschoben werden - der Termin liegt innerhalb von 24 Stunden.",
 
+  "dashboard.style_other_label": "Sonstige",
+
   "payment.webhook_metadata_missing": "Dem Stripe-Webhook-Ereignis fehlen erforderliche Metadaten.",
 
   "reviews.not_eligible": "Sie können eine Braiderin/einen Braider erst bewerten, nachdem eine Buchung bei ihr/ihm erfolgreich bezahlt wurde.",

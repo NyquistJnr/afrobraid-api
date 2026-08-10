@@ -15,6 +15,7 @@ from app.core.redis import get_redis_client
 from app.modules.auth.router import router as auth_router
 from app.modules.bookings.braider_router import router as braider_bookings_router
 from app.modules.bookings.calculations.router import router as booking_calculations_router
+from app.modules.bookings.dashboard.router import router as braider_dashboard_router
 from app.modules.bookings.payments.braider_router import router as braider_payments_router
 from app.modules.bookings.payments.webhook import router as stripe_payments_webhook_router
 from app.modules.bookings.router import router as bookings_router
@@ -121,6 +122,7 @@ def create_app() -> FastAPI:
     app.include_router(braider_booking_stats_router)
     app.include_router(braider_bookings_router)
     app.include_router(braider_payments_router)
+    app.include_router(braider_dashboard_router)
     app.include_router(stripe_payments_webhook_router)
     app.include_router(reviews_router)
     app.include_router(reviews_admin_router)

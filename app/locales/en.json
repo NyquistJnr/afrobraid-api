@@ -140,6 +140,8 @@
   "booking.not_reschedulable": "This booking can't be rescheduled.",
   "booking.reschedule_window_closed": "This booking can no longer be rescheduled - it's within 24 hours of the appointment.",
 
+  "dashboard.style_other_label": "Other",
+
   "payment.webhook_metadata_missing": "Stripe webhook event is missing required metadata.",
 
   "reviews.not_eligible": "You can only review a braider after a booking with them that's reached a successful payment.",
