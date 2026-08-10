@@ -18,6 +18,7 @@ class NotificationType(str, enum.Enum):
     PROFILE_UPDATED = "PROFILE_UPDATED"
     PASSWORD_CHANGED = "PASSWORD_CHANGED"
     NEW_LOGIN = "NEW_LOGIN"
+    BOOKING_RESCHEDULED = "BOOKING_RESCHEDULED"
 
 
 class Notification(Base):

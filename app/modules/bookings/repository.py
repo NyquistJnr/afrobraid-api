@@ -30,6 +30,16 @@ async def get_booking_by_id(db: AsyncSession, booking_id: uuid.UUID) -> Booking 
     return await db.get(Booking, booking_id)
 
 
+async def get_booking_by_id_for_update(db: AsyncSession, booking_id: uuid.UUID) -> Booking | None:
+    """Same as `get_booking_by_id` but takes a row lock - used by reschedule
+    to serialize against the balance-charge cron and concurrent
+    reschedule/cancel calls racing on the same booking."""
+    result = await db.execute(
+        select(Booking).where(Booking.id == booking_id).with_for_update()
+    )
+    return result.scalar_one_or_none()
+
+
 async def get_booking_by_calculation_id(
     db: AsyncSession, booking_calculation_id: uuid.UUID
 ) -> Booking | None:
@@ -478,6 +488,29 @@ async def create_booking(
         terms_accepted_at=terms_accepted_at,
     )
     db.add(booking)
+    await db.flush()
+    return booking
+
+
+async def update_booking_schedule(
+    db: AsyncSession,
+    booking: Booking,
+    *,
+    starts_at: datetime,
+    ends_at: datetime,
+    braider_timezone: str,
+    blocked_from: datetime,
+    blocked_until: datetime,
+    cancellation_cutoff_at: datetime,
+    balance_charge_due_at: datetime | None,
+) -> Booking:
+    booking.starts_at = starts_at
+    booking.ends_at = ends_at
+    booking.braider_timezone = braider_timezone
+    booking.blocked_from = blocked_from
+    booking.blocked_until = blocked_until
+    booking.cancellation_cutoff_at = cancellation_cutoff_at
+    booking.balance_charge_due_at = balance_charge_due_at
     await db.flush()
     return booking
 

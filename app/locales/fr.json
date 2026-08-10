@@ -137,6 +137,8 @@
   "booking.slot_unavailable": "Ce créneau vient d'être réservé par quelqu'un d'autre. Veuillez choisir un autre horaire.",
   "booking.terms_not_accepted": "Vous devez accepter les conditions pour finaliser cette réservation.",
   "booking.invalid_date_range": "date_to doit être postérieure ou égale à date_from.",
+  "booking.not_reschedulable": "Cette réservation ne peut pas être reprogrammée.",
+  "booking.reschedule_window_closed": "Cette réservation ne peut plus être reprogrammée - le rendez-vous est dans moins de 24 heures.",
 
   "payment.webhook_metadata_missing": "L'événement webhook Stripe ne contient pas les métadonnées requises.",
 
@@ -148,6 +150,11 @@
   "email.booking_confirmed_body": "Votre rendez-vous pour {style_name} avec {braider_name} est confirmé pour le {when}.",
   "email.booking_confirmed_reference_label": "Référence de réservation",
   "email.booking_confirmed_total_label": "Total",
+
+  "email.booking_rescheduled_subject": "Votre réservation Afrobraid {reference} a été reprogrammée",
+  "email.booking_rescheduled_greeting": "Bonjour {first_name},",
+  "email.booking_rescheduled_body": "Votre rendez-vous pour {style_name} avec {braider_name} a été déplacé du {old_when} au {new_when}.",
+  "email.booking_rescheduled_reference_label": "Référence de réservation",
 
   "email.receipt_subject": "Votre reçu Afrobraid pour {reference}",
   "email.receipt_greeting": "Bonjour {first_name},",
@@ -186,6 +193,11 @@
   "notifications.payment_full_succeeded_body": "Félicitations ! Nous avons bien reçu votre paiement intégral de {amount} {currency} pour votre réservation - il ne reste plus rien à payer. Vous pouvez discuter avec votre braideur/braideuse, consulter votre réservation ou l'annuler si besoin ici : {link}. Merci de rester respectueux et de suivre les règles de notre communauté.",
   "notifications.payment_balance_succeeded_title": "Solde reçu",
   "notifications.payment_balance_succeeded_body": "Félicitations ! Nous avons bien reçu votre paiement final de {amount} {currency} pour votre réservation - tout est prêt. Vous pouvez discuter avec votre braideur/braideuse ou consulter votre réservation ici : {link}. Merci de rester respectueux et de suivre les règles de notre communauté.",
+
+  "notifications.booking_rescheduled_customer_title": "Réservation reprogrammée",
+  "notifications.booking_rescheduled_customer_body": "Votre réservation a été reprogrammée à une nouvelle heure. Voir les détails ici : {link}.",
+  "notifications.booking_rescheduled_braider_title": "Réservation reprogrammée",
+  "notifications.booking_rescheduled_braider_body": "Un client a reprogrammé sa réservation avec vous à une nouvelle heure. Voir les détails ici : {link}.",
 
   "notifications.profile_updated_title": "Profil mis à jour",
   "notifications.profile_updated_body": "Les informations de votre profil viennent d'être modifiées. Si ce n'était pas vous, sécurisez votre compte immédiatement.",

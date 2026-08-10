@@ -510,6 +510,18 @@ class BookingSlotUnavailableError(AppError):
     message_key = "booking.slot_unavailable"
 
 
+class BookingNotReschedulableError(AppError):
+    status_code = status.HTTP_409_CONFLICT
+    code = "BOOKING_NOT_RESCHEDULABLE"
+    message_key = "booking.not_reschedulable"
+
+
+class BookingRescheduleWindowClosedError(AppError):
+    status_code = status.HTTP_409_CONFLICT
+    code = "BOOKING_RESCHEDULE_WINDOW_CLOSED"
+    message_key = "booking.reschedule_window_closed"
+
+
 class TermsNotAcceptedError(AppError):
     status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
     code = "TERMS_NOT_ACCEPTED"

@@ -30,6 +30,10 @@ class BookingCreateRequest(BaseModel):
         return value
 
 
+class BookingRescheduleRequest(BaseModel):
+    starts_at: datetime
+
+
 class BookingItemResponse(BaseModel):
     item_type: BookingItemType
     name: str | None

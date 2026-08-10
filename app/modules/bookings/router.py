@@ -16,6 +16,7 @@ from app.modules.bookings import service
 from app.modules.bookings.enums import BookingStatus
 from app.modules.bookings.schemas import (
     BookingCreateRequest,
+    BookingRescheduleRequest,
     BookingResponse,
     PaginatedBookingsResponse,
 )
@@ -109,4 +110,28 @@ async def get_booking(
     db: AsyncSession = Depends(get_db),
 ) -> APIResponse[BookingResponse]:
     result = await service.get_booking(db, booking_id, user=user, locale=_locale(request))
+    return APIResponse(data=result)
+
+
+@router.post(
+    "/{booking_id}/reschedule",
+    response_model=APIResponse[BookingResponse],
+    summary="Reschedule a confirmed booking for free",
+    description=(
+        "Customer-only. Free at any time up until 24h before the current "
+        "appointment (`cancellation_cutoff_at`); rejected inside that window. "
+        "Only CONFIRMED bookings are eligible."
+    ),
+)
+async def reschedule_booking(
+    booking_id: uuid.UUID,
+    payload: BookingRescheduleRequest,
+    request: Request,
+    user: User = Depends(_require_customer),
+    db: AsyncSession = Depends(get_db),
+    queue: ArqRedis = Depends(get_task_queue),
+) -> APIResponse[BookingResponse]:
+    result = await service.reschedule_booking(
+        db, queue, booking_id, user=user, data=payload, locale=_locale(request)
+    )
     return APIResponse(data=result)

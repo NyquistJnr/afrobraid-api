@@ -14,7 +14,9 @@ from app.core.exceptions import (
     BookingCalculationExpiredError,
     BookingCalculationNotFoundError,
     BookingNotFoundError,
+    BookingNotReschedulableError,
     BookingPriceDriftError,
+    BookingRescheduleWindowClosedError,
     BookingSlotUnavailableError,
     BookingStartsInPastError,
     BraiderNotPayableError,
@@ -43,9 +45,14 @@ from app.modules.bookings.schemas import (
     BookingCreateRequest,
     BookingItemResponse,
     BookingPaymentResponse,
+    BookingRescheduleRequest,
     BookingResponse,
     BookingSummaryResponse,
     PaginatedBookingsResponse,
+)
+from app.modules.bookings.tasks import (
+    TASK_SEND_BOOKING_RESCHEDULED_EMAIL,
+    TASK_SEND_BOOKING_RESCHEDULED_NOTIFICATION,
 )
 from app.modules.braiders import repository as braiders_repo
 from app.modules.braiders.availability import repository as availability_repo
@@ -385,6 +392,79 @@ async def get_booking(db: AsyncSession, booking_id: uuid.UUID, *, user: User, lo
     booking = await bookings_repo.get_booking_by_id(db, booking_id)
     if booking is None or booking.customer_id != user.id:
         raise BookingNotFoundError()
+    return await _to_response(db, booking, locale=locale)
+
+
+async def reschedule_booking(
+    db: AsyncSession,
+    queue: ArqRedis,
+    booking_id: uuid.UUID,
+    *,
+    user: User,
+    data: BookingRescheduleRequest,
+    locale: str,
+) -> BookingResponse:
+    booking = await bookings_repo.get_booking_by_id_for_update(db, booking_id)
+    if booking is None or booking.customer_id != user.id:
+        raise BookingNotFoundError()
+
+    if booking.status != BookingStatus.CONFIRMED:
+        raise BookingNotReschedulableError()
+
+    now = datetime.now(UTC)
+    if now >= booking.cancellation_cutoff_at:
+        raise BookingRescheduleWindowClosedError()
+    if data.starts_at <= now:
+        raise BookingStartsInPastError()
+
+    old_starts_at = booking.starts_at
+
+    availability_settings = await availability_repo.get_settings_by_braider_id(db, booking.braider_id)
+    buffer_minutes = availability_settings.buffer_minutes if availability_settings else 0
+    braider_timezone = availability_settings.timezone if availability_settings else booking.braider_timezone
+
+    duration = timedelta(minutes=booking.duration_minutes)
+    ends_at = data.starts_at + duration
+    blocked_from = data.starts_at
+    blocked_until = ends_at + timedelta(minutes=buffer_minutes)
+
+    cancellation_cutoff_at = data.starts_at - timedelta(hours=settings.booking_cancellation_cutoff_hours)
+    balance_charge_due_at: datetime | None = None
+    if booking.payment_schedule == PaymentSchedule.DEPOSIT_THEN_BALANCE:
+        balance_charge_due_at = cancellation_cutoff_at + timedelta(
+            minutes=settings.booking_balance_charge_grace_minutes
+        )
+
+    try:
+        await bookings_repo.update_booking_schedule(
+            db,
+            booking,
+            starts_at=data.starts_at,
+            ends_at=ends_at,
+            braider_timezone=braider_timezone,
+            blocked_from=blocked_from,
+            blocked_until=blocked_until,
+            cancellation_cutoff_at=cancellation_cutoff_at,
+            balance_charge_due_at=balance_charge_due_at,
+        )
+    except IntegrityError as exc:
+        await db.rollback()
+        if getattr(getattr(exc, "orig", None), "sqlstate", None) == "23P01":
+            raise BookingSlotUnavailableError() from exc
+        raise
+
+    await db.commit()
+
+    await queue.enqueue_job(
+        TASK_SEND_BOOKING_RESCHEDULED_EMAIL,
+        booking_id=str(booking.id),
+        old_starts_at=old_starts_at.isoformat(),
+    )
+    await queue.enqueue_job(
+        TASK_SEND_BOOKING_RESCHEDULED_NOTIFICATION,
+        booking_id=str(booking.id),
+    )
+
     return await _to_response(db, booking, locale=locale)
 
 

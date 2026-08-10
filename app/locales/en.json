@@ -137,6 +137,8 @@
   "booking.slot_unavailable": "This time slot was just booked by someone else. Please choose another time.",
   "booking.terms_not_accepted": "You must accept the terms to complete this booking.",
   "booking.invalid_date_range": "date_to must be on or after date_from.",
+  "booking.not_reschedulable": "This booking can't be rescheduled.",
+  "booking.reschedule_window_closed": "This booking can no longer be rescheduled - it's within 24 hours of the appointment.",
 
   "payment.webhook_metadata_missing": "Stripe webhook event is missing required metadata.",
 
@@ -148,6 +150,11 @@
   "email.booking_confirmed_body": "Your appointment for {style_name} with {braider_name} is confirmed for {when}.",
   "email.booking_confirmed_reference_label": "Booking reference",
   "email.booking_confirmed_total_label": "Total",
+
+  "email.booking_rescheduled_subject": "Your Afrobraid booking {reference} was rescheduled",
+  "email.booking_rescheduled_greeting": "Hi {first_name},",
+  "email.booking_rescheduled_body": "Your appointment for {style_name} with {braider_name} was moved from {old_when} to {new_when}.",
+  "email.booking_rescheduled_reference_label": "Booking reference",
 
   "email.receipt_subject": "Your Afrobraid receipt for {reference}",
   "email.receipt_greeting": "Hi {first_name},",
@@ -186,6 +193,11 @@
   "notifications.payment_full_succeeded_body": "Congratulations! We've received your full payment of {amount} {currency} for your booking - there's nothing more to pay. You can chat with your braider, review your booking, or cancel if needed here: {link}. Please remember to be respectful and follow our community guidelines.",
   "notifications.payment_balance_succeeded_title": "Balance payment received",
   "notifications.payment_balance_succeeded_body": "Congratulations! We've received your final balance payment of {amount} {currency} for your booking - you're all set. You can chat with your braider or review your booking here: {link}. Please remember to be respectful and follow our community guidelines.",
+
+  "notifications.booking_rescheduled_customer_title": "Booking rescheduled",
+  "notifications.booking_rescheduled_customer_body": "Your booking has been rescheduled to a new time. View the updated details here: {link}.",
+  "notifications.booking_rescheduled_braider_title": "Booking rescheduled",
+  "notifications.booking_rescheduled_braider_body": "A customer rescheduled their booking with you to a new time. View the updated details here: {link}.",
 
   "notifications.profile_updated_title": "Profile updated",
   "notifications.profile_updated_body": "Your profile details were just updated. If this wasn't you, please secure your account immediately.",

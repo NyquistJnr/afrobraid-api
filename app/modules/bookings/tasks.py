@@ -1,5 +1,6 @@
 import logging
 import uuid
+from datetime import datetime
 
 from app.core.database import AsyncSessionLocal
 from app.core.money import from_minor_units
@@ -11,7 +12,10 @@ from app.modules.notifications.models import NotificationType
 from app.modules.styles import repository as styles_repo
 from app.modules.users import repository as users_repo
 from app.shared.email.client import send_email
-from app.shared.email.templates.booking_email import render_booking_confirmed_email
+from app.shared.email.templates.booking_email import (
+    render_booking_confirmed_email,
+    render_booking_rescheduled_email,
+)
 from app.shared.email.templates.receipt_email import render_payment_receipt_email
 from app.shared.links import build_frontend_url
 
@@ -20,6 +24,8 @@ logger = logging.getLogger("app.tasks.bookings")
 TASK_SEND_BOOKING_CONFIRMED_EMAIL = "send_booking_confirmed_email_task"
 TASK_SEND_PAYMENT_RECEIPT_EMAIL = "send_payment_receipt_email_task"
 TASK_SEND_PAYMENT_NOTIFICATION = "send_payment_notification_task"
+TASK_SEND_BOOKING_RESCHEDULED_EMAIL = "send_booking_rescheduled_email_task"
+TASK_SEND_BOOKING_RESCHEDULED_NOTIFICATION = "send_booking_rescheduled_notification_task"
 
 _PAYMENT_NOTIFICATION = {
     PaymentPurpose.DEPOSIT: (
@@ -149,3 +155,78 @@ async def send_payment_notification_task(ctx: dict, *, payment_id: str) -> None:
         await db.refresh(notification)
         await notifications_service.publish_realtime(notification, locale=booking.locale)
         logger.info("Sent payment notification for %s (%s) to %s", booking.reference, payment.purpose, customer.id)
+
+
+async def send_booking_rescheduled_email_task(
+    ctx: dict, *, booking_id: str, old_starts_at: str
+) -> None:
+    async with AsyncSessionLocal() as db:
+        booking = await bookings_repo.get_booking_by_id(db, uuid.UUID(booking_id))
+        if booking is None:
+            logger.warning("Booking %s not found for reschedule email", booking_id)
+            return
+
+        customer = await users_repo.get_user_by_id(db, booking.customer_id)
+        style = await styles_repo.get_style_by_id(db, booking.style_id)
+        braider_profile = await braiders_repo.get_profile_by_id(db, booking.braider_id)
+        if customer is None:
+            return
+
+        style_name = (style.name_en if style else None) or "your appointment"
+        braider_name = (braider_profile.business_name if braider_profile else None) or "your braider"
+
+        subject, html = render_booking_rescheduled_email(
+            first_name=customer.first_name,
+            reference=booking.reference,
+            style_name=style_name,
+            braider_name=braider_name,
+            old_starts_at=datetime.fromisoformat(old_starts_at),
+            new_starts_at=booking.starts_at,
+            locale=booking.locale,
+        )
+        await send_email(to=customer.email, subject=subject, html=html)
+        logger.info("Sent booking reschedule email for %s to %s", booking.reference, customer.email)
+
+
+async def send_booking_rescheduled_notification_task(ctx: dict, *, booking_id: str) -> None:
+    async with AsyncSessionLocal() as db:
+        booking = await bookings_repo.get_booking_by_id(db, uuid.UUID(booking_id))
+        if booking is None:
+            logger.warning("Booking %s not found for reschedule notification", booking_id)
+            return
+
+        braider_profile = await braiders_repo.get_profile_by_id(db, booking.braider_id)
+        link = build_frontend_url(locale=booking.locale, path=f"bookings/{booking.id}")
+        body_params = {"link": link}
+
+        customer_notification = await notifications_service.create(
+            db,
+            user_id=booking.customer_id,
+            type=NotificationType.BOOKING_RESCHEDULED,
+            title_key="notifications.booking_rescheduled_customer_title",
+            body_key="notifications.booking_rescheduled_customer_body",
+            body_params=body_params,
+            related_type="booking",
+            related_id=booking.id,
+        )
+
+        braider_notification = None
+        if braider_profile is not None:
+            braider_notification = await notifications_service.create(
+                db,
+                user_id=braider_profile.user_id,
+                type=NotificationType.BOOKING_RESCHEDULED,
+                title_key="notifications.booking_rescheduled_braider_title",
+                body_key="notifications.booking_rescheduled_braider_body",
+                body_params=body_params,
+                related_type="booking",
+                related_id=booking.id,
+            )
+
+        await db.commit()
+        await db.refresh(customer_notification)
+        await notifications_service.publish_realtime(customer_notification, locale=booking.locale)
+        if braider_notification is not None:
+            await db.refresh(braider_notification)
+            await notifications_service.publish_realtime(braider_notification, locale=booking.locale)
+        logger.info("Sent reschedule notification for %s", booking.reference)
