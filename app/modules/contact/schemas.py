@@ -13,7 +13,7 @@ _E164_PATTERN = re.compile(r"^\+[1-9]\d{7,14}$")
 class ContactSubmissionRequest(BaseModel):
     first_name: str
     last_name: str
-    phone_number: str = Field(description="E.164 format, e.g. \"+15551234567\".")
+    phone_number: str | None = Field(default=None, description="E.164 format, e.g. \"+15551234567\".")
     email: EmailStr
     subject: str | None = None
     message: str
@@ -30,8 +30,12 @@ class ContactSubmissionRequest(BaseModel):
 
     @field_validator("phone_number")
     @classmethod
-    def _phone_number_e164(cls, v: str) -> str:
+    def _phone_number_e164(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
         v = v.strip()
+        if not v:
+            return None
         if not _E164_PATTERN.match(v):
             raise ValueError("phone_number must be in E.164 format, e.g. \"+15551234567\".")
         return v
