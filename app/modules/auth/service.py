@@ -265,7 +265,7 @@ async def login(db: AsyncSession, redis: Redis, *, data: LoginRequest) -> AuthTo
         raise InvalidCredentialsError()
 
     if not user.is_active:
-        raise UserNotActiveError()
+        raise UserNotActiveError(reason=user.suspension_reason)
 
     if not user.is_email_verified:
         raise EmailNotVerifiedError()
@@ -328,7 +328,7 @@ async def social_login(
             )
 
     if not user.is_active:
-        raise UserNotActiveError()
+        raise UserNotActiveError(reason=user.suspension_reason)
 
     access_token, refresh_token, expires_in = await _issue_token_pair(db, user)
     await db.commit()

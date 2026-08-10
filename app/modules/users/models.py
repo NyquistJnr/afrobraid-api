@@ -37,7 +37,14 @@ class User(Base):
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     user_type: Mapped[UserType] = mapped_column(Enum(UserType, name="user_type"), nullable=False)
     is_email_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # `is_active=False` is currently only ever set by an admin suspension
+    # (see users/admin_router.py) - there's no other deactivation path in
+    # this codebase. It's already what login/social_login/refresh_access_token/
+    # get_current_user gate on (app.modules.auth), so suspending reuses that
+    # existing enforcement rather than adding a second, easy-to-forget check.
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    suspension_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    suspended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # Cached rather than looked up per-booking - Stripe Customers live on the
     # platform account (see bookings/payments), so this is a 1:1 mirror, not
     # something that needs its own table.

@@ -78,12 +78,18 @@ class Booking(Base):
     # the UUID id is what every FK and URL actually uses.
     reference: Mapped[str] = mapped_column(String(12), nullable=False)
 
+    # No ON DELETE CASCADE on customer_id/braider_id (or braider_style_id
+    # below) - a booking is a historical/financial record that must outlive
+    # the account that made it. Deleting a user or braider profile while
+    # they still have bookings is refused at the DB level (FK violation ->
+    # EntityInUseError), the same fix applied to braider_style_id; any
+    # future account-deletion flow must soft-delete/anonymize instead.
     customer_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
     )
     braider_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("braider_profiles.id", ondelete="CASCADE"),
+        ForeignKey("braider_profiles.id"),
         nullable=False,
         index=True,
     )
@@ -91,13 +97,11 @@ class Booking(Base):
         UUID(as_uuid=True), ForeignKey("booking_calculations.id"), nullable=False, unique=True
     )
 
-    # No ON DELETE CASCADE here (unlike braider_id above) - a booking is a
-    # historical/financial record, and braider_style_id is a plain
-    # "no action" FK like style_id/style_variation_id below. A braider
-    # deleting a menu entry must never take existing bookings, their line
-    # items, or their payments with it - see EntityInUseError in
-    # braiders/offerings/service.py::delete_braider_style, which is what
-    # actually stops the delete once this FK refuses it.
+    # braider_style_id is a plain "no action" FK like style_id/style_variation_id
+    # below. A braider deleting a menu entry must never take existing
+    # bookings, their line items, or their payments with it - see
+    # EntityInUseError in braiders/offerings/service.py::delete_braider_style,
+    # which is what actually stops the delete once this FK refuses it.
     braider_style_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("braider_styles.id"), nullable=False
     )

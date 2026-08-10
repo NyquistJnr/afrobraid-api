@@ -18,6 +18,7 @@
   "auth.invalid_refresh_token": "Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.",
   "auth.invalid_access_token": "Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.",
   "auth.user_not_active": "Dieses Konto wurde deaktiviert.",
+  "auth.user_suspended_with_reason": "Dieses Konto wurde gesperrt: {reason}",
   "auth.forbidden": "Sie sind nicht berechtigt, diese Aktion auszuführen.",
   "auth.admin_signup_blocked": "Admin-Konten können nicht über die Registrierung erstellt werden.",
   "auth.social_auth_failed": "Wir konnten Ihr Konto bei diesem Anbieter nicht verifizieren.",
@@ -162,6 +163,8 @@
   "email.receipt_total_label": "Gesamtbetrag der Buchung",
 
   "users.invalid_chat_locale": "Das ist keine unterstützte Chat-Sprache.",
+  "users.not_found": "Dieser Benutzer existiert nicht.",
+  "users.cannot_suspend_self": "Sie können Ihr eigenes Konto nicht sperren.",
 
   "chat.not_available": "Der Chat wird freigeschaltet, sobald Ihre Anzahlung (oder vollständige Zahlung) für diese Buchung eingegangen ist.",
   "chat.thread_not_found": "Diese Unterhaltung existiert nicht.",

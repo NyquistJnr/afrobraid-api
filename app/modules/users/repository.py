@@ -3,6 +3,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.pagination import PaginationMeta, PaginationParams, paginate
 from app.modules.users.models import AuthIdentity, AuthProvider, User, UserType
 
 
@@ -24,6 +25,16 @@ async def list_full_names(db: AsyncSession, user_ids: list[uuid.UUID]) -> dict[u
         select(User.id, User.first_name, User.last_name).where(User.id.in_(user_ids))
     )
     return {row.id: f"{row.first_name} {row.last_name or ''}".strip() for row in result.all()}
+
+
+async def list_users(
+    db: AsyncSession, *, user_type: UserType | None, params: PaginationParams
+) -> tuple[list[User], PaginationMeta]:
+    stmt = select(User)
+    if user_type is not None:
+        stmt = stmt.where(User.user_type == user_type)
+    stmt = stmt.order_by(User.created_at.desc())
+    return await paginate(db, stmt, params)
 
 
 async def get_user_by_phone(db: AsyncSession, phone_number: str) -> User | None:

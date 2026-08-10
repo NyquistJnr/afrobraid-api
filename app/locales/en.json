@@ -18,6 +18,7 @@
   "auth.invalid_refresh_token": "Your session has expired. Please log in again.",
   "auth.invalid_access_token": "Your session has expired. Please log in again.",
   "auth.user_not_active": "This account has been deactivated.",
+  "auth.user_suspended_with_reason": "This account has been suspended: {reason}",
   "auth.forbidden": "You do not have permission to perform this action.",
   "auth.admin_signup_blocked": "Admin accounts cannot be created through sign up.",
   "auth.social_auth_failed": "We couldn't verify your account with this provider.",
@@ -162,6 +163,8 @@
   "email.receipt_total_label": "Booking total",
 
   "users.invalid_chat_locale": "That's not a supported chat language.",
+  "users.not_found": "This user doesn't exist.",
+  "users.cannot_suspend_self": "You can't suspend your own account.",
 
   "chat.not_available": "Chat unlocks once your deposit (or full payment) for this booking has gone through.",
   "chat.thread_not_found": "This conversation doesn't exist.",

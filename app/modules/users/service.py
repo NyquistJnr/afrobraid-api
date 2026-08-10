@@ -1,14 +1,26 @@
 import uuid
+from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.exceptions import InvalidChatLocaleError, PhoneAlreadyExistsError
+from app.core.exceptions import (
+    CannotSuspendSelfError,
+    InvalidChatLocaleError,
+    PhoneAlreadyExistsError,
+    UserNotFoundError,
+)
 from app.core.i18n import get_current_locale
+from app.core.pagination import PaginatedData, PaginationParams
 from app.modules.notifications import service as notifications_service
 from app.modules.notifications.models import NotificationType
 from app.modules.users import repository as users_repo
-from app.modules.users.schemas import UserProfileUpdateRequest, UserPublic
+from app.modules.users.models import UserType
+from app.modules.users.schemas import (
+    AdminUserResponse,
+    UserProfileUpdateRequest,
+    UserPublic,
+)
 
 settings = get_settings()
 
@@ -63,3 +75,48 @@ async def update_profile(
         await db.refresh(user)
 
     return UserPublic.model_validate(user)
+
+
+# --- Admin -------------------------------------------------------------
+
+
+async def list_admin_users(
+    db: AsyncSession, *, user_type: UserType | None, params: PaginationParams
+) -> PaginatedData[AdminUserResponse]:
+    items, meta = await users_repo.list_users(db, user_type=user_type, params=params)
+    return PaginatedData(
+        items=[AdminUserResponse.model_validate(u) for u in items], pagination=meta
+    )
+
+
+async def suspend_user(
+    db: AsyncSession, *, admin_user_id: uuid.UUID, user_id: uuid.UUID, reason: str | None
+) -> AdminUserResponse:
+    if admin_user_id == user_id:
+        raise CannotSuspendSelfError()
+
+    user = await users_repo.get_user_by_id(db, user_id)
+    if user is None:
+        raise UserNotFoundError()
+
+    user.is_active = False
+    user.suspension_reason = reason
+    user.suspended_at = datetime.now(UTC)
+
+    await db.commit()
+    await db.refresh(user)
+    return AdminUserResponse.model_validate(user)
+
+
+async def unsuspend_user(db: AsyncSession, *, user_id: uuid.UUID) -> AdminUserResponse:
+    user = await users_repo.get_user_by_id(db, user_id)
+    if user is None:
+        raise UserNotFoundError()
+
+    user.is_active = True
+    user.suspension_reason = None
+    user.suspended_at = None
+
+    await db.commit()
+    await db.refresh(user)
+    return AdminUserResponse.model_validate(user)

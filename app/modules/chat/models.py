@@ -65,17 +65,24 @@ class ChatThread(Base):
     __tablename__ = "chat_threads"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    # No ON DELETE CASCADE on booking_id/customer_id/braider_user_id - this
+    # class's own docstring says a thread must survive a booking's
+    # cancellation "so a dispute can still be discussed"; cascading it off
+    # the booking or either participant's account would silently destroy
+    # that same dispute record (and any open ChatReport evidence with it).
+    # Deleting a booking or user while a thread references it is refused at
+    # the DB level instead.
     booking_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("bookings.id", ondelete="CASCADE"), nullable=False, unique=True
+        UUID(as_uuid=True), ForeignKey("bookings.id"), nullable=False, unique=True
     )
     # Denormalized off the booking at thread-creation time purely to make
     # participant/access checks and inbox listing single-table lookups - the
     # booking itself remains the source of truth for who's on either side.
     customer_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
     )
     braider_user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
     )
 
     customer_last_read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -114,8 +121,12 @@ class ChatMessage(Base):
     thread_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("chat_threads.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    # No ON DELETE CASCADE - same reasoning as ChatThread above, a message
+    # is evidence in the conversation regardless of the sender's account
+    # status; only thread_id cascades, since a message has no meaning
+    # outside its thread.
     sender_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
     )
     status: Mapped[ChatMessageStatus] = mapped_column(
         Enum(ChatMessageStatus, name="chat_message_status"), nullable=False, default=ChatMessageStatus.SENT
@@ -157,11 +168,14 @@ class ChatReport(Base):
     thread_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("chat_threads.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    # No ON DELETE CASCADE - a report is moderation evidence that must
+    # outlive either party's account, especially the accused's (deleting
+    # your own account should not be a way to make an open report vanish).
     reporter_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
     )
     reported_user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
     )
     message_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("chat_messages.id", ondelete="SET NULL"), nullable=True

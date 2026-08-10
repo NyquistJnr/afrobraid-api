@@ -18,6 +18,7 @@
   "auth.invalid_refresh_token": "Votre session a expiré. Veuillez vous reconnecter.",
   "auth.invalid_access_token": "Votre session a expiré. Veuillez vous reconnecter.",
   "auth.user_not_active": "Ce compte a été désactivé.",
+  "auth.user_suspended_with_reason": "Ce compte a été suspendu : {reason}",
   "auth.forbidden": "Vous n'avez pas la permission d'effectuer cette action.",
   "auth.admin_signup_blocked": "Les comptes administrateur ne peuvent pas être créés via l'inscription.",
   "auth.social_auth_failed": "Nous n'avons pas pu vérifier votre compte auprès de ce fournisseur.",
@@ -162,6 +163,8 @@
   "email.receipt_total_label": "Total de la réservation",
 
   "users.invalid_chat_locale": "Cette langue de chat n'est pas prise en charge.",
+  "users.not_found": "Cet utilisateur n'existe pas.",
+  "users.cannot_suspend_self": "Vous ne pouvez pas suspendre votre propre compte.",
 
   "chat.not_available": "Le chat se débloque dès que votre acompte (ou paiement intégral) pour cette réservation a été effectué.",
   "chat.thread_not_found": "Cette conversation n'existe pas.",

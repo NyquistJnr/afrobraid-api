@@ -82,9 +82,35 @@ class InvalidAccessTokenError(AppError):
 
 
 class UserNotActiveError(AppError):
+    """Raised for any deactivated account, admin-suspended or otherwise.
+    `reason` is only ever set for a suspension (see users/admin_router.py) -
+    when present it's interpolated straight into the login error message so
+    the user sees why without any frontend change, following the same
+    raise-time-kwargs pattern as RateLimitedError below."""
+
     status_code = status.HTTP_403_FORBIDDEN
     code = "USER_NOT_ACTIVE"
-    message_key = "auth.user_not_active"
+
+    def __init__(self, reason: str | None = None) -> None:
+        self.reason = reason
+        if reason:
+            self.message_key = "auth.user_suspended_with_reason"
+            super().__init__(reason=reason)
+        else:
+            self.message_key = "auth.user_not_active"
+            super().__init__()
+
+
+class UserNotFoundError(AppError):
+    status_code = status.HTTP_404_NOT_FOUND
+    code = "USER_NOT_FOUND"
+    message_key = "users.not_found"
+
+
+class CannotSuspendSelfError(AppError):
+    status_code = status.HTTP_409_CONFLICT
+    code = "CANNOT_SUSPEND_SELF"
+    message_key = "users.cannot_suspend_self"
 
 
 class ForbiddenRoleError(AppError):

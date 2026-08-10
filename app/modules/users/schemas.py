@@ -1,8 +1,11 @@
 import uuid
+from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.modules.users.models import UserType
+
+_SUSPENSION_REASON_MAX_LENGTH = 500
 
 _FIRST_NAME_MAX_LENGTH = 100
 _LAST_NAME_MAX_LENGTH = 100
@@ -81,3 +84,37 @@ class UserProfileUpdateRequest(BaseModel):
             return v
         v = v.strip().lower()
         return v or None
+
+
+class AdminUserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    first_name: str
+    last_name: str | None
+    email: str
+    phone_number: str | None
+    user_type: UserType
+    is_email_verified: bool
+    is_active: bool
+    suspension_reason: str | None
+    suspended_at: datetime | None
+    created_at: datetime
+
+
+class SuspendUserRequest(BaseModel):
+    reason: str | None = Field(default=None, description="Shown to the user on their next login attempt.")
+
+    @field_validator("reason")
+    @classmethod
+    def _reason_not_blank(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        v = v.strip()
+        if not v:
+            return None
+        if len(v) > _SUSPENSION_REASON_MAX_LENGTH:
+            raise ValueError(
+                f"Reason must be at most {_SUSPENSION_REASON_MAX_LENGTH} characters long."
+            )
+        return v
