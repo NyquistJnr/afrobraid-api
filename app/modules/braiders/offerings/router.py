@@ -105,7 +105,10 @@ async def update_braider_style(
     summary="Remove a style from your menu",
     description=(
         "`braider_style_id` is the `id` field from this style's entry in "
-        "`GET /api/v1/braiders/onboarding/services` (not the catalog `style_id`)."
+        "`GET /api/v1/braiders/onboarding/services` (not the catalog `style_id`). "
+        "Fails with `409 ENTITY_IN_USE` if any booking - past or present - was "
+        "ever made against this style; use `PUT` with `is_active: false` to hide "
+        "it from customers instead."
     ),
 )
 async def delete_braider_style(

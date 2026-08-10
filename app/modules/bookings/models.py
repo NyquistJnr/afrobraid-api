@@ -91,8 +91,15 @@ class Booking(Base):
         UUID(as_uuid=True), ForeignKey("booking_calculations.id"), nullable=False, unique=True
     )
 
+    # No ON DELETE CASCADE here (unlike braider_id above) - a booking is a
+    # historical/financial record, and braider_style_id is a plain
+    # "no action" FK like style_id/style_variation_id below. A braider
+    # deleting a menu entry must never take existing bookings, their line
+    # items, or their payments with it - see EntityInUseError in
+    # braiders/offerings/service.py::delete_braider_style, which is what
+    # actually stops the delete once this FK refuses it.
     braider_style_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("braider_styles.id", ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True), ForeignKey("braider_styles.id"), nullable=False
     )
     style_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("styles.id"), nullable=False)
     style_variation_id: Mapped[uuid.UUID | None] = mapped_column(

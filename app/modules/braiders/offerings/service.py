@@ -1,5 +1,6 @@
 import uuid
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import storage
@@ -8,6 +9,7 @@ from app.core.exceptions import (
     BraiderStyleAlreadyExistsError,
     BraiderStyleNotFoundError,
     BraiderStyleVariationInvalidError,
+    EntityInUseError,
     StyleNotActiveError,
     StyleNotFoundError,
 )
@@ -248,5 +250,12 @@ async def delete_braider_style(
     if profile is None or braider_style is None or braider_style.braider_id != profile.id:
         raise BraiderStyleNotFoundError()
 
-    await offerings_repo.delete_braider_style(db, braider_style)
-    await db.commit()
+    try:
+        await offerings_repo.delete_braider_style(db, braider_style)
+        await db.commit()
+    except IntegrityError:
+        # bookings.braider_style_id has no ON DELETE CASCADE (see the
+        # model/migration) precisely so this can't happen silently - a
+        # style that's ever been booked must be deactivated, not deleted.
+        await db.rollback()
+        raise EntityInUseError() from None
