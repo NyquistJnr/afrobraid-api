@@ -52,6 +52,29 @@ CALENDAR_BLOCKING_STATUSES = frozenset(
 )
 
 
+# "Declined" for the braider stats dashboard: any booking that never
+# resulted in a completed appointment because it was called off, on either
+# side, or simply timed out unpaid. Deliberately excludes NO_SHOW and
+# DISPUTED - those did happen, they just went wrong afterward.
+DECLINED_BOOKING_STATUSES = frozenset(
+    {
+        BookingStatus.CANCELLED_BY_CUSTOMER,
+        BookingStatus.CANCELLED_BY_BRAIDER,
+        BookingStatus.CANCELLED_NO_PAYMENT,
+        BookingStatus.EXPIRED,
+    }
+)
+
+# "Upcoming" for the same stats dashboard: booked and not yet resolved
+# either way.
+UPCOMING_BOOKING_STATUSES = frozenset(
+    {
+        BookingStatus.CONFIRMED,
+        BookingStatus.IN_PROGRESS,
+    }
+)
+
+
 class PaymentPurpose(str, enum.Enum):
     FULL = "FULL"
     DEPOSIT = "DEPOSIT"

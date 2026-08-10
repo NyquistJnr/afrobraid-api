@@ -7,9 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from app.core.currency import Currency
-from app.core.pagination import PaginationParams, paginate
+from app.core.pagination import PaginationMeta, PaginationParams, paginate
 from app.modules.bookings.enums import (
     CALENDAR_BLOCKING_STATUSES,
+    DECLINED_BOOKING_STATUSES,
+    UPCOMING_BOOKING_STATUSES,
     BalanceChargeState,
     BookingItemType,
     BookingStatus,
@@ -170,6 +172,143 @@ async def list_bookings_for_braider(
 
     stmt = stmt.order_by(Booking.starts_at.desc())
     return await paginate(db, stmt, params)
+
+
+async def get_booking_stats_for_braider(
+    db: AsyncSession,
+    braider_id: uuid.UUID,
+    *,
+    date_from: date | None = None,
+    date_to: date | None = None,
+) -> dict[str, int]:
+    """Single grouped-count query behind the braider's booking-stats tile:
+    total, completed, declined (DECLINED_BOOKING_STATUSES), and upcoming
+    (UPCOMING_BOOKING_STATUSES). Bounds `starts_at`, same convention as
+    `_apply_common_filters`."""
+    stmt = select(Booking.status, func.count()).where(Booking.braider_id == braider_id)
+    stmt = _apply_common_filters(stmt, status=None, date_from=date_from, date_to=date_to)
+    stmt = stmt.group_by(Booking.status)
+    result = await db.execute(stmt)
+    counts_by_status: dict[BookingStatus, int] = {row[0]: row[1] for row in result.all()}
+
+    return {
+        "total_bookings": sum(counts_by_status.values()),
+        "completed": counts_by_status.get(BookingStatus.COMPLETED, 0),
+        "declined": sum(counts_by_status.get(s, 0) for s in DECLINED_BOOKING_STATUSES),
+        "upcoming": sum(counts_by_status.get(s, 0) for s in UPCOMING_BOOKING_STATUSES),
+    }
+
+
+async def get_booking_timeseries_for_braider(
+    db: AsyncSession,
+    braider_id: uuid.UUID,
+    *,
+    date_from: date,
+    date_to: date,
+    interval: str,
+    statuses: list[BookingStatus] | None,
+) -> list[tuple[datetime, BookingStatus, int]]:
+    """One row per (bucket, status) with a non-zero count, grouped by
+    `date_trunc(interval, starts_at)` - the raw material for a multi-line
+    graph, one line per status. `interval` must already be validated to one
+    of 'day'/'week'/'month' by the caller (it's interpolated as a SQL
+    identifier via `date_trunc`, not a bound parameter)."""
+    bucket = func.date_trunc(interval, Booking.starts_at).label("bucket")
+    stmt = (
+        select(bucket, Booking.status, func.count())
+        .where(Booking.braider_id == braider_id)
+        .group_by(bucket, Booking.status)
+        .order_by(bucket)
+    )
+    stmt = _apply_common_filters(stmt, status=None, date_from=date_from, date_to=date_to)
+    if statuses:
+        stmt = stmt.where(Booking.status.in_(statuses))
+    result = await db.execute(stmt)
+    return [(row[0], row[1], row[2]) for row in result.all()]
+
+
+def _apply_payment_date_filters(stmt, *, date_from: date | None, date_to: date | None):
+    """Bounds `BookingPayment.created_at` - when the charge/refund actually
+    happened - mirroring `_apply_common_filters`'s whole-UTC-day convention.
+    This is a cash-flow view, not a schedule view, so it deliberately does
+    not bound the booking's appointment date."""
+    if date_from is not None:
+        stmt = stmt.where(BookingPayment.created_at >= datetime.combine(date_from, time.min, tzinfo=UTC))
+    if date_to is not None:
+        stmt = stmt.where(
+            BookingPayment.created_at
+            < datetime.combine(date_to + timedelta(days=1), time.min, tzinfo=UTC)
+        )
+    return stmt
+
+
+async def get_payment_stats_for_braider(
+    db: AsyncSession,
+    braider_id: uuid.UUID,
+    *,
+    status: PaymentStatus | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+) -> dict[str, int]:
+    """Money-in/out summary in minor units: total received (SUCCEEDED
+    payments), total refunded, and pending (not yet settled). Net revenue is
+    derived by the caller (received - refunded) rather than computed here,
+    since it needs both regardless of any `status` filter applied."""
+    stmt = (
+        select(
+            BookingPayment.status,
+            func.coalesce(func.sum(BookingPayment.amount_minor), 0),
+            func.coalesce(func.sum(BookingPayment.amount_refunded_minor), 0),
+        )
+        .join(Booking, Booking.id == BookingPayment.booking_id)
+        .where(Booking.braider_id == braider_id)
+        .group_by(BookingPayment.status)
+    )
+    if status is not None:
+        stmt = stmt.where(BookingPayment.status == status)
+    stmt = _apply_payment_date_filters(stmt, date_from=date_from, date_to=date_to)
+
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    return {
+        "total_received_minor": sum(
+            r[1] for r in rows if r[0] == PaymentStatus.SUCCEEDED
+        ),
+        "total_refunded_minor": sum(r[2] for r in rows),
+        "pending_minor": sum(r[1] for r in rows if r[0] == PaymentStatus.PENDING),
+    }
+
+
+async def list_payments_for_braider(
+    db: AsyncSession,
+    braider_id: uuid.UUID,
+    *,
+    params: PaginationParams,
+    purpose: PaymentPurpose | None = None,
+    status: PaymentStatus | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+) -> tuple[list[BookingPayment], PaginationMeta]:
+    stmt = (
+        select(BookingPayment)
+        .join(Booking, Booking.id == BookingPayment.booking_id)
+        .where(Booking.braider_id == braider_id)
+    )
+    if purpose is not None:
+        stmt = stmt.where(BookingPayment.purpose == purpose)
+    if status is not None:
+        stmt = stmt.where(BookingPayment.status == status)
+    stmt = _apply_payment_date_filters(stmt, date_from=date_from, date_to=date_to)
+    stmt = stmt.order_by(BookingPayment.created_at.desc())
+    return await paginate(db, stmt, params)
+
+
+async def list_booking_references(db: AsyncSession, booking_ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
+    if not booking_ids:
+        return {}
+    result = await db.execute(select(Booking.id, Booking.reference).where(Booking.id.in_(booking_ids)))
+    return {row.id: row.reference for row in result.all()}
 
 
 async def list_blocked_ranges(
