@@ -23,6 +23,7 @@ from app.core.exceptions import (
     UserTypeRequiredError,
 )
 from app.core.i18n import get_current_locale, t
+from app.core.pagination import PaginatedData, PaginationParams
 from app.core.rate_limit import check_rate_limit
 from app.core.security import (
     create_access_token,
@@ -38,8 +39,10 @@ from app.modules.auth.models import AdminInvite, OtpPurpose
 from app.modules.auth.schemas import (
     AdminInviteAcceptRequest,
     AdminInviteAcceptSocialRequest,
+    AdminInviteListItem,
     AdminInviteRequest,
     AdminInviteResponse,
+    AdminInviteStatus,
     AdminSocialLoginRequest,
     AuthTokenResponse,
     BraiderAuthProfile,
@@ -497,6 +500,38 @@ async def reset_password(
     await notifications_service.publish_realtime(notification, locale=locale)
 
     return MessageResponse(message=t("auth.password_reset_success", locale))
+
+
+def _admin_invite_status(invite: AdminInvite) -> AdminInviteStatus:
+    if invite.accepted_at is not None:
+        return AdminInviteStatus.ACCEPTED
+    if invite.revoked_at is not None:
+        return AdminInviteStatus.REVOKED
+    if invite.expires_at < datetime.now(UTC):
+        return AdminInviteStatus.EXPIRED
+    return AdminInviteStatus.PENDING
+
+
+async def list_admin_invites(
+    db: AsyncSession, *, params: PaginationParams
+) -> PaginatedData[AdminInviteListItem]:
+    items, meta = await auth_repo.list_admin_invites(db, params=params)
+    return PaginatedData(
+        items=[
+            AdminInviteListItem(
+                id=invite.id,
+                email=invite.email,
+                status=_admin_invite_status(invite),
+                invited_by_user_id=invite.invited_by_user_id,
+                created_at=invite.created_at,
+                expires_at=invite.expires_at,
+                accepted_at=invite.accepted_at,
+                revoked_at=invite.revoked_at,
+            )
+            for invite in items
+        ],
+        pagination=meta,
+    )
 
 
 async def _get_valid_admin_invite(db: AsyncSession, *, token: str) -> AdminInvite:

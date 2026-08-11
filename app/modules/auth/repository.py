@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.pagination import PaginationMeta, PaginationParams, paginate
 from app.modules.auth.models import AdminInvite, OtpCode, OtpPurpose, RefreshToken
 
 
@@ -136,3 +137,10 @@ async def invalidate_active_admin_invites_for_email(db: AsyncSession, *, email: 
     for invite in result.scalars():
         invite.revoked_at = now
     await db.flush()
+
+
+async def list_admin_invites(
+    db: AsyncSession, *, params: PaginationParams
+) -> tuple[list[AdminInvite], PaginationMeta]:
+    stmt = select(AdminInvite).order_by(AdminInvite.created_at.desc())
+    return await paginate(db, stmt, params)

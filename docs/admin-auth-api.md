@@ -58,6 +58,68 @@ The invite email links to `{FRONTEND_URL}/admin/invite/accept?token=<raw_token>`
 
 ---
 
+## GET `/api/v1/admin/auth/invites` — List admin invites
+
+Admin-only. Every invite ever sent, newest first — including ones still awaiting acceptance, so
+you can see who's been invited but hasn't signed up yet.
+
+### Query params
+
+| Param | Type | Notes |
+|---|---|---|
+| `page` | int | default 1, min 1 |
+| `page_size` | int | default 20, min 1, max 100 |
+
+### Response `200`
+
+```json
+{
+  "status": "success",
+  "status_label": "Success",
+  "data": {
+    "items": [
+      {
+        "id": "5b1c1a2e-9d3e-4b1a-8c3e-2f1a9b6d4e10",
+        "email": "new-admin@example.com",
+        "status": "PENDING",
+        "invited_by_user_id": "39980556-d5bf-43ab-898a-5e382bb4a6b7",
+        "created_at": "2026-08-11T16:00:00Z",
+        "expires_at": "2026-08-14T16:00:00Z",
+        "accepted_at": null,
+        "revoked_at": null
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "page_size": 20,
+      "total_items": 1,
+      "total_pages": 1,
+      "has_next": false,
+      "has_previous": false
+    }
+  },
+  "error": null
+}
+```
+
+`status` is computed, not stored, and is one of:
+
+| Status | Meaning |
+|---|---|
+| `PENDING` | sent, not yet accepted, not expired, not revoked — this is what "invited, hasn't accepted yet" looks like |
+| `ACCEPTED` | invitee completed signup (`accepted_at` set) — the resulting ADMIN user now shows up in `GET /api/v1/admin/users` |
+| `EXPIRED` | past `expires_at` and never accepted |
+| `REVOKED` | superseded by a newer invite to the same email (sending a new invite auto-revokes any still-pending one), so only the latest link for an email ever works |
+
+### Errors
+
+| Code | Status | When |
+|---|---|---|
+| `INVALID_ACCESS_TOKEN` | 401 | missing/invalid/expired Bearer token |
+| `FORBIDDEN` | 403 | caller isn't an `ADMIN` |
+
+---
+
 ## POST `/api/v1/admin/auth/invites/accept` — Accept an invite via email/password
 
 Public. Completes account creation for a pending invite: creates the ADMIN user (pre-verified —

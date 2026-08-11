@@ -1,4 +1,6 @@
+import enum
 import re
+import uuid
 from datetime import datetime
 from typing import Literal
 
@@ -132,6 +134,24 @@ class AdminInviteAcceptRequest(BaseModel):
 class AdminInviteAcceptSocialRequest(BaseModel):
     token: str
     provider_token: str
+
+
+class AdminInviteStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    ACCEPTED = "ACCEPTED"
+    EXPIRED = "EXPIRED"
+    REVOKED = "REVOKED"
+
+
+class AdminInviteListItem(BaseModel):
+    id: uuid.UUID
+    email: EmailStr
+    status: AdminInviteStatus
+    invited_by_user_id: uuid.UUID
+    created_at: datetime
+    expires_at: datetime
+    accepted_at: datetime | None
+    revoked_at: datetime | None
 
 
 class MessageResponse(BaseModel):

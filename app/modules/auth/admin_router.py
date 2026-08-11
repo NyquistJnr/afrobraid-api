@@ -6,6 +6,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.pagination import PaginatedData, PaginationParams
 from app.core.queue import get_task_queue
 from app.core.rate_limit import ip_rate_limiter
 from app.core.redis import get_redis
@@ -15,6 +16,7 @@ from app.modules.auth.dependencies import require_roles
 from app.modules.auth.schemas import (
     AdminInviteAcceptRequest,
     AdminInviteAcceptSocialRequest,
+    AdminInviteListItem,
     AdminInviteRequest,
     AdminInviteResponse,
     AdminSocialLoginRequest,
@@ -58,6 +60,23 @@ async def invite_admin(
     result = await service.invite_admin(
         db, queue, inviter=inviter, data=payload, locale=_locale(request)
     )
+    return APIResponse(data=result)
+
+
+@router.get(
+    "/invites",
+    response_model=APIResponse[PaginatedData[AdminInviteListItem]],
+    summary="List admin invites",
+    description="Admin-only. Shows every invite ever sent, newest first - including ones "
+    "still awaiting acceptance (`status: PENDING`), so you can see who's been invited but "
+    "hasn't signed up yet.",
+)
+async def list_admin_invites(
+    params: PaginationParams = Depends(),
+    admin: User = Depends(_require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> APIResponse[PaginatedData[AdminInviteListItem]]:
+    result = await service.list_admin_invites(db, params=params)
     return APIResponse(data=result)
 
 

@@ -207,6 +207,37 @@ async def test_admin_social_login_rejects_non_admin(
     assert existing["user_type"] == "CUSTOMER"
 
 
+async def test_list_invites_shows_pending_and_accepted(
+    client: AsyncClient, db_session: AsyncSession, fake_queue
+):
+    _, token = await create_user_with_token(db_session, user_type=UserType.ADMIN)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    pending_resp = await client.post(
+        INVITE_URL, json={"email": "still-pending@example.com"}, headers=headers
+    )
+    assert pending_resp.status_code == 201
+
+    raw_token = await _invite(client, db_session, fake_queue, email="accepted@example.com")
+    await client.post(
+        ACCEPT_URL,
+        json={"token": raw_token, "first_name": "Nyla", "password": "Password123"},
+    )
+
+    list_resp = await client.get(INVITE_URL, headers=headers)
+    assert list_resp.status_code == 200, list_resp.text
+    items = list_resp.json()["data"]["items"]
+    by_email = {item["email"]: item["status"] for item in items}
+    assert by_email["still-pending@example.com"] == "PENDING"
+    assert by_email["accepted@example.com"] == "ACCEPTED"
+
+
+async def test_list_invites_requires_admin(client: AsyncClient, db_session: AsyncSession):
+    _, token = await create_user_with_token(db_session, user_type=UserType.CUSTOMER)
+    resp = await client.get(INVITE_URL, headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 403
+
+
 async def test_invite_email_already_registered_rejected(
     client: AsyncClient, db_session: AsyncSession, fake_queue
 ):
