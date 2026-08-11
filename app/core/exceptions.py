@@ -125,6 +125,23 @@ class AdminSignupBlockedError(AppError):
     message_key = "auth.admin_signup_blocked"
 
 
+class AdminInviteInvalidError(AppError):
+    """Covers every "can't use this invite" case (unknown token, expired,
+    already accepted, revoked) - deliberately one generic error rather than
+    distinguishing them, so an invite link doesn't leak its own state to
+    whoever is holding it."""
+
+    status_code = status.HTTP_400_BAD_REQUEST
+    code = "ADMIN_INVITE_INVALID"
+    message_key = "auth.admin_invite_invalid"
+
+
+class AdminInviteEmailMismatchError(AppError):
+    status_code = status.HTTP_403_FORBIDDEN
+    code = "ADMIN_INVITE_EMAIL_MISMATCH"
+    message_key = "auth.admin_invite_email_mismatch"
+
+
 class SocialAuthError(AppError):
     status_code = status.HTTP_401_UNAUTHORIZED
     code = "SOCIAL_AUTH_FAILED"

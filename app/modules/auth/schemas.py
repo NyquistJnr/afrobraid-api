@@ -64,6 +64,14 @@ class SocialLoginRequest(BaseModel):
     user_type: SignupUserType | None = None
 
 
+class AdminSocialLoginRequest(BaseModel):
+    """No `user_type` - admin social login never creates a user, only
+    matches an existing ADMIN account (accounts are invite-only, see
+    AdminInviteAcceptSocialRequest below)."""
+
+    provider_token: str
+
+
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
 
@@ -90,6 +98,40 @@ class ResetPasswordRequest(BaseModel):
 class SignupResponse(BaseModel):
     message: str
     email: EmailStr
+
+
+class AdminInviteRequest(BaseModel):
+    email: EmailStr
+
+
+class AdminInviteResponse(BaseModel):
+    message: str
+    email: EmailStr
+
+
+class AdminInviteAcceptRequest(BaseModel):
+    token: str
+    first_name: str
+    last_name: str | None = None
+    password: str
+
+    @field_validator("first_name")
+    @classmethod
+    def _first_name_not_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("First name is required.")
+        return v
+
+    @field_validator("password")
+    @classmethod
+    def _password_strength(cls, v: str) -> str:
+        return _validate_password_strength(v)
+
+
+class AdminInviteAcceptSocialRequest(BaseModel):
+    token: str
+    provider_token: str
 
 
 class MessageResponse(BaseModel):

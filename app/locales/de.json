@@ -24,6 +24,9 @@
   "auth.social_auth_failed": "Wir konnten Ihr Konto bei diesem Anbieter nicht verifizieren.",
   "auth.unsupported_provider": "Nicht unterstützter Anmeldeanbieter.",
   "auth.user_type_required": "Bitte geben Sie an, ob Sie sich als Kunde oder als Braider registrieren.",
+  "auth.admin_invite_invalid": "Dieser Einladungslink ist ungültig, abgelaufen oder wurde bereits verwendet.",
+  "auth.admin_invite_email_mismatch": "Diese Einladung wurde an eine andere E-Mail-Adresse gesendet als die, mit der Sie sich angemeldet haben.",
+  "auth.admin_invite_sent": "Einladung gesendet.",
 
   "auth.signup_success": "Konto erstellt. Bitte prüfen Sie Ihre E-Mails auf einen Bestätigungscode.",
   "auth.verification_resent": "Falls ein Konto existiert und noch nicht bestätigt wurde, haben wir einen neuen Code gesendet.",
@@ -43,6 +46,11 @@
   "email.reset_body": "Verwenden Sie den folgenden Code, um Ihr Passwort zurückzusetzen. Er läuft in {minutes} Minuten ab.",
   "email.reset_code_label": "Ihr Code zum Zurücksetzen",
   "email.reset_ignore_note": "Wenn Sie kein Zurücksetzen des Passworts angefordert haben, können Sie diese E-Mail ignorieren.",
+
+  "email.admin_invite_subject": "Sie wurden zu Afrobraid Admin eingeladen",
+  "email.admin_invite_body": "Sie wurden eingeladen, Afrobraid als Administrator beizutreten. Dieser Link läuft in {hours} Stunden ab.",
+  "email.admin_invite_cta": "Einladung annehmen",
+  "email.admin_invite_ignore_note": "Wenn Sie diese Einladung nicht erwartet haben, können Sie diese E-Mail ignorieren.",
 
   "braider.invalid_logo_upload": "Das hochgeladene Logo ist ungültig. Bitte laden Sie ein JPEG-, PNG- oder WebP-Bild mit maximal 5MB hoch.",
   "braider.logo_not_found": "Wir konnten das hochgeladene Logo nicht finden. Bitte versuchen Sie es erneut.",

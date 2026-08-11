@@ -24,6 +24,9 @@
   "auth.social_auth_failed": "Nous n'avons pas pu vérifier votre compte auprès de ce fournisseur.",
   "auth.unsupported_provider": "Fournisseur de connexion non pris en charge.",
   "auth.user_type_required": "Veuillez indiquer si vous vous inscrivez en tant que client ou tresseuse/tresseur.",
+  "auth.admin_invite_invalid": "Ce lien d'invitation est invalide, expiré ou a déjà été utilisé.",
+  "auth.admin_invite_email_mismatch": "Cette invitation a été envoyée à une adresse email différente de celle utilisée pour vous connecter.",
+  "auth.admin_invite_sent": "Invitation envoyée.",
 
   "auth.signup_success": "Compte créé. Veuillez consulter votre email pour le code de vérification.",
   "auth.verification_resent": "Si un compte existe et n'est pas encore vérifié, nous avons envoyé un nouveau code.",
@@ -43,6 +46,11 @@
   "email.reset_body": "Utilisez le code ci-dessous pour réinitialiser votre mot de passe. Il expire dans {minutes} minutes.",
   "email.reset_code_label": "Votre code de réinitialisation",
   "email.reset_ignore_note": "Si vous n'avez pas demandé de réinitialisation de mot de passe, vous pouvez ignorer cet email en toute sécurité.",
+
+  "email.admin_invite_subject": "Vous avez été invité(e) sur Afrobraid admin",
+  "email.admin_invite_body": "Vous avez été invité(e) à rejoindre Afrobraid en tant qu'administrateur. Ce lien expire dans {hours} heures.",
+  "email.admin_invite_cta": "Accepter l'invitation",
+  "email.admin_invite_ignore_note": "Si vous ne vous attendiez pas à cette invitation, vous pouvez ignorer cet email en toute sécurité.",
 
   "braider.invalid_logo_upload": "Le logo téléchargé est invalide. Veuillez télécharger une image JPEG, PNG ou WebP de 5 Mo maximum.",
   "braider.logo_not_found": "Nous n'avons pas trouvé le logo téléchargé. Veuillez réessayer de le télécharger.",

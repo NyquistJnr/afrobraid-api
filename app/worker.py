@@ -10,7 +10,7 @@ from app.core.logging import configure_logging
 # and SQLAlchemy can't resolve a string ForeignKey("users.id") reference
 # unless the referenced table has been registered somewhere first.
 from app.modules.auth import models as auth_models  # noqa: F401,E402
-from app.modules.auth.tasks import send_otp_email_task
+from app.modules.auth.tasks import send_admin_invite_email_task, send_otp_email_task
 from app.modules.bookings import models as bookings_models  # noqa: F401,E402
 from app.modules.bookings.calculations import (
     models as booking_calculations_models,  # noqa: F401,E402
@@ -49,6 +49,7 @@ async def startup(ctx: dict) -> None:
 class WorkerSettings:
     functions = [
         send_otp_email_task,
+        send_admin_invite_email_task,
         translate_bio_task,
         translate_style_text_task,
         translate_portfolio_caption_task,

@@ -12,6 +12,7 @@ from app.core.i18n import LocaleMiddleware
 from app.core.logging import configure_logging
 from app.core.queue import create_arq_pool
 from app.core.redis import get_redis_client
+from app.modules.auth.admin_router import router as auth_admin_router
 from app.modules.auth.router import router as auth_router
 from app.modules.bookings.braider_router import router as braider_bookings_router
 from app.modules.bookings.calculations.router import router as booking_calculations_router
@@ -94,6 +95,7 @@ def create_app() -> FastAPI:
     register_exception_handlers(app)
 
     app.include_router(auth_router)
+    app.include_router(auth_admin_router)
     app.include_router(users_router)
     app.include_router(users_admin_router)
     app.include_router(braiders_router)

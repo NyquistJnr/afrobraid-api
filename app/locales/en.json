@@ -24,6 +24,9 @@
   "auth.social_auth_failed": "We couldn't verify your account with this provider.",
   "auth.unsupported_provider": "Unsupported sign-in provider.",
   "auth.user_type_required": "Please specify whether you're signing up as a customer or a braider.",
+  "auth.admin_invite_invalid": "This invite link is invalid, expired, or has already been used.",
+  "auth.admin_invite_email_mismatch": "This invite was sent to a different email address than the one you signed in with.",
+  "auth.admin_invite_sent": "Invite sent.",
 
   "auth.signup_success": "Account created. Please check your email for a verification code.",
   "auth.verification_resent": "If an account exists and isn't verified yet, we've sent a new code.",
@@ -43,6 +46,11 @@
   "email.reset_body": "Use the code below to reset your password. It expires in {minutes} minutes.",
   "email.reset_code_label": "Your password reset code",
   "email.reset_ignore_note": "If you didn't request a password reset, you can safely ignore this email.",
+
+  "email.admin_invite_subject": "You've been invited to Afrobraid admin",
+  "email.admin_invite_body": "You've been invited to join Afrobraid as an admin. This link expires in {hours} hours.",
+  "email.admin_invite_cta": "Accept invite",
+  "email.admin_invite_ignore_note": "If you weren't expecting this invite, you can safely ignore this email.",
 
   "braider.invalid_logo_upload": "The uploaded logo is invalid. Please upload a JPEG, PNG, or WebP image no larger than 5MB.",
   "braider.logo_not_found": "We couldn't find the uploaded logo. Please try uploading it again.",

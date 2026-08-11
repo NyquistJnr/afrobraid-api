@@ -7,6 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.exceptions import (
+    AdminInviteEmailMismatchError,
+    AdminInviteInvalidError,
+    AdminSignupBlockedError,
     EmailAlreadyExistsError,
     EmailNotVerifiedError,
     InvalidCredentialsError,
@@ -31,8 +34,13 @@ from app.core.security import (
 )
 from app.core.storage import build_public_url
 from app.modules.auth import repository as auth_repo
-from app.modules.auth.models import OtpPurpose
+from app.modules.auth.models import AdminInvite, OtpPurpose
 from app.modules.auth.schemas import (
+    AdminInviteAcceptRequest,
+    AdminInviteAcceptSocialRequest,
+    AdminInviteRequest,
+    AdminInviteResponse,
+    AdminSocialLoginRequest,
     AuthTokenResponse,
     BraiderAuthProfile,
     BraiderOnboardingSummary,
@@ -49,7 +57,7 @@ from app.modules.auth.schemas import (
     VerifyEmailRequest,
 )
 from app.modules.auth.social import verify_social_token
-from app.modules.auth.tasks import TASK_SEND_OTP_EMAIL
+from app.modules.auth.tasks import TASK_SEND_ADMIN_INVITE_EMAIL, TASK_SEND_OTP_EMAIL
 from app.modules.braiders import repository as braiders_repo
 from app.modules.braiders.completion import compute_current_step
 from app.modules.braiders.models import OnboardingStep
@@ -163,6 +171,13 @@ async def _issue_and_send_otp(
 async def signup_email(
     db: AsyncSession, queue: ArqRedis, *, data: SignupEmailRequest, locale: str
 ) -> SignupResponse:
+    # Belt-and-suspenders: SignupUserType (schemas.py) is already a Literal
+    # excluding "ADMIN", so pydantic rejects it before this ever runs. Kept
+    # as an explicit runtime gate too, since ADMIN accounts must only ever
+    # be created through the invite flow (invite_admin/accept_admin_invite_*).
+    if data.user_type == UserType.ADMIN.value:
+        raise AdminSignupBlockedError()
+
     if await users_repo.get_user_by_email(db, data.email):
         raise EmailAlreadyExistsError()
     if data.phone_number and await users_repo.get_user_by_phone(db, data.phone_number):
@@ -255,7 +270,31 @@ async def _notify_new_login(db: AsyncSession, user: User) -> None:
     await notifications_service.publish_realtime(notification, locale=locale)
 
 
-async def login(db: AsyncSession, redis: Redis, *, data: LoginRequest) -> AuthTokenResponse:
+async def _finish_login(
+    db: AsyncSession, user: User, *, remember_me: bool = False
+) -> AuthTokenResponse:
+    access_token, refresh_token, expires_in = await _issue_token_pair(
+        db, user, remember_me=remember_me
+    )
+    await db.commit()
+    await _notify_new_login(db, user)
+
+    braider = None
+    if user.user_type == UserType.BRAIDER:
+        braider = await _get_braider_auth_profile(db, user.id)
+
+    return _to_auth_response(
+        user,
+        access_token=access_token,
+        refresh_token=refresh_token,
+        expires_in=expires_in,
+        braider=braider,
+    )
+
+
+async def _authenticate_email_credentials(
+    db: AsyncSession, redis: Redis, *, data: LoginRequest
+) -> User:
     await check_rate_limit(
         redis, key=f"login_attempts:{data.email.lower()}", limit=10, window_seconds=900
     )
@@ -270,81 +309,101 @@ async def login(db: AsyncSession, redis: Redis, *, data: LoginRequest) -> AuthTo
     if not user.is_email_verified:
         raise EmailNotVerifiedError()
 
-    access_token, refresh_token, expires_in = await _issue_token_pair(
-        db, user, remember_me=data.remember_me
-    )
-    await db.commit()
-    await _notify_new_login(db, user)
-
-    braider = None
-    if user.user_type == UserType.BRAIDER:
-        braider = await _get_braider_auth_profile(db, user.id)
-
-    return _to_auth_response(
-        user,
-        access_token=access_token,
-        refresh_token=refresh_token,
-        expires_in=expires_in,
-        braider=braider,
-    )
+    return user
 
 
-async def social_login(
-    db: AsyncSession, *, provider: AuthProvider, data: SocialLoginRequest
-) -> AuthTokenResponse:
-    profile = await verify_social_token(provider, data.provider_token)
+async def login(db: AsyncSession, redis: Redis, *, data: LoginRequest) -> AuthTokenResponse:
+    user = await _authenticate_email_credentials(db, redis, data=data)
+    return await _finish_login(db, user, remember_me=data.remember_me)
+
+
+async def admin_login(db: AsyncSession, redis: Redis, *, data: LoginRequest) -> AuthTokenResponse:
+    user = await _authenticate_email_credentials(db, redis, data=data)
+    if user.user_type != UserType.ADMIN:
+        # Same error as a wrong password - this endpoint must not reveal
+        # whether an email belongs to a non-admin account.
+        raise InvalidCredentialsError()
+    return await _finish_login(db, user, remember_me=data.remember_me)
+
+
+async def _resolve_social_user(
+    db: AsyncSession,
+    *,
+    provider: AuthProvider,
+    provider_token: str,
+    allow_create: bool,
+    user_type_for_create: str | None = None,
+) -> User:
+    profile = await verify_social_token(provider, provider_token)
 
     identity = await users_repo.get_identity(db, provider, profile.provider_user_id)
     if identity:
         user = await users_repo.get_user_by_id(db, identity.user_id)
         if not user:
             raise SocialAuthError()
-    else:
-        user = await users_repo.get_user_by_email(db, profile.email)
-        if user:
-            await users_repo.create_auth_identity(
-                db, user_id=user.id, provider=provider, provider_user_id=profile.provider_user_id
-            )
-            if profile.email_verified and not user.is_email_verified:
-                user.is_email_verified = True
-        else:
-            if not data.user_type:
-                raise UserTypeRequiredError()
-            user = await users_repo.create_user(
-                db,
-                first_name=profile.first_name,
-                last_name=profile.last_name,
-                email=profile.email,
-                phone_number=None,
-                password_hash=None,
-                user_type=UserType(data.user_type),
-                is_email_verified=profile.email_verified,
-            )
-            await users_repo.create_auth_identity(
-                db,
-                user_id=user.id,
-                provider=provider,
-                provider_user_id=profile.provider_user_id,
-            )
+        return user
 
+    user = await users_repo.get_user_by_email(db, profile.email)
+    if user:
+        await users_repo.create_auth_identity(
+            db, user_id=user.id, provider=provider, provider_user_id=profile.provider_user_id
+        )
+        if profile.email_verified and not user.is_email_verified:
+            user.is_email_verified = True
+        return user
+
+    if not allow_create:
+        raise SocialAuthError()
+
+    if not user_type_for_create:
+        raise UserTypeRequiredError()
+    if user_type_for_create == UserType.ADMIN.value:
+        raise AdminSignupBlockedError()
+
+    user = await users_repo.create_user(
+        db,
+        first_name=profile.first_name,
+        last_name=profile.last_name,
+        email=profile.email,
+        phone_number=None,
+        password_hash=None,
+        user_type=UserType(user_type_for_create),
+        is_email_verified=profile.email_verified,
+    )
+    await users_repo.create_auth_identity(
+        db, user_id=user.id, provider=provider, provider_user_id=profile.provider_user_id
+    )
+    return user
+
+
+async def social_login(
+    db: AsyncSession, *, provider: AuthProvider, data: SocialLoginRequest
+) -> AuthTokenResponse:
+    user = await _resolve_social_user(
+        db,
+        provider=provider,
+        provider_token=data.provider_token,
+        allow_create=True,
+        user_type_for_create=data.user_type,
+    )
     if not user.is_active:
         raise UserNotActiveError(reason=user.suspension_reason)
+    return await _finish_login(db, user)
 
-    access_token, refresh_token, expires_in = await _issue_token_pair(db, user)
-    await db.commit()
-    await _notify_new_login(db, user)
 
-    braider = None
-    if user.user_type == UserType.BRAIDER:
-        braider = await _get_braider_auth_profile(db, user.id)
-
-    return _to_auth_response(
-        user,
-        access_token=access_token,
-        refresh_token=refresh_token,
-        expires_in=expires_in,
-        braider=braider,
+async def admin_social_login(
+    db: AsyncSession, *, provider: AuthProvider, data: AdminSocialLoginRequest
+) -> AuthTokenResponse:
+    # allow_create=False: admin accounts are invite-only
+    # (accept_admin_invite_social), never created on first social login.
+    user = await _resolve_social_user(
+        db, provider=provider, provider_token=data.provider_token, allow_create=False
     )
+    if not user.is_active:
+        raise UserNotActiveError(reason=user.suspension_reason)
+    if user.user_type != UserType.ADMIN:
+        raise SocialAuthError()
+    return await _finish_login(db, user)
 
 
 async def refresh_access_token(
@@ -438,3 +497,109 @@ async def reset_password(
     await notifications_service.publish_realtime(notification, locale=locale)
 
     return MessageResponse(message=t("auth.password_reset_success", locale))
+
+
+async def _get_valid_admin_invite(db: AsyncSession, *, token: str) -> AdminInvite:
+    invite = await auth_repo.get_admin_invite_by_token_hash(db, hash_token(token))
+    if not invite or invite.revoked_at is not None or invite.accepted_at is not None:
+        raise AdminInviteInvalidError()
+    if invite.expires_at < datetime.now(UTC):
+        raise AdminInviteInvalidError()
+    return invite
+
+
+async def invite_admin(
+    db: AsyncSession,
+    queue: ArqRedis,
+    *,
+    inviter: User,
+    data: AdminInviteRequest,
+    locale: str,
+) -> AdminInviteResponse:
+    email = data.email.lower()
+    if await users_repo.get_user_by_email(db, email):
+        raise EmailAlreadyExistsError()
+
+    # A fresh invite supersedes any still-pending one for the same email,
+    # so an old link can't be used once a new one has been sent.
+    await auth_repo.invalidate_active_admin_invites_for_email(db, email=email)
+
+    raw_token = generate_opaque_token()
+    await auth_repo.create_admin_invite(
+        db,
+        email=email,
+        token_hash=hash_token(raw_token),
+        invited_by_user_id=inviter.id,
+        expire_hours=settings.admin_invite_expire_hours,
+    )
+    await db.commit()
+
+    await queue.enqueue_job(
+        TASK_SEND_ADMIN_INVITE_EMAIL,
+        to=email,
+        token=raw_token,
+        minutes=settings.admin_invite_expire_hours * 60,
+        locale=locale,
+    )
+
+    return AdminInviteResponse(message=t("auth.admin_invite_sent", locale), email=email)
+
+
+async def accept_admin_invite_email(
+    db: AsyncSession, *, data: AdminInviteAcceptRequest
+) -> AuthTokenResponse:
+    invite = await _get_valid_admin_invite(db, token=data.token)
+    if await users_repo.get_user_by_email(db, invite.email):
+        raise EmailAlreadyExistsError()
+
+    user = await users_repo.create_user(
+        db,
+        first_name=data.first_name,
+        last_name=data.last_name,
+        email=invite.email,
+        phone_number=None,
+        password_hash=hash_password(data.password),
+        user_type=UserType.ADMIN,
+        # The invite itself was sent to this address by an existing admin -
+        # that's the trust anchor, same role email verification otherwise plays.
+        is_email_verified=True,
+    )
+    await users_repo.create_auth_identity(
+        db, user_id=user.id, provider=AuthProvider.EMAIL, provider_user_id=str(user.id)
+    )
+    invite.accepted_at = datetime.now(UTC)
+    await db.flush()
+
+    return await _finish_login(db, user)
+
+
+async def accept_admin_invite_social(
+    db: AsyncSession, *, provider: AuthProvider, data: AdminInviteAcceptSocialRequest
+) -> AuthTokenResponse:
+    invite = await _get_valid_admin_invite(db, token=data.token)
+    profile = await verify_social_token(provider, data.provider_token)
+
+    if profile.email.lower() != invite.email:
+        raise AdminInviteEmailMismatchError()
+    if await users_repo.get_identity(db, provider, profile.provider_user_id):
+        raise AdminInviteInvalidError()
+    if await users_repo.get_user_by_email(db, invite.email):
+        raise EmailAlreadyExistsError()
+
+    user = await users_repo.create_user(
+        db,
+        first_name=profile.first_name,
+        last_name=profile.last_name,
+        email=invite.email,
+        phone_number=None,
+        password_hash=None,
+        user_type=UserType.ADMIN,
+        is_email_verified=True,
+    )
+    await users_repo.create_auth_identity(
+        db, user_id=user.id, provider=provider, provider_user_id=profile.provider_user_id
+    )
+    invite.accepted_at = datetime.now(UTC)
+    await db.flush()
+
+    return await _finish_login(db, user)

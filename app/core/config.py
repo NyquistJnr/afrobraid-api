@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     otp_expire_minutes: int = 10
     otp_length: int = 6
 
+    # How long an admin invite link (auth.service.invite_admin) stays
+    # acceptable before the invitee has to be re-invited.
+    admin_invite_expire_hours: int = 72
+
     resend_api_key: str
     email_from: str
 

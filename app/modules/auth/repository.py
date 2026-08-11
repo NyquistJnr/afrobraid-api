@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.auth.models import OtpCode, OtpPurpose, RefreshToken
+from app.modules.auth.models import AdminInvite, OtpCode, OtpPurpose, RefreshToken
 
 
 async def create_otp_code(
@@ -97,4 +97,42 @@ async def revoke_all_refresh_tokens_for_user(db: AsyncSession, *, user_id: uuid.
     now = datetime.now(UTC)
     for token in result.scalars():
         token.revoked_at = now
+    await db.flush()
+
+
+async def create_admin_invite(
+    db: AsyncSession,
+    *,
+    email: str,
+    token_hash: str,
+    invited_by_user_id: uuid.UUID,
+    expire_hours: int,
+) -> AdminInvite:
+    invite = AdminInvite(
+        email=email,
+        token_hash=token_hash,
+        invited_by_user_id=invited_by_user_id,
+        expires_at=datetime.now(UTC) + timedelta(hours=expire_hours),
+    )
+    db.add(invite)
+    await db.flush()
+    return invite
+
+
+async def get_admin_invite_by_token_hash(db: AsyncSession, token_hash: str) -> AdminInvite | None:
+    result = await db.execute(select(AdminInvite).where(AdminInvite.token_hash == token_hash))
+    return result.scalar_one_or_none()
+
+
+async def invalidate_active_admin_invites_for_email(db: AsyncSession, *, email: str) -> None:
+    result = await db.execute(
+        select(AdminInvite).where(
+            AdminInvite.email == email,
+            AdminInvite.accepted_at.is_(None),
+            AdminInvite.revoked_at.is_(None),
+        )
+    )
+    now = datetime.now(UTC)
+    for invite in result.scalars():
+        invite.revoked_at = now
     await db.flush()
