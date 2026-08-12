@@ -163,6 +163,90 @@ class PaginatedAdminBookingsResponse(BaseModel):
     has_previous: bool
 
 
+class AdminBookingStatsActorResponse(BaseModel):
+    id: uuid.UUID
+    user_id: uuid.UUID | None = None
+    name: str
+    email: str | None = None
+
+
+class AdminBookingStatsResponse(BaseModel):
+    braider: AdminBookingStatsActorResponse | None = None
+    customer: AdminBookingStatsActorResponse | None = None
+    total_bookings: int
+    status_counts: dict[BookingStatus, int]
+    completed_bookings: int
+    upcoming_bookings: int
+    declined_bookings: int
+    pending_payment_bookings: int
+    no_show_bookings: int
+    disputed_bookings: int
+    mobile_bookings: int
+    salon_bookings: int
+    unique_customers: int
+    repeat_customers: int
+    unique_braiders: int
+    repeat_braiders: int
+    total_booking_value: Decimal
+    average_booking_value: Decimal
+    service_subtotal: Decimal
+    platform_fee_total: Decimal
+    vat_total: Decimal
+    total_amount_paid: Decimal
+    total_amount_refunded: Decimal
+    net_amount_paid: Decimal
+    pending_payment_amount: Decimal
+    total_amount_made_by_braider: Decimal
+    total_amount_spent_by_customer: Decimal
+
+
+class AdminRevenueChartPoint(BaseModel):
+    bucket: datetime
+    amount: Decimal
+    bookings_count: int
+
+
+class AdminRevenueChartResponse(BaseModel):
+    braider: AdminBookingStatsActorResponse | None = None
+    customer: AdminBookingStatsActorResponse | None = None
+    interval: str
+    metric: str
+    currency: Currency
+    points: list[AdminRevenueChartPoint]
+
+
+class AdminBarChartPoint(BaseModel):
+    key: str
+    label: str
+    bookings_count: int
+    amount: Decimal
+
+
+class AdminBarChartResponse(BaseModel):
+    braider: AdminBookingStatsActorResponse | None = None
+    customer: AdminBookingStatsActorResponse | None = None
+    metric: str
+    currency: Currency
+    points: list[AdminBarChartPoint]
+
+
+class AdminStyleChartSlice(BaseModel):
+    style_id: uuid.UUID | None
+    style_name: str
+    bookings_count: int
+    amount: Decimal
+    share: Decimal
+
+
+class AdminStylePieChartResponse(BaseModel):
+    braider: AdminBookingStatsActorResponse | None = None
+    customer: AdminBookingStatsActorResponse | None = None
+    metric: str
+    currency: Currency
+    total_amount: Decimal
+    slices: list[AdminStyleChartSlice]
+
+
 class AdminBookingResponse(AdminBookingSummaryResponse):
     duration_minutes: int
     client_address: str | None

@@ -2,6 +2,21 @@
 
 All endpoints require a Bearer JWT for a user with role `ADMIN`.
 
+## GET `/api/v1/admin/braiders/{braider_id}/onboarding`
+
+Returns the braider's onboarding progress as all 8 steps:
+
+- `BUSINESS_INFO`
+- `PHONE_VERIFICATION`
+- `VERIFF`
+- `SERVICE_TYPE`
+- `PORTFOLIO`
+- `SERVICE_LOCATION`
+- `AVAILABILITY`
+- `PAYMENT_SETUP`
+
+Each step includes `completed` and `completed_at`, plus the response includes `current_step` and overall `completed_at`.
+
 ## GET `/api/v1/admin/bookings`
 
 Lists every booking on the platform, newest-created first.
@@ -25,6 +40,55 @@ Query params:
 ## GET `/api/v1/admin/bookings/{booking_id}`
 
 Returns a full admin booking detail, including customer/braider ids and emails, schedule, address, price breakdown, booking items, payments, Stripe ids, refund amounts, failure details, and lifecycle timestamps.
+
+## Scoped Admin Booking Lists
+
+These return the same paginated booking shape as `GET /api/v1/admin/bookings`.
+
+| Endpoint | Use |
+|---|---|
+| `GET /api/v1/admin/bookings/braiders/{braider_id}` | all bookings for one braider profile |
+| `GET /api/v1/admin/bookings/customers/{customer_id}` | all bookings for one customer |
+| `GET /api/v1/admin/bookings/braiders/{braider_id}/customers/{customer_id}` | all bookings shared by one braider and one customer |
+
+Supported query params: `status`, `date_from`, `date_to`, `created_from`, `created_to`, `country`, `currency`, `is_mobile`, `payment_schedule`, `search`, `page`, and `page_size`.
+
+The braider route also accepts `customer_id`; the customer route also accepts `braider_id`.
+
+## Scoped Admin Booking Stats
+
+| Endpoint | Use |
+|---|---|
+| `GET /api/v1/admin/bookings/braiders/{braider_id}/stats` | braider booking/revenue stats |
+| `GET /api/v1/admin/bookings/customers/{customer_id}/stats` | customer booking/spend stats |
+| `GET /api/v1/admin/bookings/braiders/{braider_id}/customers/{customer_id}/stats` | relationship stats for a specific braider/customer pair |
+
+Supported query params: `status`, `date_from`, `date_to`, `created_from`, `created_to`, `payment_date_from`, `payment_date_to`, `country`, `currency`, `is_mobile`, `payment_schedule`, and `search`.
+
+Stats include total bookings, per-status counts, completed/upcoming/declined/pending/no-show/disputed counts, mobile vs salon counts, unique/repeat counterpart counts, total booking value, average booking value, service subtotal, platform fee total, VAT total, paid/refunded/net amounts, pending payment amount, braider earnings, and customer spend.
+
+## Admin Charts
+
+Each chart endpoint supports `date_from`, `date_to`, `payment_date_from`, `payment_date_to`, `country`, `currency`, `is_mobile`, `payment_schedule`, and `search`.
+
+Revenue line charts also support `interval=day|week|month`.
+
+Style pie charts also support `limit` (default `8`, max `25`) and fold the rest into `Other`.
+
+| Endpoint | Chart |
+|---|---|
+| `GET /api/v1/admin/bookings/braiders/{braider_id}/charts/revenue` | line chart of braider earnings |
+| `GET /api/v1/admin/bookings/customers/{customer_id}/charts/revenue` | line chart of customer spend |
+| `GET /api/v1/admin/bookings/braiders/{braider_id}/customers/{customer_id}/charts/revenue` | line chart for the relationship |
+| `GET /api/v1/admin/bookings/braiders/{braider_id}/charts/weekday` | weekday bar chart for braider |
+| `GET /api/v1/admin/bookings/customers/{customer_id}/charts/weekday` | weekday bar chart for customer |
+| `GET /api/v1/admin/bookings/braiders/{braider_id}/customers/{customer_id}/charts/weekday` | weekday bar chart for the relationship |
+| `GET /api/v1/admin/bookings/braiders/{braider_id}/charts/status` | booking status bar chart for braider |
+| `GET /api/v1/admin/bookings/customers/{customer_id}/charts/status` | booking status bar chart for customer |
+| `GET /api/v1/admin/bookings/braiders/{braider_id}/customers/{customer_id}/charts/status` | booking status bar chart for the relationship |
+| `GET /api/v1/admin/bookings/braiders/{braider_id}/charts/styles` | most-booked styles pie chart for braider |
+| `GET /api/v1/admin/bookings/customers/{customer_id}/charts/styles` | most-booked styles pie chart for customer |
+| `GET /api/v1/admin/bookings/braiders/{braider_id}/customers/{customer_id}/charts/styles` | most-booked styles pie chart for the relationship |
 
 ## GET `/api/v1/admin/payments`
 

@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import Integer, cast, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
@@ -276,10 +276,9 @@ def _apply_booking_created_date_filters(
     return stmt
 
 
-async def list_bookings_for_admin(
-    db: AsyncSession,
+def _apply_admin_booking_filters(
+    stmt,
     *,
-    params: PaginationParams,
     status: BookingStatus | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
@@ -292,8 +291,7 @@ async def list_bookings_for_admin(
     is_mobile: bool | None = None,
     payment_schedule: PaymentSchedule | None = None,
     search: str | None = None,
-) -> tuple[list[Booking], PaginationMeta]:
-    stmt = select(Booking)
+):
     stmt = _apply_common_filters(stmt, status=status, date_from=date_from, date_to=date_to)
     stmt = _apply_booking_created_date_filters(
         stmt, created_from=created_from, created_to=created_to
@@ -348,8 +346,383 @@ async def list_bookings_for_admin(
             )
         )
 
+    return stmt
+
+
+async def list_bookings_for_admin(
+    db: AsyncSession,
+    *,
+    params: PaginationParams,
+    status: BookingStatus | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    created_from: date | None = None,
+    created_to: date | None = None,
+    customer_id: uuid.UUID | None = None,
+    braider_id: uuid.UUID | None = None,
+    country: str | None = None,
+    currency: Currency | None = None,
+    is_mobile: bool | None = None,
+    payment_schedule: PaymentSchedule | None = None,
+    search: str | None = None,
+) -> tuple[list[Booking], PaginationMeta]:
+    stmt = _apply_admin_booking_filters(
+        select(Booking),
+        status=status,
+        date_from=date_from,
+        date_to=date_to,
+        created_from=created_from,
+        created_to=created_to,
+        customer_id=customer_id,
+        braider_id=braider_id,
+        country=country,
+        currency=currency,
+        is_mobile=is_mobile,
+        payment_schedule=payment_schedule,
+        search=search,
+    )
     stmt = stmt.order_by(Booking.created_at.desc(), Booking.starts_at.desc())
     return await paginate(db, stmt, params)
+
+
+async def get_booking_stats_for_admin(
+    db: AsyncSession,
+    *,
+    status: BookingStatus | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    created_from: date | None = None,
+    created_to: date | None = None,
+    payment_date_from: date | None = None,
+    payment_date_to: date | None = None,
+    customer_id: uuid.UUID | None = None,
+    braider_id: uuid.UUID | None = None,
+    country: str | None = None,
+    currency: Currency | None = None,
+    is_mobile: bool | None = None,
+    payment_schedule: PaymentSchedule | None = None,
+    search: str | None = None,
+) -> dict:
+    filtered = _apply_admin_booking_filters(
+        select(Booking),
+        status=status,
+        date_from=date_from,
+        date_to=date_to,
+        created_from=created_from,
+        created_to=created_to,
+        customer_id=customer_id,
+        braider_id=braider_id,
+        country=country,
+        currency=currency,
+        is_mobile=is_mobile,
+        payment_schedule=payment_schedule,
+        search=search,
+    ).subquery()
+
+    status_rows = (
+        await db.execute(select(filtered.c.status, func.count()).group_by(filtered.c.status))
+    ).all()
+    counts_by_status: dict[BookingStatus, int] = {row[0]: row[1] for row in status_rows}
+
+    totals_row = (
+        await db.execute(
+            select(
+                func.coalesce(func.sum(filtered.c.total), 0),
+                func.coalesce(func.sum(filtered.c.service_subtotal), 0),
+                func.coalesce(func.sum(filtered.c.platform_fee), 0),
+                func.coalesce(func.sum(filtered.c.vat_total), 0),
+                func.coalesce(func.sum(cast(filtered.c.is_mobile, Integer)), 0),
+                func.count(func.distinct(filtered.c.customer_id)),
+                func.count(func.distinct(filtered.c.braider_id)),
+            )
+        )
+    ).one()
+
+    repeated_customers = (
+        await db.scalar(
+            select(func.count()).select_from(
+                select(filtered.c.customer_id)
+                .group_by(filtered.c.customer_id)
+                .having(func.count() > 1)
+                .subquery()
+            )
+        )
+    ) or 0
+    repeated_braiders = (
+        await db.scalar(
+            select(func.count()).select_from(
+                select(filtered.c.braider_id)
+                .group_by(filtered.c.braider_id)
+                .having(func.count() > 1)
+                .subquery()
+            )
+        )
+    ) or 0
+
+    payment_stmt = (
+        select(
+            BookingPayment.status,
+            func.coalesce(func.sum(BookingPayment.amount_minor), 0),
+            func.coalesce(func.sum(BookingPayment.amount_refunded_minor), 0),
+            func.coalesce(func.sum(BookingPayment.braider_share_minor), 0),
+        )
+        .join(filtered, filtered.c.id == BookingPayment.booking_id)
+        .group_by(BookingPayment.status)
+    )
+    payment_stmt = _apply_payment_date_filters(
+        payment_stmt, date_from=payment_date_from, date_to=payment_date_to
+    )
+    payment_rows = (await db.execute(payment_stmt)).all()
+
+    total_bookings = sum(counts_by_status.values())
+    total_booking_value = totals_row[0] or Decimal("0.00")
+    return {
+        "total_bookings": total_bookings,
+        "status_counts": counts_by_status,
+        "completed_bookings": counts_by_status.get(BookingStatus.COMPLETED, 0),
+        "upcoming_bookings": sum(counts_by_status.get(s, 0) for s in UPCOMING_BOOKING_STATUSES),
+        "declined_bookings": sum(counts_by_status.get(s, 0) for s in DECLINED_BOOKING_STATUSES),
+        "pending_payment_bookings": counts_by_status.get(BookingStatus.PENDING_PAYMENT, 0),
+        "no_show_bookings": counts_by_status.get(BookingStatus.NO_SHOW, 0),
+        "disputed_bookings": counts_by_status.get(BookingStatus.DISPUTED, 0),
+        "mobile_bookings": totals_row[4] or 0,
+        "salon_bookings": total_bookings - (totals_row[4] or 0),
+        "unique_customers": totals_row[5] or 0,
+        "repeat_customers": repeated_customers,
+        "unique_braiders": totals_row[6] or 0,
+        "repeat_braiders": repeated_braiders,
+        "total_booking_value": total_booking_value,
+        "average_booking_value": total_booking_value / total_bookings
+        if total_bookings
+        else Decimal("0.00"),
+        "service_subtotal": totals_row[1] or Decimal("0.00"),
+        "platform_fee_total": totals_row[2] or Decimal("0.00"),
+        "vat_total": totals_row[3] or Decimal("0.00"),
+        "total_paid_minor": sum(r[1] for r in payment_rows if r[0] == PaymentStatus.SUCCEEDED),
+        "total_refunded_minor": sum(r[2] for r in payment_rows),
+        "pending_payment_amount_minor": sum(
+            r[1] for r in payment_rows if r[0] == PaymentStatus.PENDING
+        ),
+        "braider_earnings_minor": sum(
+            r[3] for r in payment_rows if r[0] == PaymentStatus.SUCCEEDED
+        ),
+    }
+
+
+def _admin_payment_amount_column(metric: str):
+    if metric == "BRAIDER_EARNINGS":
+        return BookingPayment.braider_share_minor
+    return BookingPayment.amount_minor
+
+
+def _admin_payment_amount_subquery(
+    *,
+    metric: str,
+    payment_date_from: date | None = None,
+    payment_date_to: date | None = None,
+):
+    amount_column = _admin_payment_amount_column(metric)
+    stmt = (
+        select(
+            BookingPayment.booking_id.label("booking_id"),
+            func.coalesce(func.sum(amount_column), 0).label("amount_minor"),
+        )
+        .where(BookingPayment.status == PaymentStatus.SUCCEEDED)
+        .group_by(BookingPayment.booking_id)
+    )
+    stmt = _apply_payment_date_filters(
+        stmt, date_from=payment_date_from, date_to=payment_date_to
+    )
+    return stmt.subquery()
+
+
+async def get_admin_revenue_timeseries(
+    db: AsyncSession,
+    *,
+    metric: str,
+    date_from: date,
+    date_to: date,
+    interval: str,
+    payment_date_from: date | None = None,
+    payment_date_to: date | None = None,
+    customer_id: uuid.UUID | None = None,
+    braider_id: uuid.UUID | None = None,
+    country: str | None = None,
+    currency: Currency | None = None,
+    is_mobile: bool | None = None,
+    payment_schedule: PaymentSchedule | None = None,
+    search: str | None = None,
+) -> list[tuple[datetime, int, int]]:
+    filtered = _apply_admin_booking_filters(
+        select(Booking),
+        date_from=date_from,
+        date_to=date_to,
+        customer_id=customer_id,
+        braider_id=braider_id,
+        country=country,
+        currency=currency,
+        is_mobile=is_mobile,
+        payment_schedule=payment_schedule,
+        search=search,
+    ).subquery()
+    payment_amounts = _admin_payment_amount_subquery(
+        metric=metric,
+        payment_date_from=payment_date_from,
+        payment_date_to=payment_date_to,
+    )
+    bucket = func.date_trunc(interval, filtered.c.starts_at).label("bucket")
+    stmt = (
+        select(
+            bucket,
+            func.coalesce(func.sum(payment_amounts.c.amount_minor), 0),
+            func.count(func.distinct(filtered.c.id)),
+        )
+        .outerjoin(payment_amounts, payment_amounts.c.booking_id == filtered.c.id)
+        .group_by(bucket)
+        .order_by(bucket)
+    )
+    rows = (await db.execute(stmt)).all()
+    return [(row[0], row[1], row[2]) for row in rows]
+
+
+async def get_admin_bookings_by_weekday(
+    db: AsyncSession,
+    *,
+    metric: str,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    payment_date_from: date | None = None,
+    payment_date_to: date | None = None,
+    customer_id: uuid.UUID | None = None,
+    braider_id: uuid.UUID | None = None,
+    country: str | None = None,
+    currency: Currency | None = None,
+    is_mobile: bool | None = None,
+    payment_schedule: PaymentSchedule | None = None,
+    search: str | None = None,
+) -> list[tuple[int, int, int]]:
+    filtered = _apply_admin_booking_filters(
+        select(Booking),
+        date_from=date_from,
+        date_to=date_to,
+        customer_id=customer_id,
+        braider_id=braider_id,
+        country=country,
+        currency=currency,
+        is_mobile=is_mobile,
+        payment_schedule=payment_schedule,
+        search=search,
+    ).subquery()
+    payment_amounts = _admin_payment_amount_subquery(
+        metric=metric,
+        payment_date_from=payment_date_from,
+        payment_date_to=payment_date_to,
+    )
+    weekday = func.extract("isodow", filtered.c.starts_at).label("weekday")
+    stmt = (
+        select(
+            weekday,
+            func.count(func.distinct(filtered.c.id)),
+            func.coalesce(func.sum(payment_amounts.c.amount_minor), 0),
+        )
+        .outerjoin(payment_amounts, payment_amounts.c.booking_id == filtered.c.id)
+        .group_by(weekday)
+        .order_by(weekday)
+    )
+    rows = (await db.execute(stmt)).all()
+    return [(int(row[0]), row[1], row[2]) for row in rows]
+
+
+async def get_admin_status_breakdown(
+    db: AsyncSession,
+    *,
+    metric: str,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    payment_date_from: date | None = None,
+    payment_date_to: date | None = None,
+    customer_id: uuid.UUID | None = None,
+    braider_id: uuid.UUID | None = None,
+    country: str | None = None,
+    currency: Currency | None = None,
+    is_mobile: bool | None = None,
+    payment_schedule: PaymentSchedule | None = None,
+    search: str | None = None,
+) -> list[tuple[BookingStatus, int, int]]:
+    filtered = _apply_admin_booking_filters(
+        select(Booking),
+        date_from=date_from,
+        date_to=date_to,
+        customer_id=customer_id,
+        braider_id=braider_id,
+        country=country,
+        currency=currency,
+        is_mobile=is_mobile,
+        payment_schedule=payment_schedule,
+        search=search,
+    ).subquery()
+    payment_amounts = _admin_payment_amount_subquery(
+        metric=metric,
+        payment_date_from=payment_date_from,
+        payment_date_to=payment_date_to,
+    )
+    stmt = (
+        select(
+            filtered.c.status,
+            func.count(func.distinct(filtered.c.id)),
+            func.coalesce(func.sum(payment_amounts.c.amount_minor), 0),
+        )
+        .outerjoin(payment_amounts, payment_amounts.c.booking_id == filtered.c.id)
+        .group_by(filtered.c.status)
+        .order_by(filtered.c.status)
+    )
+    rows = (await db.execute(stmt)).all()
+    return [(row[0], row[1], row[2]) for row in rows]
+
+
+async def get_admin_style_breakdown(
+    db: AsyncSession,
+    *,
+    metric: str,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    payment_date_from: date | None = None,
+    payment_date_to: date | None = None,
+    customer_id: uuid.UUID | None = None,
+    braider_id: uuid.UUID | None = None,
+    country: str | None = None,
+    currency: Currency | None = None,
+    is_mobile: bool | None = None,
+    payment_schedule: PaymentSchedule | None = None,
+    search: str | None = None,
+) -> list[tuple[uuid.UUID, Style, int, int]]:
+    filtered = _apply_admin_booking_filters(
+        select(Booking),
+        date_from=date_from,
+        date_to=date_to,
+        customer_id=customer_id,
+        braider_id=braider_id,
+        country=country,
+        currency=currency,
+        is_mobile=is_mobile,
+        payment_schedule=payment_schedule,
+        search=search,
+    ).subquery()
+    payment_amounts = _admin_payment_amount_subquery(
+        metric=metric,
+        payment_date_from=payment_date_from,
+        payment_date_to=payment_date_to,
+    )
+    amount = func.coalesce(func.sum(payment_amounts.c.amount_minor), 0)
+    stmt = (
+        select(filtered.c.style_id, Style, func.count(func.distinct(filtered.c.id)), amount)
+        .join(Style, Style.id == filtered.c.style_id)
+        .outerjoin(payment_amounts, payment_amounts.c.booking_id == filtered.c.id)
+        .group_by(filtered.c.style_id, Style.id)
+        .order_by(amount.desc(), func.count(func.distinct(filtered.c.id)).desc())
+    )
+    rows = (await db.execute(stmt)).all()
+    return [(row[0], row[1], row[2], row[3]) for row in rows]
 
 
 async def get_payment_stats_for_braider(

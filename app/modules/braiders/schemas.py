@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from typing import Literal
 
@@ -82,3 +83,17 @@ class OnboardingStatusResponse(BaseModel):
     availability_completed_at: datetime | None
     payment_setup_completed_at: datetime | None
     completed_at: datetime | None
+
+
+class AdminBraiderOnboardingStepResponse(BaseModel):
+    step: OnboardingStep
+    completed: bool
+    completed_at: datetime | None
+
+
+class AdminBraiderOnboardingResponse(BaseModel):
+    braider_id: uuid.UUID
+    user_id: uuid.UUID
+    current_step: OnboardingStep
+    completed_at: datetime | None
+    steps: list[AdminBraiderOnboardingStepResponse]

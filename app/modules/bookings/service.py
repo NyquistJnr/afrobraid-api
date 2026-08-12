@@ -1,6 +1,8 @@
 import random
 import uuid
 from datetime import UTC, date, datetime, timedelta
+from decimal import ROUND_HALF_UP, Decimal
+from typing import Literal
 
 from arq import ArqRedis
 from redis.asyncio import Redis
@@ -19,8 +21,10 @@ from app.core.exceptions import (
     BookingRescheduleWindowClosedError,
     BookingSlotUnavailableError,
     BookingStartsInPastError,
+    BraiderNotFoundError,
     BraiderNotPayableError,
     InvalidBookingDateRangeError,
+    UserNotFoundError,
 )
 from app.core.i18n import localize_field
 from app.core.i18n import t as translate
@@ -42,9 +46,17 @@ from app.modules.bookings.models import Booking, BookingItem, BookingPayment
 from app.modules.bookings.payments import client as payments_client
 from app.modules.bookings.pricing import PricedLine
 from app.modules.bookings.schemas import (
+    AdminBarChartPoint,
+    AdminBarChartResponse,
     AdminBookingPaymentResponse,
     AdminBookingResponse,
+    AdminBookingStatsActorResponse,
+    AdminBookingStatsResponse,
     AdminBookingSummaryResponse,
+    AdminRevenueChartPoint,
+    AdminRevenueChartResponse,
+    AdminStyleChartSlice,
+    AdminStylePieChartResponse,
     BookingCreateRequest,
     BookingItemResponse,
     BookingPaymentResponse,
@@ -64,11 +76,15 @@ from app.modules.braiders.payment_setup import repository as payment_setup_repo
 from app.modules.styles import repository as styles_repo
 from app.modules.styles.models import AddOn, Style, StyleVariation
 from app.modules.users import repository as users_repo
-from app.modules.users.models import User
+from app.modules.users.models import User, UserType
 
 settings = get_settings()
 
 _REFERENCE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no 0/O or 1/I
+_DEFAULT_CHART_WINDOW_DAYS = 90
+_DEFAULT_TOP_STYLES_LIMIT = 8
+_ZERO = Decimal("0.00")
+_HUNDRED = Decimal("100")
 
 
 def _generate_reference() -> str:
@@ -673,6 +689,462 @@ async def list_admin_bookings(
         total_pages=meta.total_pages,
         has_next=meta.has_next,
         has_previous=meta.has_previous,
+    )
+
+
+async def _admin_braider_actor(
+    db: AsyncSession, braider_id: uuid.UUID
+) -> AdminBookingStatsActorResponse:
+    profile = await braiders_repo.get_profile_by_id(db, braider_id)
+    if profile is None:
+        raise BraiderNotFoundError()
+    info = (await braiders_repo.list_admin_display_info(db, [braider_id])).get(braider_id, {})
+    return AdminBookingStatsActorResponse(
+        id=braider_id,
+        user_id=info.get("user_id") if isinstance(info.get("user_id"), uuid.UUID) else profile.user_id,
+        name=str(info.get("name", "")),
+        email=str(info.get("email", "")) if info.get("email") is not None else None,
+    )
+
+
+async def _admin_customer_actor(
+    db: AsyncSession, customer_id: uuid.UUID
+) -> AdminBookingStatsActorResponse:
+    customer = await users_repo.get_user_by_id(db, customer_id)
+    if customer is None or customer.user_type != UserType.CUSTOMER:
+        raise UserNotFoundError()
+    return AdminBookingStatsActorResponse(
+        id=customer.id,
+        name=f"{customer.first_name} {customer.last_name or ''}".strip(),
+        email=customer.email,
+    )
+
+
+async def list_admin_bookings_for_braider(
+    db: AsyncSession,
+    *,
+    braider_id: uuid.UUID,
+    params: PaginationParams,
+    locale: str,
+    status: BookingStatus | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    created_from: date | None = None,
+    created_to: date | None = None,
+    customer_id: uuid.UUID | None = None,
+    country: str | None = None,
+    currency: Currency | None = None,
+    is_mobile: bool | None = None,
+    payment_schedule: PaymentSchedule | None = None,
+    search: str | None = None,
+) -> PaginatedAdminBookingsResponse:
+    await _admin_braider_actor(db, braider_id)
+    if customer_id is not None:
+        await _admin_customer_actor(db, customer_id)
+    return await list_admin_bookings(
+        db,
+        params=params,
+        locale=locale,
+        status=status,
+        date_from=date_from,
+        date_to=date_to,
+        created_from=created_from,
+        created_to=created_to,
+        customer_id=customer_id,
+        braider_id=braider_id,
+        country=country,
+        currency=currency,
+        is_mobile=is_mobile,
+        payment_schedule=payment_schedule,
+        search=search,
+    )
+
+
+async def list_admin_bookings_for_customer(
+    db: AsyncSession,
+    *,
+    customer_id: uuid.UUID,
+    params: PaginationParams,
+    locale: str,
+    status: BookingStatus | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    created_from: date | None = None,
+    created_to: date | None = None,
+    braider_id: uuid.UUID | None = None,
+    country: str | None = None,
+    currency: Currency | None = None,
+    is_mobile: bool | None = None,
+    payment_schedule: PaymentSchedule | None = None,
+    search: str | None = None,
+) -> PaginatedAdminBookingsResponse:
+    await _admin_customer_actor(db, customer_id)
+    if braider_id is not None:
+        await _admin_braider_actor(db, braider_id)
+    return await list_admin_bookings(
+        db,
+        params=params,
+        locale=locale,
+        status=status,
+        date_from=date_from,
+        date_to=date_to,
+        created_from=created_from,
+        created_to=created_to,
+        customer_id=customer_id,
+        braider_id=braider_id,
+        country=country,
+        currency=currency,
+        is_mobile=is_mobile,
+        payment_schedule=payment_schedule,
+        search=search,
+    )
+
+
+def _money(value: Decimal) -> Decimal:
+    return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def _percent_decimal(part: Decimal, whole: Decimal) -> Decimal:
+    if whole == 0:
+        return _ZERO
+    return (part * _HUNDRED / whole).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+
+
+async def _admin_chart_actors(
+    db: AsyncSession, *, braider_id: uuid.UUID | None, customer_id: uuid.UUID | None
+) -> tuple[AdminBookingStatsActorResponse | None, AdminBookingStatsActorResponse | None]:
+    braider = await _admin_braider_actor(db, braider_id) if braider_id is not None else None
+    customer = await _admin_customer_actor(db, customer_id) if customer_id is not None else None
+    return braider, customer
+
+
+def _chart_metric(*, braider_id: uuid.UUID | None) -> str:
+    return "BRAIDER_EARNINGS" if braider_id is not None else "CUSTOMER_SPEND"
+
+
+def _chart_metric_label(*, braider_id: uuid.UUID | None) -> str:
+    return "braider_earnings" if braider_id is not None else "customer_spend"
+
+
+def _resolved_chart_dates(date_from: date | None, date_to: date | None) -> tuple[date, date]:
+    resolved_to = date_to or datetime.now(UTC).date()
+    resolved_from = date_from or (resolved_to - timedelta(days=_DEFAULT_CHART_WINDOW_DAYS))
+    return resolved_from, resolved_to
+
+
+async def get_admin_booking_stats(
+    db: AsyncSession,
+    *,
+    braider_id: uuid.UUID | None = None,
+    customer_id: uuid.UUID | None = None,
+    status: BookingStatus | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    created_from: date | None = None,
+    created_to: date | None = None,
+    payment_date_from: date | None = None,
+    payment_date_to: date | None = None,
+    country: str | None = None,
+    currency: Currency | None = None,
+    is_mobile: bool | None = None,
+    payment_schedule: PaymentSchedule | None = None,
+    search: str | None = None,
+) -> AdminBookingStatsResponse:
+    _validate_date_range(date_from, date_to)
+    _validate_date_range(created_from, created_to)
+    _validate_date_range(payment_date_from, payment_date_to)
+
+    braider = await _admin_braider_actor(db, braider_id) if braider_id is not None else None
+    customer = await _admin_customer_actor(db, customer_id) if customer_id is not None else None
+
+    stats = await bookings_repo.get_booking_stats_for_admin(
+        db,
+        status=status,
+        date_from=date_from,
+        date_to=date_to,
+        created_from=created_from,
+        created_to=created_to,
+        payment_date_from=payment_date_from,
+        payment_date_to=payment_date_to,
+        customer_id=customer_id,
+        braider_id=braider_id,
+        country=country,
+        currency=currency,
+        is_mobile=is_mobile,
+        payment_schedule=payment_schedule,
+        search=search,
+    )
+    total_paid = from_minor_units(stats["total_paid_minor"])
+    total_refunded = from_minor_units(stats["total_refunded_minor"])
+    net_paid = total_paid - total_refunded
+    return AdminBookingStatsResponse(
+        braider=braider,
+        customer=customer,
+        total_bookings=stats["total_bookings"],
+        status_counts=stats["status_counts"],
+        completed_bookings=stats["completed_bookings"],
+        upcoming_bookings=stats["upcoming_bookings"],
+        declined_bookings=stats["declined_bookings"],
+        pending_payment_bookings=stats["pending_payment_bookings"],
+        no_show_bookings=stats["no_show_bookings"],
+        disputed_bookings=stats["disputed_bookings"],
+        mobile_bookings=stats["mobile_bookings"],
+        salon_bookings=stats["salon_bookings"],
+        unique_customers=stats["unique_customers"],
+        repeat_customers=stats["repeat_customers"],
+        unique_braiders=stats["unique_braiders"],
+        repeat_braiders=stats["repeat_braiders"],
+        total_booking_value=_money(stats["total_booking_value"]),
+        average_booking_value=_money(stats["average_booking_value"]),
+        service_subtotal=_money(stats["service_subtotal"]),
+        platform_fee_total=_money(stats["platform_fee_total"]),
+        vat_total=_money(stats["vat_total"]),
+        total_amount_paid=total_paid,
+        total_amount_refunded=total_refunded,
+        net_amount_paid=net_paid,
+        pending_payment_amount=from_minor_units(stats["pending_payment_amount_minor"]),
+        total_amount_made_by_braider=from_minor_units(stats["braider_earnings_minor"]),
+        total_amount_spent_by_customer=net_paid,
+    )
+
+
+async def get_admin_revenue_chart(
+    db: AsyncSession,
+    *,
+    braider_id: uuid.UUID | None = None,
+    customer_id: uuid.UUID | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    payment_date_from: date | None = None,
+    payment_date_to: date | None = None,
+    interval: Literal["day", "week", "month"],
+    country: str | None = None,
+    currency: Currency | None = None,
+    is_mobile: bool | None = None,
+    payment_schedule: PaymentSchedule | None = None,
+    search: str | None = None,
+) -> AdminRevenueChartResponse:
+    _validate_date_range(date_from, date_to)
+    _validate_date_range(payment_date_from, payment_date_to)
+    resolved_from, resolved_to = _resolved_chart_dates(date_from, date_to)
+    braider, customer = await _admin_chart_actors(
+        db, braider_id=braider_id, customer_id=customer_id
+    )
+    rows = await bookings_repo.get_admin_revenue_timeseries(
+        db,
+        metric=_chart_metric(braider_id=braider_id),
+        date_from=resolved_from,
+        date_to=resolved_to,
+        interval=interval,
+        payment_date_from=payment_date_from,
+        payment_date_to=payment_date_to,
+        customer_id=customer_id,
+        braider_id=braider_id,
+        country=country,
+        currency=currency,
+        is_mobile=is_mobile,
+        payment_schedule=payment_schedule,
+        search=search,
+    )
+    return AdminRevenueChartResponse(
+        braider=braider,
+        customer=customer,
+        interval=interval,
+        metric=_chart_metric_label(braider_id=braider_id),
+        currency=Currency.EUR,
+        points=[
+            AdminRevenueChartPoint(
+                bucket=bucket,
+                amount=from_minor_units(amount_minor),
+                bookings_count=bookings_count,
+            )
+            for bucket, amount_minor, bookings_count in rows
+        ],
+    )
+
+
+async def get_admin_weekday_chart(
+    db: AsyncSession,
+    *,
+    braider_id: uuid.UUID | None = None,
+    customer_id: uuid.UUID | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    payment_date_from: date | None = None,
+    payment_date_to: date | None = None,
+    country: str | None = None,
+    currency: Currency | None = None,
+    is_mobile: bool | None = None,
+    payment_schedule: PaymentSchedule | None = None,
+    search: str | None = None,
+) -> AdminBarChartResponse:
+    _validate_date_range(date_from, date_to)
+    _validate_date_range(payment_date_from, payment_date_to)
+    braider, customer = await _admin_chart_actors(
+        db, braider_id=braider_id, customer_id=customer_id
+    )
+    rows = await bookings_repo.get_admin_bookings_by_weekday(
+        db,
+        metric=_chart_metric(braider_id=braider_id),
+        date_from=date_from,
+        date_to=date_to,
+        payment_date_from=payment_date_from,
+        payment_date_to=payment_date_to,
+        customer_id=customer_id,
+        braider_id=braider_id,
+        country=country,
+        currency=currency,
+        is_mobile=is_mobile,
+        payment_schedule=payment_schedule,
+        search=search,
+    )
+    by_weekday = {weekday: (count, amount_minor) for weekday, count, amount_minor in rows}
+    labels = {
+        1: "Monday",
+        2: "Tuesday",
+        3: "Wednesday",
+        4: "Thursday",
+        5: "Friday",
+        6: "Saturday",
+        7: "Sunday",
+    }
+    return AdminBarChartResponse(
+        braider=braider,
+        customer=customer,
+        metric=f"{_chart_metric_label(braider_id=braider_id)}_by_weekday",
+        currency=Currency.EUR,
+        points=[
+            AdminBarChartPoint(
+                key=str(weekday),
+                label=labels[weekday],
+                bookings_count=by_weekday.get(weekday, (0, 0))[0],
+                amount=from_minor_units(by_weekday.get(weekday, (0, 0))[1]),
+            )
+            for weekday in range(1, 8)
+        ],
+    )
+
+
+async def get_admin_status_chart(
+    db: AsyncSession,
+    *,
+    braider_id: uuid.UUID | None = None,
+    customer_id: uuid.UUID | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    payment_date_from: date | None = None,
+    payment_date_to: date | None = None,
+    country: str | None = None,
+    currency: Currency | None = None,
+    is_mobile: bool | None = None,
+    payment_schedule: PaymentSchedule | None = None,
+    search: str | None = None,
+) -> AdminBarChartResponse:
+    _validate_date_range(date_from, date_to)
+    _validate_date_range(payment_date_from, payment_date_to)
+    braider, customer = await _admin_chart_actors(
+        db, braider_id=braider_id, customer_id=customer_id
+    )
+    rows = await bookings_repo.get_admin_status_breakdown(
+        db,
+        metric=_chart_metric(braider_id=braider_id),
+        date_from=date_from,
+        date_to=date_to,
+        payment_date_from=payment_date_from,
+        payment_date_to=payment_date_to,
+        customer_id=customer_id,
+        braider_id=braider_id,
+        country=country,
+        currency=currency,
+        is_mobile=is_mobile,
+        payment_schedule=payment_schedule,
+        search=search,
+    )
+    amounts = {status: (count, amount_minor) for status, count, amount_minor in rows}
+    return AdminBarChartResponse(
+        braider=braider,
+        customer=customer,
+        metric=f"{_chart_metric_label(braider_id=braider_id)}_by_status",
+        currency=Currency.EUR,
+        points=[
+            AdminBarChartPoint(
+                key=status.value,
+                label=status.value,
+                bookings_count=amounts.get(status, (0, 0))[0],
+                amount=from_minor_units(amounts.get(status, (0, 0))[1]),
+            )
+            for status in BookingStatus
+        ],
+    )
+
+
+async def get_admin_style_pie_chart(
+    db: AsyncSession,
+    *,
+    braider_id: uuid.UUID | None = None,
+    customer_id: uuid.UUID | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    payment_date_from: date | None = None,
+    payment_date_to: date | None = None,
+    country: str | None = None,
+    currency: Currency | None = None,
+    is_mobile: bool | None = None,
+    payment_schedule: PaymentSchedule | None = None,
+    search: str | None = None,
+    locale: str,
+    limit: int = _DEFAULT_TOP_STYLES_LIMIT,
+) -> AdminStylePieChartResponse:
+    _validate_date_range(date_from, date_to)
+    _validate_date_range(payment_date_from, payment_date_to)
+    braider, customer = await _admin_chart_actors(
+        db, braider_id=braider_id, customer_id=customer_id
+    )
+    rows = await bookings_repo.get_admin_style_breakdown(
+        db,
+        metric=_chart_metric(braider_id=braider_id),
+        date_from=date_from,
+        date_to=date_to,
+        payment_date_from=payment_date_from,
+        payment_date_to=payment_date_to,
+        customer_id=customer_id,
+        braider_id=braider_id,
+        country=country,
+        currency=currency,
+        is_mobile=is_mobile,
+        payment_schedule=payment_schedule,
+        search=search,
+    )
+    total_amount = from_minor_units(sum(amount_minor for _, _, _, amount_minor in rows))
+    slices = [
+        AdminStyleChartSlice(
+            style_id=style_id,
+            style_name=localize_field(style, "name", locale) or style.name_en,
+            bookings_count=count,
+            amount=from_minor_units(amount_minor),
+            share=_percent_decimal(from_minor_units(amount_minor), total_amount),
+        )
+        for style_id, style, count, amount_minor in rows[:limit]
+    ]
+    if len(rows) > limit:
+        other_count = sum(count for _, _, count, _ in rows[limit:])
+        other_amount = from_minor_units(sum(amount_minor for _, _, _, amount_minor in rows[limit:]))
+        slices.append(
+            AdminStyleChartSlice(
+                style_id=None,
+                style_name=translate("dashboard.style_other_label", locale),
+                bookings_count=other_count,
+                amount=other_amount,
+                share=_percent_decimal(other_amount, total_amount),
+            )
+        )
+    return AdminStylePieChartResponse(
+        braider=braider,
+        customer=customer,
+        metric=f"{_chart_metric_label(braider_id=braider_id)}_by_style",
+        currency=Currency.EUR,
+        total_amount=total_amount,
+        slices=slices,
     )
 
 
