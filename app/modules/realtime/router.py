@@ -1,11 +1,10 @@
 import uuid
 
 import jwt
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.core import ws
-from app.core.database import get_db
+from app.core.database import AsyncSessionLocal
 from app.core.security import decode_access_token
 from app.modules.users.repository import get_user_by_id
 
@@ -18,8 +17,23 @@ router = APIRouter(tags=["Realtime"])
 _UNAUTHORIZED_CLOSE_CODE = 4401
 
 
+async def _authenticate_websocket_token(token: str) -> uuid.UUID | None:
+    try:
+        payload = decode_access_token(token)
+        user_id = uuid.UUID(payload["sub"])
+    except (jwt.PyJWTError, KeyError, ValueError):
+        return None
+
+    async with AsyncSessionLocal() as db:
+        user = await get_user_by_id(db, user_id)
+        if user is None or not user.is_active:
+            return None
+
+    return user_id
+
+
 @router.websocket("/api/v1/ws")
-async def websocket_endpoint(websocket: WebSocket, db: AsyncSession = Depends(get_db)) -> None:
+async def websocket_endpoint(websocket: WebSocket) -> None:
     """One persistent connection per client, pushing chat messages and
     notifications as they happen (app.core.ws). This is a live nudge only -
     the underlying data is already durable in Postgres before anything is
@@ -30,15 +44,8 @@ async def websocket_endpoint(websocket: WebSocket, db: AsyncSession = Depends(ge
         await websocket.close(code=_UNAUTHORIZED_CLOSE_CODE)
         return
 
-    try:
-        payload = decode_access_token(token)
-        user_id = uuid.UUID(payload["sub"])
-    except (jwt.PyJWTError, KeyError, ValueError):
-        await websocket.close(code=_UNAUTHORIZED_CLOSE_CODE)
-        return
-
-    user = await get_user_by_id(db, user_id)
-    if user is None or not user.is_active:
+    user_id = await _authenticate_websocket_token(token)
+    if user_id is None:
         await websocket.close(code=_UNAUTHORIZED_CLOSE_CODE)
         return
 
