@@ -30,6 +30,15 @@ async def get_booking_by_id(db: AsyncSession, booking_id: uuid.UUID) -> Booking 
     return await db.get(Booking, booking_id)
 
 
+async def list_bookings_by_ids(
+    db: AsyncSession, booking_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, Booking]:
+    if not booking_ids:
+        return {}
+    result = await db.execute(select(Booking).where(Booking.id.in_(booking_ids)))
+    return {booking.id: booking for booking in result.scalars().all()}
+
+
 async def get_booking_by_id_for_update(db: AsyncSession, booking_id: uuid.UUID) -> Booking | None:
     """Same as `get_booking_by_id` but takes a row lock - used by reschedule
     to serialize against the balance-charge cron and concurrent
@@ -252,6 +261,97 @@ def _apply_payment_date_filters(stmt, *, date_from: date | None, date_to: date |
     return stmt
 
 
+def _apply_booking_created_date_filters(
+    stmt, *, created_from: date | None, created_to: date | None
+):
+    if created_from is not None:
+        stmt = stmt.where(
+            Booking.created_at >= datetime.combine(created_from, time.min, tzinfo=UTC)
+        )
+    if created_to is not None:
+        stmt = stmt.where(
+            Booking.created_at
+            < datetime.combine(created_to + timedelta(days=1), time.min, tzinfo=UTC)
+        )
+    return stmt
+
+
+async def list_bookings_for_admin(
+    db: AsyncSession,
+    *,
+    params: PaginationParams,
+    status: BookingStatus | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    created_from: date | None = None,
+    created_to: date | None = None,
+    customer_id: uuid.UUID | None = None,
+    braider_id: uuid.UUID | None = None,
+    country: str | None = None,
+    currency: Currency | None = None,
+    is_mobile: bool | None = None,
+    payment_schedule: PaymentSchedule | None = None,
+    search: str | None = None,
+) -> tuple[list[Booking], PaginationMeta]:
+    stmt = select(Booking)
+    stmt = _apply_common_filters(stmt, status=status, date_from=date_from, date_to=date_to)
+    stmt = _apply_booking_created_date_filters(
+        stmt, created_from=created_from, created_to=created_to
+    )
+
+    if customer_id is not None:
+        stmt = stmt.where(Booking.customer_id == customer_id)
+    if braider_id is not None:
+        stmt = stmt.where(Booking.braider_id == braider_id)
+    if country is not None:
+        stmt = stmt.where(Booking.country == country.upper())
+    if currency is not None:
+        stmt = stmt.where(Booking.currency == currency)
+    if is_mobile is not None:
+        stmt = stmt.where(Booking.is_mobile == is_mobile)
+    if payment_schedule is not None:
+        stmt = stmt.where(Booking.payment_schedule == payment_schedule)
+
+    if search:
+        pattern = f"%{search.strip()}%"
+        customer_user = aliased(User)
+        braider_user = aliased(User)
+        stmt = (
+            stmt.join(Style, Style.id == Booking.style_id)
+            .join(customer_user, customer_user.id == Booking.customer_id)
+            .join(BraiderProfile, BraiderProfile.id == Booking.braider_id)
+            .join(braider_user, braider_user.id == BraiderProfile.user_id)
+            .where(
+                or_(
+                    Booking.reference.ilike(pattern),
+                    Style.name_en.ilike(pattern),
+                    Style.name_de.ilike(pattern),
+                    Style.name_fr.ilike(pattern),
+                    customer_user.first_name.ilike(pattern),
+                    customer_user.last_name.ilike(pattern),
+                    customer_user.email.ilike(pattern),
+                    func.concat(
+                        customer_user.first_name,
+                        " ",
+                        func.coalesce(customer_user.last_name, ""),
+                    ).ilike(pattern),
+                    BraiderProfile.business_name.ilike(pattern),
+                    braider_user.first_name.ilike(pattern),
+                    braider_user.last_name.ilike(pattern),
+                    braider_user.email.ilike(pattern),
+                    func.concat(
+                        braider_user.first_name,
+                        " ",
+                        func.coalesce(braider_user.last_name, ""),
+                    ).ilike(pattern),
+                )
+            )
+        )
+
+    stmt = stmt.order_by(Booking.created_at.desc(), Booking.starts_at.desc())
+    return await paginate(db, stmt, params)
+
+
 async def get_payment_stats_for_braider(
     db: AsyncSession,
     braider_id: uuid.UUID,
@@ -311,6 +411,86 @@ async def list_payments_for_braider(
         stmt = stmt.where(BookingPayment.status == status)
     stmt = _apply_payment_date_filters(stmt, date_from=date_from, date_to=date_to)
     stmt = stmt.order_by(BookingPayment.created_at.desc())
+    return await paginate(db, stmt, params)
+
+
+async def list_payments_for_admin(
+    db: AsyncSession,
+    *,
+    params: PaginationParams,
+    purpose: PaymentPurpose | None = None,
+    status: PaymentStatus | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    booking_date_from: date | None = None,
+    booking_date_to: date | None = None,
+    customer_id: uuid.UUID | None = None,
+    braider_id: uuid.UUID | None = None,
+    booking_id: uuid.UUID | None = None,
+    currency: Currency | None = None,
+    is_refunded: bool | None = None,
+    search: str | None = None,
+) -> tuple[list[BookingPayment], PaginationMeta]:
+    stmt = select(BookingPayment).join(Booking, Booking.id == BookingPayment.booking_id)
+
+    if purpose is not None:
+        stmt = stmt.where(BookingPayment.purpose == purpose)
+    if status is not None:
+        stmt = stmt.where(BookingPayment.status == status)
+    if customer_id is not None:
+        stmt = stmt.where(Booking.customer_id == customer_id)
+    if braider_id is not None:
+        stmt = stmt.where(Booking.braider_id == braider_id)
+    if booking_id is not None:
+        stmt = stmt.where(BookingPayment.booking_id == booking_id)
+    if currency is not None:
+        stmt = stmt.where(BookingPayment.currency == currency)
+    if is_refunded is not None:
+        if is_refunded:
+            stmt = stmt.where(BookingPayment.amount_refunded_minor > 0)
+        else:
+            stmt = stmt.where(BookingPayment.amount_refunded_minor == 0)
+
+    stmt = _apply_payment_date_filters(stmt, date_from=date_from, date_to=date_to)
+    stmt = _apply_common_filters(
+        stmt, status=None, date_from=booking_date_from, date_to=booking_date_to
+    )
+
+    if search:
+        pattern = f"%{search.strip()}%"
+        customer_user = aliased(User)
+        braider_user = aliased(User)
+        stmt = (
+            stmt.join(customer_user, customer_user.id == Booking.customer_id)
+            .join(BraiderProfile, BraiderProfile.id == Booking.braider_id)
+            .join(braider_user, braider_user.id == BraiderProfile.user_id)
+            .where(
+                or_(
+                    Booking.reference.ilike(pattern),
+                    BookingPayment.stripe_payment_intent_id.ilike(pattern),
+                    BookingPayment.stripe_charge_id.ilike(pattern),
+                    customer_user.first_name.ilike(pattern),
+                    customer_user.last_name.ilike(pattern),
+                    customer_user.email.ilike(pattern),
+                    func.concat(
+                        customer_user.first_name,
+                        " ",
+                        func.coalesce(customer_user.last_name, ""),
+                    ).ilike(pattern),
+                    BraiderProfile.business_name.ilike(pattern),
+                    braider_user.first_name.ilike(pattern),
+                    braider_user.last_name.ilike(pattern),
+                    braider_user.email.ilike(pattern),
+                    func.concat(
+                        braider_user.first_name,
+                        " ",
+                        func.coalesce(braider_user.last_name, ""),
+                    ).ilike(pattern),
+                )
+            )
+        )
+
+    stmt = stmt.order_by(BookingPayment.created_at.desc(), BookingPayment.id.desc())
     return await paginate(db, stmt, params)
 
 

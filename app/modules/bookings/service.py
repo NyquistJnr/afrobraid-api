@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.currency import currency_for_country
+from app.core.currency import Currency, currency_for_country
 from app.core.exceptions import (
     BookingCalculationAlreadyUsedError,
     BookingCalculationExpiredError,
@@ -42,12 +42,16 @@ from app.modules.bookings.models import Booking, BookingItem, BookingPayment
 from app.modules.bookings.payments import client as payments_client
 from app.modules.bookings.pricing import PricedLine
 from app.modules.bookings.schemas import (
+    AdminBookingPaymentResponse,
+    AdminBookingResponse,
+    AdminBookingSummaryResponse,
     BookingCreateRequest,
     BookingItemResponse,
     BookingPaymentResponse,
     BookingRescheduleRequest,
     BookingResponse,
     BookingSummaryResponse,
+    PaginatedAdminBookingsResponse,
     PaginatedBookingsResponse,
 )
 from app.modules.bookings.tasks import (
@@ -566,6 +570,178 @@ async def list_braider_bookings(
     braider_names = await braiders_repo.list_display_names(db, [b.braider_id for b in items])
     customer_names = await users_repo.list_full_names(db, [b.customer_id for b in items])
     return _paginated_response(items, meta, style_names, braider_names, customer_names)
+
+
+def _to_admin_summary(
+    booking: Booking,
+    *,
+    style_names: dict[uuid.UUID, str],
+    customer_info: dict[uuid.UUID, dict[str, str]],
+    braider_info: dict[uuid.UUID, dict[str, str | uuid.UUID]],
+) -> AdminBookingSummaryResponse:
+    customer = customer_info.get(booking.customer_id, {})
+    braider = braider_info.get(booking.braider_id, {})
+    return AdminBookingSummaryResponse(
+        id=booking.id,
+        reference=booking.reference,
+        status=booking.status,
+        customer_id=booking.customer_id,
+        customer_name=str(customer.get("name", "")),
+        customer_email=str(customer.get("email", "")),
+        braider_id=booking.braider_id,
+        braider_user_id=braider.get("user_id") if isinstance(braider.get("user_id"), uuid.UUID) else None,
+        braider_name=str(braider.get("name", "")),
+        braider_email=str(braider.get("email", "")) if braider.get("email") is not None else None,
+        style_id=booking.style_id,
+        style_name=style_names.get(booking.style_id, ""),
+        starts_at=booking.starts_at,
+        ends_at=booking.ends_at,
+        total=booking.total,
+        currency=booking.currency,
+        country=booking.country,
+        is_mobile=booking.is_mobile,
+        payment_schedule=booking.payment_schedule,
+        created_at=booking.created_at,
+    )
+
+
+async def _admin_context_for(
+    db: AsyncSession, bookings: list[Booking], *, locale: str
+) -> tuple[
+    dict[uuid.UUID, str],
+    dict[uuid.UUID, dict[str, str]],
+    dict[uuid.UUID, dict[str, str | uuid.UUID]],
+]:
+    style_names = await _style_names_for(db, bookings, locale=locale)
+    customer_info = await users_repo.list_admin_user_info(db, [b.customer_id for b in bookings])
+    braider_info = await braiders_repo.list_admin_display_info(db, [b.braider_id for b in bookings])
+    return style_names, customer_info, braider_info
+
+
+async def list_admin_bookings(
+    db: AsyncSession,
+    *,
+    params: PaginationParams,
+    locale: str,
+    status: BookingStatus | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    created_from: date | None = None,
+    created_to: date | None = None,
+    customer_id: uuid.UUID | None = None,
+    braider_id: uuid.UUID | None = None,
+    country: str | None = None,
+    currency: Currency | None = None,
+    is_mobile: bool | None = None,
+    payment_schedule: PaymentSchedule | None = None,
+    search: str | None = None,
+) -> PaginatedAdminBookingsResponse:
+    _validate_date_range(date_from, date_to)
+    _validate_date_range(created_from, created_to)
+    items, meta = await bookings_repo.list_bookings_for_admin(
+        db,
+        params=params,
+        status=status,
+        date_from=date_from,
+        date_to=date_to,
+        created_from=created_from,
+        created_to=created_to,
+        customer_id=customer_id,
+        braider_id=braider_id,
+        country=country,
+        currency=currency,
+        is_mobile=is_mobile,
+        payment_schedule=payment_schedule,
+        search=search,
+    )
+    style_names, customer_info, braider_info = await _admin_context_for(
+        db, items, locale=locale
+    )
+    return PaginatedAdminBookingsResponse(
+        items=[
+            _to_admin_summary(
+                b,
+                style_names=style_names,
+                customer_info=customer_info,
+                braider_info=braider_info,
+            )
+            for b in items
+        ],
+        page=meta.page,
+        page_size=meta.page_size,
+        total_items=meta.total_items,
+        total_pages=meta.total_pages,
+        has_next=meta.has_next,
+        has_previous=meta.has_previous,
+    )
+
+
+async def get_admin_booking(
+    db: AsyncSession, booking_id: uuid.UUID, *, locale: str
+) -> AdminBookingResponse:
+    booking = await bookings_repo.get_booking_by_id(db, booking_id)
+    if booking is None:
+        raise BookingNotFoundError()
+
+    style_names, customer_info, braider_info = await _admin_context_for(
+        db, [booking], locale=locale
+    )
+    summary = _to_admin_summary(
+        booking,
+        style_names=style_names,
+        customer_info=customer_info,
+        braider_info=braider_info,
+    )
+    items = await bookings_repo.list_items(db, booking.id)
+    payments = await bookings_repo.list_payments(db, booking.id)
+    return AdminBookingResponse(
+        **summary.model_dump(),
+        duration_minutes=booking.duration_minutes,
+        client_address=booking.client_address,
+        client_latitude=booking.client_latitude,
+        client_longitude=booking.client_longitude,
+        service_subtotal=booking.service_subtotal,
+        travel_fee=booking.travel_fee,
+        subtotal=booking.subtotal,
+        platform_fee=booking.platform_fee,
+        vat_on_service=booking.vat_on_service,
+        vat_on_platform_fee=booking.vat_on_platform_fee,
+        vat_total=booking.vat_total,
+        deposit_amount=booking.deposit_amount,
+        balance_amount=booking.balance_amount,
+        braider_share_total=booking.braider_share_total,
+        braider_share_deposit=booking.braider_share_deposit,
+        braider_share_balance=booking.braider_share_balance,
+        cancellation_cutoff_at=booking.cancellation_cutoff_at,
+        hold_expires_at=booking.hold_expires_at,
+        balance_charge_due_at=booking.balance_charge_due_at,
+        balance_charge_state=booking.balance_charge_state,
+        confirmed_at=booking.confirmed_at,
+        cancelled_at=booking.cancelled_at,
+        cancelled_by=booking.cancelled_by,
+        items=[_item_to_response(item, locale) for item in items],
+        payments=[
+            AdminBookingPaymentResponse(
+                id=p.id,
+                purpose=p.purpose,
+                status=p.status,
+                amount=from_minor_units(p.amount_minor),
+                amount_refunded=from_minor_units(p.amount_refunded_minor),
+                braider_share=from_minor_units(p.braider_share_minor),
+                is_refunded=p.amount_refunded_minor > 0,
+                currency=p.currency,
+                stripe_payment_intent_id=p.stripe_payment_intent_id,
+                stripe_charge_id=p.stripe_charge_id,
+                is_off_session=p.is_off_session,
+                attempt_number=p.attempt_number,
+                failure_code=p.failure_code,
+                failure_message=p.failure_message,
+                created_at=p.created_at,
+            )
+            for p in payments
+        ],
+        updated_at=booking.updated_at,
+    )
 
 
 def _paginated_response(

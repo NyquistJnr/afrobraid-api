@@ -27,6 +27,23 @@ async def list_full_names(db: AsyncSession, user_ids: list[uuid.UUID]) -> dict[u
     return {row.id: f"{row.first_name} {row.last_name or ''}".strip() for row in result.all()}
 
 
+async def list_admin_user_info(
+    db: AsyncSession, user_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, dict[str, str]]:
+    if not user_ids:
+        return {}
+    result = await db.execute(
+        select(User.id, User.first_name, User.last_name, User.email).where(User.id.in_(user_ids))
+    )
+    return {
+        row.id: {
+            "name": f"{row.first_name} {row.last_name or ''}".strip(),
+            "email": row.email,
+        }
+        for row in result.all()
+    }
+
+
 async def list_users(
     db: AsyncSession, *, user_type: UserType | None, params: PaginationParams
 ) -> tuple[list[User], PaginationMeta]:

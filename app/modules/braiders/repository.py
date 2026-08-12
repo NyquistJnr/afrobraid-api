@@ -36,6 +36,33 @@ async def list_display_names(
     }
 
 
+async def list_admin_display_info(
+    db: AsyncSession, braider_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, dict[str, str | uuid.UUID]]:
+    if not braider_ids:
+        return {}
+    result = await db.execute(
+        select(
+            BraiderProfile.id,
+            BraiderProfile.user_id,
+            BraiderProfile.business_name,
+            User.first_name,
+            User.last_name,
+            User.email,
+        )
+        .join(User, User.id == BraiderProfile.user_id)
+        .where(BraiderProfile.id.in_(braider_ids))
+    )
+    return {
+        row.id: {
+            "user_id": row.user_id,
+            "name": row.business_name or f"{row.first_name} {row.last_name or ''}".strip(),
+            "email": row.email,
+        }
+        for row in result.all()
+    }
+
+
 async def create_profile_for_user(db: AsyncSession, user_id: uuid.UUID) -> BraiderProfile:
     profile = BraiderProfile(user_id=user_id)
     db.add(profile)

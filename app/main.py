@@ -14,9 +14,11 @@ from app.core.queue import create_arq_pool
 from app.core.redis import get_redis_client
 from app.modules.auth.admin_router import router as auth_admin_router
 from app.modules.auth.router import router as auth_router
+from app.modules.bookings.admin_router import router as admin_bookings_router
 from app.modules.bookings.braider_router import router as braider_bookings_router
 from app.modules.bookings.calculations.router import router as booking_calculations_router
 from app.modules.bookings.dashboard.router import router as braider_dashboard_router
+from app.modules.bookings.payments.admin_router import router as admin_payments_router
 from app.modules.bookings.payments.braider_router import router as braider_payments_router
 from app.modules.bookings.payments.webhook import router as stripe_payments_webhook_router
 from app.modules.bookings.router import router as bookings_router
@@ -116,6 +118,7 @@ def create_app() -> FastAPI:
     app.include_router(stripe_webhook_router)
     app.include_router(booking_calculations_router)
     app.include_router(bookings_router)
+    app.include_router(admin_bookings_router)
     # Must precede braider_bookings_router: both mount at
     # /api/v1/braiders/me/bookings, and that router's GET "/{booking_id}"
     # would otherwise swallow this router's literal "/stats"/"/timeseries"
@@ -123,6 +126,7 @@ def create_app() -> FastAPI:
     # path-shape match wins even if UUID conversion later fails as 422).
     app.include_router(braider_booking_stats_router)
     app.include_router(braider_bookings_router)
+    app.include_router(admin_payments_router)
     app.include_router(braider_payments_router)
     app.include_router(braider_dashboard_router)
     app.include_router(stripe_payments_webhook_router)

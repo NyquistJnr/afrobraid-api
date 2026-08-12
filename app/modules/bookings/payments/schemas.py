@@ -41,3 +41,40 @@ class PaginatedPaymentsResponse(BaseModel):
     total_pages: int
     has_next: bool
     has_previous: bool
+
+
+class AdminPaymentListItemResponse(BaseModel):
+    id: uuid.UUID
+    booking_id: uuid.UUID
+    booking_reference: str
+    customer_id: uuid.UUID
+    customer_name: str
+    customer_email: str
+    braider_id: uuid.UUID
+    braider_user_id: uuid.UUID | None
+    braider_name: str
+    braider_email: str | None
+    purpose: PaymentPurpose
+    status: PaymentStatus
+    amount: Decimal
+    amount_refunded: Decimal
+    braider_share: Decimal
+    is_refunded: bool
+    currency: Currency
+    stripe_payment_intent_id: str | None
+    stripe_charge_id: str | None
+    is_off_session: bool
+    attempt_number: int
+    failure_code: str | None
+    failure_message: str | None
+    created_at: datetime
+
+
+class PaginatedAdminPaymentsResponse(BaseModel):
+    items: list[AdminPaymentListItemResponse]
+    page: int
+    page_size: int
+    total_items: int
+    total_pages: int
+    has_next: bool
+    has_previous: bool
