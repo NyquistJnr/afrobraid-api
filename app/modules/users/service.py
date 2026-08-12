@@ -12,6 +12,7 @@ from app.core.exceptions import (
 )
 from app.core.i18n import get_current_locale
 from app.core.pagination import PaginatedData, PaginationParams
+from app.modules.braiders import repository as braiders_repo
 from app.modules.notifications import service as notifications_service
 from app.modules.notifications.models import NotificationType
 from app.modules.users import repository as users_repo
@@ -23,6 +24,15 @@ from app.modules.users.schemas import (
 )
 
 settings = get_settings()
+
+
+def _to_admin_user_response(
+    user, *, braider_ids_by_user_id: dict[uuid.UUID, uuid.UUID] | None = None
+) -> AdminUserResponse:
+    response = AdminUserResponse.model_validate(user)
+    if user.user_type == UserType.BRAIDER and braider_ids_by_user_id is not None:
+        response.braider_id = braider_ids_by_user_id.get(user.id)
+    return response
 
 
 async def get_profile(db: AsyncSession, user_id: uuid.UUID) -> UserPublic:
@@ -84,8 +94,15 @@ async def list_admin_users(
     db: AsyncSession, *, user_type: UserType | None, params: PaginationParams
 ) -> PaginatedData[AdminUserResponse]:
     items, meta = await users_repo.list_users(db, user_type=user_type, params=params)
+    braider_ids_by_user_id = await braiders_repo.list_profile_ids_by_user_ids(
+        db, [u.id for u in items if u.user_type == UserType.BRAIDER]
+    )
     return PaginatedData(
-        items=[AdminUserResponse.model_validate(u) for u in items], pagination=meta
+        items=[
+            _to_admin_user_response(u, braider_ids_by_user_id=braider_ids_by_user_id)
+            for u in items
+        ],
+        pagination=meta,
     )
 
 
@@ -105,7 +122,8 @@ async def suspend_user(
 
     await db.commit()
     await db.refresh(user)
-    return AdminUserResponse.model_validate(user)
+    braider_ids_by_user_id = await braiders_repo.list_profile_ids_by_user_ids(db, [user.id])
+    return _to_admin_user_response(user, braider_ids_by_user_id=braider_ids_by_user_id)
 
 
 async def unsuspend_user(db: AsyncSession, *, user_id: uuid.UUID) -> AdminUserResponse:
@@ -119,4 +137,5 @@ async def unsuspend_user(db: AsyncSession, *, user_id: uuid.UUID) -> AdminUserRe
 
     await db.commit()
     await db.refresh(user)
-    return AdminUserResponse.model_validate(user)
+    braider_ids_by_user_id = await braiders_repo.list_profile_ids_by_user_ids(db, [user.id])
+    return _to_admin_user_response(user, braider_ids_by_user_id=braider_ids_by_user_id)

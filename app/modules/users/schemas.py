@@ -95,6 +95,7 @@ class AdminUserResponse(BaseModel):
     email: str
     phone_number: str | None
     user_type: UserType
+    braider_id: uuid.UUID | None = None
     is_email_verified: bool
     is_active: bool
     suspension_reason: str | None

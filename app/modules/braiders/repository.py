@@ -16,6 +16,17 @@ async def get_profile_by_id(db: AsyncSession, profile_id: uuid.UUID) -> BraiderP
     return await db.get(BraiderProfile, profile_id)
 
 
+async def list_profile_ids_by_user_ids(
+    db: AsyncSession, user_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, uuid.UUID]:
+    if not user_ids:
+        return {}
+    result = await db.execute(
+        select(BraiderProfile.user_id, BraiderProfile.id).where(BraiderProfile.user_id.in_(user_ids))
+    )
+    return {row.user_id: row.id for row in result.all()}
+
+
 async def list_display_names(
     db: AsyncSession, braider_ids: list[uuid.UUID]
 ) -> dict[uuid.UUID, str]:

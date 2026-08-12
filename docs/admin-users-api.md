@@ -27,6 +27,8 @@ Authorization: Bearer <access_token>
 
 Results are ordered newest-first (`created_at DESC`).
 
+For `BRAIDER` users, `braider_id` is the matching `braider_profiles.id` when a profile exists; otherwise it is `null`. For `CUSTOMER` and `ADMIN` users, it is always `null`.
+
 ### Response `200`
 
 ```json
@@ -42,6 +44,7 @@ Results are ordered newest-first (`created_at DESC`).
         "email": "amara@example.com",
         "phone_number": "+491701234567",
         "user_type": "BRAIDER",
+        "braider_id": "68a03c0b-99f2-49d7-a2c1-8ab6c5f4d2e1",
         "is_email_verified": true,
         "is_active": false,
         "suspension_reason": "Fraudulent bookings",
@@ -103,6 +106,7 @@ Same shape as a list item (`AdminUserResponse`):
     "email": "amara@example.com",
     "phone_number": "+491701234567",
     "user_type": "BRAIDER",
+    "braider_id": "68a03c0b-99f2-49d7-a2c1-8ab6c5f4d2e1",
     "is_email_verified": true,
     "is_active": false,
     "suspension_reason": "Fraudulent bookings",
