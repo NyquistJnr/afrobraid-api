@@ -1,8 +1,10 @@
 import re
 import uuid
+from datetime import datetime
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
+from app.core.pagination import PaginationMeta
 from app.modules.contact.enums import ContactPlatform, ContactPurpose
 
 _MESSAGE_MAX_LENGTH = 5000
@@ -66,3 +68,25 @@ class ContactSubmissionRequest(BaseModel):
 class ContactSubmissionResponse(BaseModel):
     id: uuid.UUID
     message: str
+
+
+class AdminContactSubmissionResponse(BaseModel):
+    id: uuid.UUID
+    first_name: str
+    last_name: str
+    full_name: str
+    phone_number: str | None
+    email: EmailStr
+    subject: str | None
+    message: str
+    platform: ContactPlatform
+    purpose: ContactPurpose
+    is_read: bool
+    read_at: datetime | None
+    read_by_admin_id: uuid.UUID | None
+    created_at: datetime
+
+
+class PaginatedAdminContactSubmissionsResponse(BaseModel):
+    items: list[AdminContactSubmissionResponse]
+    pagination: PaginationMeta
