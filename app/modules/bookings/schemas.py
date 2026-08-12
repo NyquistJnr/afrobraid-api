@@ -247,6 +247,24 @@ class AdminStylePieChartResponse(BaseModel):
     slices: list[AdminStyleChartSlice]
 
 
+class AdminPlatformFinancialsResponse(BaseModel):
+    currency: Currency
+    total_bookings: int
+    completed_bookings: int
+    total_booking_value: Decimal
+    average_booking_value: Decimal
+    service_subtotal: Decimal
+    platform_fee_total: Decimal
+    vat_total: Decimal
+    total_amount_paid: Decimal
+    total_amount_refunded: Decimal
+    net_amount_paid: Decimal
+    pending_payment_amount: Decimal
+    braider_earnings: Decimal
+    gross_margin_before_tax: Decimal
+    estimated_profit_after_vat: Decimal
+
+
 class AdminBookingResponse(AdminBookingSummaryResponse):
     duration_minutes: int
     client_address: str | None

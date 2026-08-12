@@ -53,6 +53,7 @@ from app.modules.bookings.schemas import (
     AdminBookingStatsActorResponse,
     AdminBookingStatsResponse,
     AdminBookingSummaryResponse,
+    AdminPlatformFinancialsResponse,
     AdminRevenueChartPoint,
     AdminRevenueChartResponse,
     AdminStyleChartSlice,
@@ -908,6 +909,91 @@ async def get_admin_booking_stats(
     )
 
 
+async def get_admin_platform_overview(
+    db: AsyncSession,
+    *,
+    status: BookingStatus | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    created_from: date | None = None,
+    created_to: date | None = None,
+    payment_date_from: date | None = None,
+    payment_date_to: date | None = None,
+    country: str | None = None,
+    currency: Currency | None = None,
+    is_mobile: bool | None = None,
+    payment_schedule: PaymentSchedule | None = None,
+    search: str | None = None,
+) -> AdminBookingStatsResponse:
+    return await get_admin_booking_stats(
+        db,
+        status=status,
+        date_from=date_from,
+        date_to=date_to,
+        created_from=created_from,
+        created_to=created_to,
+        payment_date_from=payment_date_from,
+        payment_date_to=payment_date_to,
+        country=country,
+        currency=currency,
+        is_mobile=is_mobile,
+        payment_schedule=payment_schedule,
+        search=search,
+    )
+
+
+async def get_admin_platform_financials(
+    db: AsyncSession,
+    *,
+    status: BookingStatus | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    created_from: date | None = None,
+    created_to: date | None = None,
+    payment_date_from: date | None = None,
+    payment_date_to: date | None = None,
+    country: str | None = None,
+    currency: Currency | None = None,
+    is_mobile: bool | None = None,
+    payment_schedule: PaymentSchedule | None = None,
+    search: str | None = None,
+) -> AdminPlatformFinancialsResponse:
+    overview = await get_admin_platform_overview(
+        db,
+        status=status,
+        date_from=date_from,
+        date_to=date_to,
+        created_from=created_from,
+        created_to=created_to,
+        payment_date_from=payment_date_from,
+        payment_date_to=payment_date_to,
+        country=country,
+        currency=currency,
+        is_mobile=is_mobile,
+        payment_schedule=payment_schedule,
+        search=search,
+    )
+    gross_margin_before_tax = overview.net_amount_paid - overview.total_amount_made_by_braider
+    estimated_profit_after_vat = gross_margin_before_tax - overview.vat_total
+    return AdminPlatformFinancialsResponse(
+        currency=Currency.EUR,
+        total_bookings=overview.total_bookings,
+        completed_bookings=overview.completed_bookings,
+        total_booking_value=overview.total_booking_value,
+        average_booking_value=overview.average_booking_value,
+        service_subtotal=overview.service_subtotal,
+        platform_fee_total=overview.platform_fee_total,
+        vat_total=overview.vat_total,
+        total_amount_paid=overview.total_amount_paid,
+        total_amount_refunded=overview.total_amount_refunded,
+        net_amount_paid=overview.net_amount_paid,
+        pending_payment_amount=overview.pending_payment_amount,
+        braider_earnings=overview.total_amount_made_by_braider,
+        gross_margin_before_tax=_money(gross_margin_before_tax),
+        estimated_profit_after_vat=_money(estimated_profit_after_vat),
+    )
+
+
 async def get_admin_revenue_chart(
     db: AsyncSession,
     *,
@@ -951,6 +1037,52 @@ async def get_admin_revenue_chart(
         customer=customer,
         interval=interval,
         metric=_chart_metric_label(braider_id=braider_id),
+        currency=Currency.EUR,
+        points=[
+            AdminRevenueChartPoint(
+                bucket=bucket,
+                amount=from_minor_units(amount_minor),
+                bookings_count=bookings_count,
+            )
+            for bucket, amount_minor, bookings_count in rows
+        ],
+    )
+
+
+async def get_admin_platform_revenue_chart(
+    db: AsyncSession,
+    *,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    payment_date_from: date | None = None,
+    payment_date_to: date | None = None,
+    interval: Literal["day", "week", "month"],
+    country: str | None = None,
+    currency: Currency | None = None,
+    is_mobile: bool | None = None,
+    payment_schedule: PaymentSchedule | None = None,
+    search: str | None = None,
+) -> AdminRevenueChartResponse:
+    _validate_date_range(date_from, date_to)
+    _validate_date_range(payment_date_from, payment_date_to)
+    resolved_from, resolved_to = _resolved_chart_dates(date_from, date_to)
+    rows = await bookings_repo.get_admin_revenue_timeseries(
+        db,
+        metric="CUSTOMER_SPEND",
+        date_from=resolved_from,
+        date_to=resolved_to,
+        interval=interval,
+        payment_date_from=payment_date_from,
+        payment_date_to=payment_date_to,
+        country=country,
+        currency=currency,
+        is_mobile=is_mobile,
+        payment_schedule=payment_schedule,
+        search=search,
+    )
+    return AdminRevenueChartResponse(
+        interval=interval,
+        metric="platform_gmv",
         currency=Currency.EUR,
         points=[
             AdminRevenueChartPoint(
@@ -1025,6 +1157,35 @@ async def get_admin_weekday_chart(
     )
 
 
+async def get_admin_platform_weekday_chart(
+    db: AsyncSession,
+    *,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    payment_date_from: date | None = None,
+    payment_date_to: date | None = None,
+    country: str | None = None,
+    currency: Currency | None = None,
+    is_mobile: bool | None = None,
+    payment_schedule: PaymentSchedule | None = None,
+    search: str | None = None,
+) -> AdminBarChartResponse:
+    chart = await get_admin_weekday_chart(
+        db,
+        date_from=date_from,
+        date_to=date_to,
+        payment_date_from=payment_date_from,
+        payment_date_to=payment_date_to,
+        country=country,
+        currency=currency,
+        is_mobile=is_mobile,
+        payment_schedule=payment_schedule,
+        search=search,
+    )
+    chart.metric = "platform_gmv_by_weekday"
+    return chart
+
+
 async def get_admin_status_chart(
     db: AsyncSession,
     *,
@@ -1076,6 +1237,35 @@ async def get_admin_status_chart(
             for status in BookingStatus
         ],
     )
+
+
+async def get_admin_platform_status_chart(
+    db: AsyncSession,
+    *,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    payment_date_from: date | None = None,
+    payment_date_to: date | None = None,
+    country: str | None = None,
+    currency: Currency | None = None,
+    is_mobile: bool | None = None,
+    payment_schedule: PaymentSchedule | None = None,
+    search: str | None = None,
+) -> AdminBarChartResponse:
+    chart = await get_admin_status_chart(
+        db,
+        date_from=date_from,
+        date_to=date_to,
+        payment_date_from=payment_date_from,
+        payment_date_to=payment_date_to,
+        country=country,
+        currency=currency,
+        is_mobile=is_mobile,
+        payment_schedule=payment_schedule,
+        search=search,
+    )
+    chart.metric = "platform_gmv_by_status"
+    return chart
 
 
 async def get_admin_style_pie_chart(
@@ -1145,6 +1335,82 @@ async def get_admin_style_pie_chart(
         currency=Currency.EUR,
         total_amount=total_amount,
         slices=slices,
+    )
+
+
+async def get_admin_platform_style_pie_chart(
+    db: AsyncSession,
+    *,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    payment_date_from: date | None = None,
+    payment_date_to: date | None = None,
+    country: str | None = None,
+    currency: Currency | None = None,
+    is_mobile: bool | None = None,
+    payment_schedule: PaymentSchedule | None = None,
+    search: str | None = None,
+    locale: str,
+    limit: int = _DEFAULT_TOP_STYLES_LIMIT,
+) -> AdminStylePieChartResponse:
+    chart = await get_admin_style_pie_chart(
+        db,
+        date_from=date_from,
+        date_to=date_to,
+        payment_date_from=payment_date_from,
+        payment_date_to=payment_date_to,
+        country=country,
+        currency=currency,
+        is_mobile=is_mobile,
+        payment_schedule=payment_schedule,
+        search=search,
+        locale=locale,
+        limit=limit,
+    )
+    chart.metric = "platform_gmv_by_style"
+    return chart
+
+
+async def get_admin_platform_country_chart(
+    db: AsyncSession,
+    *,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    payment_date_from: date | None = None,
+    payment_date_to: date | None = None,
+    country: str | None = None,
+    currency: Currency | None = None,
+    is_mobile: bool | None = None,
+    payment_schedule: PaymentSchedule | None = None,
+    search: str | None = None,
+) -> AdminBarChartResponse:
+    _validate_date_range(date_from, date_to)
+    _validate_date_range(payment_date_from, payment_date_to)
+    rows = await bookings_repo.get_admin_country_breakdown(
+        db,
+        metric="CUSTOMER_SPEND",
+        date_from=date_from,
+        date_to=date_to,
+        payment_date_from=payment_date_from,
+        payment_date_to=payment_date_to,
+        country=country,
+        currency=currency,
+        is_mobile=is_mobile,
+        payment_schedule=payment_schedule,
+        search=search,
+    )
+    return AdminBarChartResponse(
+        metric="platform_gmv_by_country",
+        currency=Currency.EUR,
+        points=[
+            AdminBarChartPoint(
+                key=country_code,
+                label=country_code,
+                bookings_count=bookings_count,
+                amount=from_minor_units(amount_minor),
+            )
+            for country_code, bookings_count, amount_minor in rows
+        ],
     )
 
 

@@ -725,6 +725,46 @@ async def get_admin_style_breakdown(
     return [(row[0], row[1], row[2], row[3]) for row in rows]
 
 
+async def get_admin_country_breakdown(
+    db: AsyncSession,
+    *,
+    metric: str,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    payment_date_from: date | None = None,
+    payment_date_to: date | None = None,
+    country: str | None = None,
+    currency: Currency | None = None,
+    is_mobile: bool | None = None,
+    payment_schedule: PaymentSchedule | None = None,
+    search: str | None = None,
+) -> list[tuple[str, int, int]]:
+    filtered = _apply_admin_booking_filters(
+        select(Booking),
+        date_from=date_from,
+        date_to=date_to,
+        country=country,
+        currency=currency,
+        is_mobile=is_mobile,
+        payment_schedule=payment_schedule,
+        search=search,
+    ).subquery()
+    payment_amounts = _admin_payment_amount_subquery(
+        metric=metric,
+        payment_date_from=payment_date_from,
+        payment_date_to=payment_date_to,
+    )
+    amount = func.coalesce(func.sum(payment_amounts.c.amount_minor), 0)
+    stmt = (
+        select(filtered.c.country, func.count(func.distinct(filtered.c.id)), amount)
+        .outerjoin(payment_amounts, payment_amounts.c.booking_id == filtered.c.id)
+        .group_by(filtered.c.country)
+        .order_by(amount.desc(), func.count(func.distinct(filtered.c.id)).desc())
+    )
+    rows = (await db.execute(stmt)).all()
+    return [(row[0], row[1], row[2]) for row in rows]
+
+
 async def get_payment_stats_for_braider(
     db: AsyncSession,
     braider_id: uuid.UUID,

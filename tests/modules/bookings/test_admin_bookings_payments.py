@@ -18,6 +18,7 @@ CALC_URL = "/api/v1/booking-calculations"
 BOOKINGS_URL = "/api/v1/bookings"
 ADMIN_BOOKINGS_URL = "/api/v1/admin/bookings"
 ADMIN_BRAIDERS_URL = "/api/v1/admin/braiders"
+ADMIN_DASHBOARD_URL = "/api/v1/admin/dashboard"
 ADMIN_PAYMENTS_URL = "/api/v1/admin/payments"
 
 
@@ -247,6 +248,78 @@ async def test_admin_can_view_braider_onboarding_and_charts(
     assert style_resp.status_code == 200, style_resp.text
     style = style_resp.json()["data"]
     assert style["metric"] == "braider_earnings_by_style"
+    assert style["slices"][0]["style_name"] == "Knotless Braids"
+
+
+async def test_admin_can_view_platform_dashboard_material(
+    client: AsyncClient, db_session: AsyncSession
+):
+    created = await _create_booking(client, db_session)
+    booking = await db_session.get(Booking, uuid.UUID(created["booking"]["id"]))
+    booking.status = BookingStatus.COMPLETED
+    payment = (
+        await db_session.execute(
+            select(BookingPayment).where(BookingPayment.booking_id == booking.id)
+        )
+    ).scalars().one()
+    payment.status = PaymentStatus.SUCCEEDED
+    await db_session.commit()
+
+    _, admin_token = await create_user_with_token(db_session, user_type=UserType.ADMIN)
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    date_params = {
+        "date_from": created["starts_at"].date().isoformat(),
+        "date_to": created["starts_at"].date().isoformat(),
+    }
+
+    overview_resp = await client.get(
+        f"{ADMIN_DASHBOARD_URL}/overview", params=date_params, headers=headers
+    )
+    assert overview_resp.status_code == 200, overview_resp.text
+    overview = overview_resp.json()["data"]
+    assert overview["total_bookings"] == 1
+    assert overview["unique_customers"] == 1
+    assert overview["unique_braiders"] == 1
+
+    financials_resp = await client.get(
+        f"{ADMIN_DASHBOARD_URL}/financials", params=date_params, headers=headers
+    )
+    assert financials_resp.status_code == 200, financials_resp.text
+    financials = financials_resp.json()["data"]
+    assert financials["total_amount_paid"] == created["booking"]["total"]
+    assert financials["platform_fee_total"] == created["booking"]["platform_fee"]
+    assert financials["service_subtotal"] == created["booking"]["service_subtotal"]
+    assert financials["vat_total"] == created["booking"]["vat_total"]
+
+    revenue_resp = await client.get(
+        f"{ADMIN_DASHBOARD_URL}/charts/revenue", params=date_params, headers=headers
+    )
+    assert revenue_resp.status_code == 200, revenue_resp.text
+    revenue = revenue_resp.json()["data"]
+    assert revenue["metric"] == "platform_gmv"
+    assert revenue["points"][0]["amount"] == created["booking"]["total"]
+
+    status_resp = await client.get(
+        f"{ADMIN_DASHBOARD_URL}/charts/status", params=date_params, headers=headers
+    )
+    assert status_resp.status_code == 200, status_resp.text
+    status_points = {point["key"]: point for point in status_resp.json()["data"]["points"]}
+    assert status_points["COMPLETED"]["bookings_count"] == 1
+
+    country_resp = await client.get(
+        f"{ADMIN_DASHBOARD_URL}/charts/countries", params=date_params, headers=headers
+    )
+    assert country_resp.status_code == 200, country_resp.text
+    country = country_resp.json()["data"]
+    assert country["metric"] == "platform_gmv_by_country"
+    assert country["points"][0]["key"] == "AT"
+
+    style_resp = await client.get(
+        f"{ADMIN_DASHBOARD_URL}/charts/styles", params=date_params, headers=headers
+    )
+    assert style_resp.status_code == 200, style_resp.text
+    style = style_resp.json()["data"]
+    assert style["metric"] == "platform_gmv_by_style"
     assert style["slices"][0]["style_name"] == "Knotless Braids"
 
 
