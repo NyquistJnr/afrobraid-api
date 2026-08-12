@@ -55,11 +55,16 @@ class Settings(BaseSettings):
     tiktok_client_key: str = ""
     tiktok_client_secret: str = ""
 
+    # Browser origins allowed to call the API. Include every frontend origin
+    # here as a comma-separated list.
     cors_origins: str = "http://localhost:3000"
-    # Base origin of the customer/braider web app - used to build deep-links
-    # embedded in notification/email bodies (e.g. a booking or chat link).
-    # No trailing slash.
+    # Backward-compatible default base origin for generated frontend links.
+    # Prefer the app-specific URLs below when customer, braider, and admin are
+    # deployed separately. No trailing slash.
     frontend_url: str = "http://localhost:3000"
+    customer_frontend_url: str = ""
+    braider_frontend_url: str = ""
+    admin_frontend_url: str = ""
 
     r2_account_id: str = ""
     r2_access_key_id: str = ""

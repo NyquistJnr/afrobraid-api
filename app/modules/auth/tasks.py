@@ -1,6 +1,5 @@
 import logging
 
-from app.core.config import get_settings
 from app.modules.auth.models import OtpPurpose
 from app.shared.email.client import send_email
 from app.shared.email.templates.admin_invite_email import render_admin_invite_email
@@ -8,10 +7,9 @@ from app.shared.email.templates.otp_email import (
     render_password_reset_email,
     render_verification_email,
 )
+from app.shared.links import build_admin_frontend_url
 
 logger = logging.getLogger("app.tasks.auth")
-
-settings = get_settings()
 
 TASK_SEND_OTP_EMAIL = "send_otp_email_task"
 TASK_SEND_ADMIN_INVITE_EMAIL = "send_admin_invite_email_task"
@@ -48,7 +46,7 @@ async def send_admin_invite_email_task(
     minutes: int,
     locale: str,
 ) -> None:
-    accept_url = f"{settings.frontend_url}/admin/invite/accept?token={token}"
+    accept_url = build_admin_frontend_url(path=f"admin/invite/accept?token={token}")
     subject, html = render_admin_invite_email(accept_url=accept_url, minutes=minutes, locale=locale)
     await send_email(to=to, subject=subject, html=html)
     logger.info("Sent admin invite email to %s", to)

@@ -9,6 +9,7 @@ from app.core.security import create_access_token
 from app.modules.bookings.enums import BookingStatus
 from app.modules.bookings.models import Booking
 from app.modules.users.models import UserType
+from app.shared import links
 from tests.helpers import create_user_with_token
 from tests.modules.bookings.helpers import create_bookable_braider
 
@@ -74,8 +75,9 @@ async def _send_chat_message_to_braider(
 
 
 async def test_recipient_gets_notification_for_new_chat_message(
-    client: AsyncClient, db_session: AsyncSession
+    client: AsyncClient, db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
 ):
+    monkeypatch.setattr(links.settings, "braider_frontend_url", "https://braiders.example.com")
     ctx = await _send_chat_message_to_braider(client, db_session, body="Hi, see you soon!")
 
     resp = await client.get(NOTIFICATIONS_URL, headers=ctx["braider_headers"])
@@ -88,6 +90,7 @@ async def test_recipient_gets_notification_for_new_chat_message(
     assert notification["related_type"] == "chat_thread"
     assert notification["related_id"] == ctx["thread_id"]
     assert "sent you a message" in notification["body"]
+    assert f"https://braiders.example.com/en/chat/{ctx['thread_id']}" in notification["body"]
 
     # The customer (sender) doesn't get their own notification.
     sender_resp = await client.get(NOTIFICATIONS_URL, headers=ctx["customer_headers"])

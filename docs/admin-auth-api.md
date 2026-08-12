@@ -44,7 +44,7 @@ email is silently revoked when a new one is sent, so only the latest link ever w
 }
 ```
 
-The invite email links to `{FRONTEND_URL}/admin/invite/accept?token=<raw_token>` and expires after
+The invite email links to `{ADMIN_FRONTEND_URL}/admin/invite/accept?token=<raw_token>` and expires after
 `ADMIN_INVITE_EXPIRE_HOURS` (default 72h, env-configurable).
 
 ### Errors

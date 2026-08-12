@@ -17,7 +17,7 @@ from app.shared.email.templates.booking_email import (
     render_booking_rescheduled_email,
 )
 from app.shared.email.templates.receipt_email import render_payment_receipt_email
-from app.shared.links import build_frontend_url
+from app.shared.links import build_braider_frontend_url, build_customer_frontend_url
 
 logger = logging.getLogger("app.tasks.bookings")
 
@@ -139,7 +139,7 @@ async def send_payment_notification_task(ctx: dict, *, payment_id: str) -> None:
             "amount": str(from_minor_units(payment.amount_minor)),
             "currency": payment.currency.value,
             "balance_amount": str(booking.balance_amount),
-            "link": build_frontend_url(locale=booking.locale, path=f"bookings/{booking.id}"),
+            "link": build_customer_frontend_url(locale=booking.locale, path=f"bookings/{booking.id}"),
         }
         notification = await notifications_service.create(
             db,
@@ -196,16 +196,15 @@ async def send_booking_rescheduled_notification_task(ctx: dict, *, booking_id: s
             return
 
         braider_profile = await braiders_repo.get_profile_by_id(db, booking.braider_id)
-        link = build_frontend_url(locale=booking.locale, path=f"bookings/{booking.id}")
-        body_params = {"link": link}
-
         customer_notification = await notifications_service.create(
             db,
             user_id=booking.customer_id,
             type=NotificationType.BOOKING_RESCHEDULED,
             title_key="notifications.booking_rescheduled_customer_title",
             body_key="notifications.booking_rescheduled_customer_body",
-            body_params=body_params,
+            body_params={
+                "link": build_customer_frontend_url(locale=booking.locale, path=f"bookings/{booking.id}")
+            },
             related_type="booking",
             related_id=booking.id,
         )
@@ -218,7 +217,9 @@ async def send_booking_rescheduled_notification_task(ctx: dict, *, booking_id: s
                 type=NotificationType.BOOKING_RESCHEDULED,
                 title_key="notifications.booking_rescheduled_braider_title",
                 body_key="notifications.booking_rescheduled_braider_body",
-                body_params=body_params,
+                body_params={
+                    "link": build_braider_frontend_url(locale=booking.locale, path=f"bookings/{booking.id}")
+                },
                 related_type="booking",
                 related_id=booking.id,
             )

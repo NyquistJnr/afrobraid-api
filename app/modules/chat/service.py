@@ -28,7 +28,6 @@ from app.modules.chat.models import (
     ChatTranslationStatus,
 )
 from app.modules.chat.moderation import detect_violations
-from app.shared.links import build_frontend_url
 from app.modules.chat.schemas import (
     AdminChatReportResponse,
     AdminChatReportUpdateRequest,
@@ -42,6 +41,7 @@ from app.modules.chat.tasks import TASK_TRANSLATE_CHAT_MESSAGE
 from app.modules.notifications import service as notifications_service
 from app.modules.notifications.models import NotificationType
 from app.modules.users import repository as users_repo
+from app.shared.links import build_braider_frontend_url, build_customer_frontend_url
 
 settings = get_settings()
 
@@ -221,7 +221,11 @@ async def send_message(
     # below) because the notification's {link} is baked in at creation time,
     # not re-derived from the reader's locale on every read like title/body.
     recipient_locale = recipient.chat_locale or settings.default_locale
-    chat_link = build_frontend_url(locale=recipient_locale, path=f"chat/{thread.id}")
+    chat_link = (
+        build_customer_frontend_url(locale=recipient_locale, path=f"chat/{thread.id}")
+        if recipient_id == thread.customer_id
+        else build_braider_frontend_url(locale=recipient_locale, path=f"chat/{thread.id}")
+    )
     notification = await notifications_service.create(
         db,
         user_id=recipient_id,
