@@ -35,11 +35,6 @@ class BookingStatus(str, enum.Enum):
     DISPUTED = "DISPUTED"
 
 
-# Statuses that occupy the braider's calendar - mirrors the exclusion
-# constraint's WHERE clause exactly (ex_bookings_no_overlap) and is also what
-# availability/service.py subtracts from computed slots. Keep these two in
-# sync: the DB constraint is the source of truth for double-booking safety,
-# this set only needs to match it for slot computation to be honest.
 CALENDAR_BLOCKING_STATUSES = frozenset(
     {
         BookingStatus.PENDING_PAYMENT,
@@ -52,10 +47,6 @@ CALENDAR_BLOCKING_STATUSES = frozenset(
 )
 
 
-# "Declined" for the braider stats dashboard: any booking that never
-# resulted in a completed appointment because it was called off, on either
-# side, or simply timed out unpaid. Deliberately excludes NO_SHOW and
-# DISPUTED - those did happen, they just went wrong afterward.
 DECLINED_BOOKING_STATUSES = frozenset(
     {
         BookingStatus.CANCELLED_BY_CUSTOMER,
@@ -65,8 +56,6 @@ DECLINED_BOOKING_STATUSES = frozenset(
     }
 )
 
-# "Upcoming" for the same stats dashboard: booked and not yet resolved
-# either way.
 UPCOMING_BOOKING_STATUSES = frozenset(
     {
         BookingStatus.CONFIRMED,

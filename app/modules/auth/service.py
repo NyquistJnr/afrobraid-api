@@ -174,10 +174,7 @@ async def _issue_and_send_otp(
 async def signup_email(
     db: AsyncSession, queue: ArqRedis, *, data: SignupEmailRequest, locale: str
 ) -> SignupResponse:
-    # Belt-and-suspenders: SignupUserType (schemas.py) is already a Literal
-    # excluding "ADMIN", so pydantic rejects it before this ever runs. Kept
-    # as an explicit runtime gate too, since ADMIN accounts must only ever
-    # be created through the invite flow (invite_admin/accept_admin_invite_*).
+
     if data.user_type == UserType.ADMIN.value:
         raise AdminSignupBlockedError()
 
@@ -323,8 +320,6 @@ async def login(db: AsyncSession, redis: Redis, *, data: LoginRequest) -> AuthTo
 async def admin_login(db: AsyncSession, redis: Redis, *, data: LoginRequest) -> AuthTokenResponse:
     user = await _authenticate_email_credentials(db, redis, data=data)
     if user.user_type != UserType.ADMIN:
-        # Same error as a wrong password - this endpoint must not reveal
-        # whether an email belongs to a non-admin account.
         raise InvalidCredentialsError()
     return await _finish_login(db, user, remember_me=data.remember_me)
 
@@ -397,8 +392,6 @@ async def social_login(
 async def admin_social_login(
     db: AsyncSession, *, provider: AuthProvider, data: AdminSocialLoginRequest
 ) -> AuthTokenResponse:
-    # allow_create=False: admin accounts are invite-only
-    # (accept_admin_invite_social), never created on first social login.
     user = await _resolve_social_user(
         db, provider=provider, provider_token=data.provider_token, allow_create=False
     )
@@ -555,8 +548,6 @@ async def invite_admin(
     if await users_repo.get_user_by_email(db, email):
         raise EmailAlreadyExistsError()
 
-    # A fresh invite supersedes any still-pending one for the same email,
-    # so an old link can't be used once a new one has been sent.
     await auth_repo.invalidate_active_admin_invites_for_email(db, email=email)
 
     raw_token = generate_opaque_token()
@@ -595,8 +586,6 @@ async def accept_admin_invite_email(
         phone_number=None,
         password_hash=hash_password(data.password),
         user_type=UserType.ADMIN,
-        # The invite itself was sent to this address by an existing admin -
-        # that's the trust anchor, same role email verification otherwise plays.
         is_email_verified=True,
     )
     await users_repo.create_auth_identity(

@@ -36,13 +36,7 @@ class HairstyleTryOn(Base):
         UUID(as_uuid=True), ForeignKey("style_variations.id", ondelete="SET NULL"), nullable=True
     )
     description: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    # The instruction actually sent to the model (style name + variation +
-    # description combined) - kept for support/debugging so a failed or
-    # odd-looking result can be traced back to exactly what was asked for.
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
-    # The client's original photo. Cleared (and deleted from storage) once
-    # processing finishes, successfully or not - it's only ever needed to
-    # produce the result, never retained afterwards.
     source_object_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
     result_object_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
     status: Mapped[TryOnStatus] = mapped_column(

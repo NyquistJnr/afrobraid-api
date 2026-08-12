@@ -146,10 +146,6 @@ async def upsert_review(
     await db.flush()
     await reviews_repo.recompute_braider_rating(db, braider_id)
     await db.commit()
-    # `updated_at` has an `onupdate`, which SQLAlchemy expires (rather than
-    # populates via RETURNING, unlike an insert's server_default) after the
-    # UPDATE this commit just flushed - refresh so the response below doesn't
-    # trigger an implicit reload outside of an awaited context.
     await db.refresh(review)
 
     if target_locales:

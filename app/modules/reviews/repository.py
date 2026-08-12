@@ -10,9 +10,6 @@ from app.modules.bookings.models import Booking
 from app.modules.braiders.models import BraiderProfile
 from app.modules.reviews.models import Review, ReviewStatus
 
-# A booking in any of these statuses never reached a successful payment, so
-# it doesn't grant review eligibility - every other status implies at least
-# one payment (deposit or full) succeeded.
 _INELIGIBLE_BOOKING_STATUSES = frozenset(
     {BookingStatus.PENDING_PAYMENT, BookingStatus.CANCELLED_NO_PAYMENT, BookingStatus.EXPIRED}
 )

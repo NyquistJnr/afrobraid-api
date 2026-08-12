@@ -74,16 +74,8 @@ class Booking(Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    # Short human-friendly id (e.g. "AB-7QK3M2") for support/emails/receipts -
-    # the UUID id is what every FK and URL actually uses.
     reference: Mapped[str] = mapped_column(String(12), nullable=False)
 
-    # No ON DELETE CASCADE on customer_id/braider_id (or braider_style_id
-    # below) - a booking is a historical/financial record that must outlive
-    # the account that made it. Deleting a user or braider profile while
-    # they still have bookings is refused at the DB level (FK violation ->
-    # EntityInUseError), the same fix applied to braider_style_id; any
-    # future account-deletion flow must soft-delete/anonymize instead.
     customer_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
     )
@@ -97,11 +89,6 @@ class Booking(Base):
         UUID(as_uuid=True), ForeignKey("booking_calculations.id"), nullable=False, unique=True
     )
 
-    # braider_style_id is a plain "no action" FK like style_id/style_variation_id
-    # below. A braider deleting a menu entry must never take existing
-    # bookings, their line items, or their payments with it - see
-    # EntityInUseError in braiders/offerings/service.py::delete_braider_style,
-    # which is what actually stops the delete once this FK refuses it.
     braider_style_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("braider_styles.id"), nullable=False
     )
@@ -121,8 +108,7 @@ class Booking(Base):
 
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
     ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    # IANA name, snapshotted from the braider's BraiderAvailabilitySettings
-    # at booking time - display only, every stored instant is already UTC.
+
     braider_timezone: Mapped[str] = mapped_column(String(64), nullable=False)
     blocked_from: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     blocked_until: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
@@ -162,9 +148,6 @@ class Booking(Base):
         Enum(PaymentSchedule, name="payment_schedule"), nullable=False
     )
 
-    # What the braider is owed - always subtotal, never touches the platform
-    # fee or VAT. See app.modules.bookings.pricing for the deposit/balance
-    # split (exact by construction, each share <= its corresponding charge).
     braider_share_total: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     braider_share_deposit: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     braider_share_balance: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
@@ -175,9 +158,7 @@ class Booking(Base):
         default=BookingStatus.PENDING_PAYMENT,
         index=True,
     )
-    # Only meaningful while status == PENDING_PAYMENT - the slot is released
-    # (via a cleanup cron, mirroring expire_booking_calculations) if no
-    # payment has succeeded by this time.
+
     hold_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     cancellation_cutoff_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     balance_charge_due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -195,9 +176,6 @@ class Booking(Base):
         Enum(CancelledBy, name="cancelled_by"), nullable=True
     )
 
-    # Snapshotted onto the booking (rather than only read off users.*) so a
-    # later change to the user's Stripe customer never retargets an
-    # in-flight or historical booking's payments.
     stripe_customer_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     stripe_payment_method_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
 

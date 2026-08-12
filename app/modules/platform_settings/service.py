@@ -26,9 +26,6 @@ _DEFAULT_PLATFORM_FEE_TYPE = SettingValueType.PERCENTAGE
 _DEFAULT_PLATFORM_FEE_VALUE = Decimal("10.00")
 _DEFAULT_VAT_TYPE = SettingValueType.PERCENTAGE
 _DEFAULT_VAT_VALUE = Decimal("20.00")
-# Seeded equal to _DEFAULT_VAT_VALUE - the platform fee is its own taxable
-# supply with an independently configurable rate, but starts at the same
-# 20% so the initially-approved pricing example reproduces exactly.
 _DEFAULT_VAT_PLATFORM_FEE_TYPE = SettingValueType.PERCENTAGE
 _DEFAULT_VAT_PLATFORM_FEE_VALUE = Decimal("20.00")
 _DEFAULT_DEPOSIT_TYPE = SettingValueType.PERCENTAGE
@@ -97,10 +94,6 @@ async def update_settings(
 
     _validate_percentage_bounds(settings)
 
-    # Double-delete around the commit: a read that races this write and
-    # repopulates the cache from the pre-commit snapshot gets flushed out
-    # again by the second delete, rather than pinning a stale value for the
-    # full 7-day TTL.
     await platform_settings_cache.invalidate(redis)
     await db.commit()
     await platform_settings_cache.invalidate(redis)
@@ -156,8 +149,6 @@ async def upsert_country_vat_settings(
         vat_platform_fee_value=data.vat_platform_fee_value,
     )
 
-    # Same double-delete-around-commit shape as update_settings, scoped to
-    # just this country's cache key.
     await platform_settings_cache.invalidate_country(redis, normalized)
     await db.commit()
     await platform_settings_cache.invalidate_country(redis, normalized)

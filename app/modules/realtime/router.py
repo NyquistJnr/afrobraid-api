@@ -10,10 +10,6 @@ from app.modules.users.repository import get_user_by_id
 
 router = APIRouter(tags=["Realtime"])
 
-# WebSocket handshakes can't carry an Authorization header from a browser
-# client, so the access token travels as a query param instead - same JWT
-# used everywhere else, just a different transport. 4401 mirrors the
-# app's usual 401 (custom codes must be >= 4000 per the WS spec).
 _UNAUTHORIZED_CLOSE_CODE = 4401
 
 
@@ -53,8 +49,6 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     ws.manager.connect(user_id, websocket)
     try:
         while True:
-            # Clients don't need to send anything - this just parks the
-            # coroutine until the socket closes so `finally` can clean up.
             await websocket.receive_text()
     except WebSocketDisconnect:
         pass

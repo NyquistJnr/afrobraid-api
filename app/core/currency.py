@@ -11,16 +11,10 @@ class Currency(str, enum.Enum):
     EUR = "EUR"
 
 
-# Stripe requires a minimum charge amount per currency (in minor units) -
-# https://stripe.com/docs/currencies#minimum-and-maximum-charge-amounts.
-# Only the currencies we actually support need an entry.
 MINIMUM_CHARGE_MINOR_UNITS: dict[Currency, int] = {
     Currency.EUR: 50,  # EUR 0.50
 }
 
-# Country (ISO 3166-1 alpha-2, as stored on BraiderServiceLocation.country)
-# -> settlement currency. Every country a braider can onboard Stripe Connect
-# from (see payment_setup/client.py) must have an entry here.
 _COUNTRY_CURRENCY: dict[str, Currency] = {
     "DE": Currency.EUR,
     "FR": Currency.EUR,

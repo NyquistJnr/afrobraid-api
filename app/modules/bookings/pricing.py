@@ -29,12 +29,7 @@ from app.modules.bookings.enums import BookingItemType, PaymentSchedule
 from app.modules.platform_settings.cache import EffectivePlatformSettings
 from app.modules.platform_settings.models import SettingValueType
 
-# An appointment starting at or before this many hours from now is charged
-# 100% upfront. The extra margin keeps a deposit booking from ever landing
-# with its balance charge already (almost) due - see design correction #3
-# in the booking flow plan: firing a balance charge right at the
-# cancellation cutoff guarantees contention, so the two boundaries are kept
-# well apart from the moment a booking is created.
+
 FULL_PAYMENT_THRESHOLD_HOURS = 24
 FULL_PAYMENT_MARGIN_HOURS = 2
 
@@ -95,10 +90,6 @@ class PricingResult:
     deposit_value: Decimal = Decimal("0.00")
     deposit_amount: Decimal = Decimal("0.00")
     balance_amount: Decimal = Decimal("0.00")
-    # None when `starts_at` wasn't supplied to calculate_booking_price - the
-    # deposit/balance split is still computed (so a calculator quote has a
-    # number to show), but it's indicative only: which schedule actually
-    # applies isn't decided until a real appointment time is known.
     payment_schedule: PaymentSchedule | None = None
 
     braider_share_total: Decimal = Decimal("0.00")
@@ -120,10 +111,6 @@ def _split_deposit(
     total_minor: int, settings: EffectivePlatformSettings, min_charge_minor: int
 ) -> tuple[int, int, PaymentSchedule]:
     raw_deposit_minor = _apply_rate(total_minor, settings.deposit_type, settings.deposit_value)
-    # Lower-bound first (Stripe's per-currency minimum charge), then
-    # upper-bound to the total - order matters when total itself is below
-    # the minimum, which must fold into a single full-upfront charge rather
-    # than produce a deposit larger than the total.
     deposit_minor = min(total_minor, max(min_charge_minor, raw_deposit_minor))
     balance_minor = total_minor - deposit_minor
     if balance_minor == 0 or balance_minor < min_charge_minor:
@@ -164,8 +151,7 @@ def calculate_booking_price(
     )
 
     addons_total_minor = 0
-    # Required add-ons are injected by the caller (they're not deselectable)
-    # and emitted first so the breakdown reads sensibly to the customer.
+
     for addon in sorted(addon_components, key=lambda a: not a.is_required):
         addon_minor = to_minor_units(addon.amount)
         addons_total_minor += addon_minor
@@ -233,9 +219,6 @@ def calculate_booking_price(
                 total_minor, settings, min_charge_minor
             )
     else:
-        # No appointment time yet (a bare calculator quote) - still compute
-        # an indicative split so the customer has a number to look at, but
-        # leave payment_schedule unset since it isn't actually decided.
         deposit_minor, balance_minor, _ = _split_deposit(total_minor, settings, min_charge_minor)
         payment_schedule = None
 

@@ -87,10 +87,6 @@ async def get_effective_settings(
     if cached is not None:
         return _from_cache_payload(cached)
 
-    # Deliberately does not call platform_settings.service._get_or_create_settings
-    # to avoid a service<->cache import cycle; the settings row is expected to
-    # already exist by the time anything is pricing a booking (the admin GET/PATCH
-    # endpoints, or this module's own service, create it lazily on first touch).
     settings = await platform_settings_repo.get_settings(db)
     if settings is None:
         from app.modules.platform_settings import service as platform_settings_service

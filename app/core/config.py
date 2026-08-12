@@ -17,16 +17,10 @@ class Settings(BaseSettings):
     @field_validator("database_url")
     @classmethod
     def normalize_database_url(cls, v: str) -> str:
-        # Managed Postgres providers (Railway, Heroku, Neon, ...) hand out
-        # postgres:// / postgresql:// URLs, but the async engine needs the
-        # asyncpg driver named explicitly in the scheme.
         if v.startswith("postgres://"):
             v = "postgresql+asyncpg://" + v[len("postgres://") :]
         elif v.startswith("postgresql://"):
             v = "postgresql+asyncpg://" + v[len("postgresql://") :]
-        # asyncpg's connect() takes a keyword arg named `ssl`, not `sslmode`
-        # (the psycopg/libpq name) — SQLAlchemy forwards query params
-        # straight through as kwargs, so `sslmode` raises a TypeError.
         return v.replace("sslmode=", "ssl=")
 
     secret_key: str
@@ -39,8 +33,6 @@ class Settings(BaseSettings):
     otp_expire_minutes: int = 10
     otp_length: int = 6
 
-    # How long an admin invite link (auth.service.invite_admin) stays
-    # acceptable before the invitee has to be re-invited.
     admin_invite_expire_hours: int = 72
 
     resend_api_key: str
@@ -55,12 +47,7 @@ class Settings(BaseSettings):
     tiktok_client_key: str = ""
     tiktok_client_secret: str = ""
 
-    # Browser origins allowed to call the API. Include every frontend origin
-    # here as a comma-separated list.
     cors_origins: str = "http://localhost:3000"
-    # Backward-compatible default base origin for generated frontend links.
-    # Prefer the app-specific URLs below when customer, braider, and admin are
-    # deployed separately. No trailing slash.
     frontend_url: str = "http://localhost:3000"
     customer_frontend_url: str = ""
     braider_frontend_url: str = ""
@@ -85,14 +72,7 @@ class Settings(BaseSettings):
     stripe_webhook_secret: str = ""
     stripe_connect_refresh_url: str = ""
     stripe_connect_return_url: str = ""
-    # Separate secret from stripe_webhook_secret above - that one signs
-    # Connect account events (account.updated), this one signs platform
-    # payment events (payment_intent.*) on the new webhooks/stripe/payments
-    # route. Two endpoints, two secrets, per Stripe's own recommendation for
-    # apps that receive both event families.
     stripe_payments_webhook_secret: str = ""
-    # Pinned explicitly (design correction #8) so Stripe can't reshape
-    # webhook/API payloads out from under this app on their own schedule.
     stripe_api_version: str = "2024-06-20"
 
     twilio_account_sid: str = ""
@@ -103,49 +83,20 @@ class Settings(BaseSettings):
     phone_verification_bypass_enabled: bool = False
     phone_verification_bypass_code: str = "000000"
 
-    # Booking calculator (app.modules.bookings.calculations) - a DRAFT quote
-    # is disposable and cleaned up well before it could be mistaken for a
-    # real reservation.
     booking_calculation_ttl_hours: int = 2
-    # The pricing engine's full-upfront cutoff: an appointment starting at or
-    # before this many hours from now is charged 100% upfront rather than a
-    # deposit + later balance. See app.modules.bookings.pricing for the
-    # margin added on top of this to avoid scheduling a balance charge that
-    # would already be almost due.
     booking_full_payment_threshold_hours: int = 24
     booking_full_payment_margin_hours: int = 2
-    # Salt mixed into the SHA-256 hash of a booking-calculator caller's IP
-    # before it's stored (booking_calculations.client_ip_hash) - an IP is
-    # personal data under GDPR, so the raw address is never persisted.
     client_ip_hash_salt: str = ""
 
-    # A booking sits in PENDING_PAYMENT (holding the calendar slot via the
-    # exclusion constraint) until its first payment_intent.succeeds. Past
-    # this many minutes with no successful payment, expire_booking_holds
-    # (Phase 3+) reclaims the slot.
     booking_hold_minutes: int = 30
-    # Customer may cancel for a full-refund-free (deposit forfeited) outcome
-    # up to this many hours before the appointment.
     booking_cancellation_cutoff_hours: int = 24
-    # balance_charge_due_at = cancellation cutoff + this grace period - kept
-    # apart from the cutoff itself so the sweeper never fires right as the
-    # cancel window closes (design correction #3).
     booking_balance_charge_grace_minutes: int = 45
     booking_terms_version: str = "1.0"
 
-    # Hugging Face (AI hairstyle try-on) - routed through Hugging Face's
-    # Inference Providers (huggingface_hub's AsyncInferenceClient), NOT the
-    # old standalone "serverless Inference API" (api-inference.huggingface.co
-    # was fully decommissioned). hf_provider="auto" lets HF pick whichever
-    # partner provider currently serves hf_model_id fastest; pin it to a
-    # specific provider name (e.g. "fal-ai", "replicate") for predictable
-    # billing/latency instead.
     hf_api_key: str = ""
     hf_provider: str = "auto"
     hf_model_id: str = "black-forest-labs/FLUX.1-Kontext-dev"
     hf_request_timeout_seconds: int = 120
-    # Caps how many try-ons a single user can have in flight at once, so a
-    # burst of requests can't run up inference costs or flood the queue.
     tryon_max_pending_per_user: int = 3
 
     @property

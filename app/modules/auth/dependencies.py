@@ -11,11 +11,6 @@ from app.core.security import decode_access_token
 from app.modules.users.models import User, UserType
 from app.modules.users.repository import get_user_by_id
 
-# auto_error=False so a missing/malformed header falls through to our own
-# InvalidAccessTokenError (localized, consistent error shape) instead of
-# FastAPI's default 403. Using this as a dependency (rather than a plain
-# Header) is also what makes FastAPI register the "Authorize" bearer-token
-# button in the Swagger UI.
 bearer_scheme = HTTPBearer(auto_error=False)
 
 

@@ -19,9 +19,6 @@ from app.modules.bookings.models import CancelledBy
 class BookingCreateRequest(BaseModel):
     booking_calculation_id: uuid.UUID
     starts_at: datetime
-    # Explicit, typed consent rather than an implicit "submitting this form
-    # means you agree" - the non-refundable deposit relies on this having
-    # been shown and accepted (design correction #13).
     terms_accepted: bool
 
     @field_validator("terms_accepted")

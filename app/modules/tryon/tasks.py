@@ -48,18 +48,11 @@ async def generate_hairstyle_tryon_task(ctx: dict, *, tryon_id: str) -> None:
             tryon.status = TryOnStatus.FAILED
             tryon.failure_reason = TryOnFailureReason.GENERATION_FAILED
             await db.commit()
-            # The original photo is kept on a failed run so a future retry
-            # feature (or manual support follow-up) doesn't need a re-upload -
-            # it's deleted below only once a result actually exists.
             return
 
         result_key = f"tryon/{tryon.user_id}/result/{uuid.uuid4()}.jpg"
         storage.put_object(result_key, result_bytes, content_type=_RESULT_CONTENT_TYPE)
 
-        # Both the original and the generated photo are kept (not just the
-        # result) so the client can render a before/after comparison -
-        # they're only removed if the try-on itself is deleted (see
-        # service.delete_tryon).
         tryon.result_object_key = result_key
         tryon.status = TryOnStatus.COMPLETED
         tryon.failure_reason = None

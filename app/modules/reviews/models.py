@@ -46,12 +46,6 @@ class Review(Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    # No ON DELETE CASCADE - a review is customer-authored, historical,
-    # moderated content with its own value independent of whether either
-    # party's account still exists (same reasoning as bookings.customer_id/
-    # braider_id). Deleting a user or braider profile with reviews attached
-    # is refused at the DB level rather than silently erasing someone else's
-    # public review.
     customer_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
     )

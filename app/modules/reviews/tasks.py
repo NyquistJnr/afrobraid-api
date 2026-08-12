@@ -27,8 +27,6 @@ async def translate_review_comment_task(
         for target_locale in target_locales:
             source_field = f"comment_{target_locale}_source"
             if getattr(review, source_field) != BioSource.PENDING:
-                # Customer hand-edited this locale (or re-triggered translation)
-                # before we got to it - don't clobber whatever it is now.
                 continue
 
             try:
