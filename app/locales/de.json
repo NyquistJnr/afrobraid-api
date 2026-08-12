@@ -105,6 +105,7 @@
   "tryon.invalid_style_variation": "Diese Variante gehört nicht zur ausgewählten Frisur.",
   "tryon.max_pending_reached": "Sie haben bereits {limit} Try-ons in Bearbeitung. Warten Sie, bis einer abgeschlossen ist, bevor Sie einen weiteren starten.",
   "tryon.generation_failed": "Wir konnten Ihren Frisur-Try-on nicht erstellen. Bitte versuchen Sie es erneut.",
+  "tryon.ai_credit_exhausted": "Das KI-Guthaben ist momentan aufgebraucht. Bitte versuchen Sie es später erneut.",
 
   "availability.settings_not_configured": "Dieser Braider hat seine Verfügbarkeit noch nicht eingerichtet.",
   "availability.invalid_timezone": "Das ist keine gültige Zeitzone. Bitte geben Sie einen gültigen IANA-Zeitzonennamen an, z. B. \"Africa/Lagos\".",

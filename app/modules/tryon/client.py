@@ -23,6 +23,25 @@ class HuggingFaceApiError(Exception):
     pass
 
 
+class HuggingFaceCreditExhaustedError(HuggingFaceApiError):
+    pass
+
+
+def _is_credit_exhausted_error(exc: HfHubHTTPError) -> bool:
+    status_code = getattr(getattr(exc, "response", None), "status_code", None)
+    message = str(exc).lower()
+    return status_code == 402 or any(
+        phrase in message
+        for phrase in (
+            "credit",
+            "quota",
+            "billing",
+            "payment required",
+            "insufficient balance",
+        )
+    )
+
+
 def _client() -> AsyncInferenceClient:
     # provider="auto" (Hugging Face's Inference Providers routing) picks
     # whichever partner provider currently serves hf_model_id fastest - the
@@ -51,7 +70,13 @@ async def generate_hairstyle_image(image_bytes: bytes, *, instruction: str) -> b
             negative_prompt=_NEGATIVE_PROMPT,
             model=settings.hf_model_id,
         )
-    except (HfHubHTTPError, InferenceTimeoutError, ConnectionError, OSError) as exc:
+    except HfHubHTTPError as exc:
+        if _is_credit_exhausted_error(exc):
+            raise HuggingFaceCreditExhaustedError(
+                "Hugging Face AI credit is exhausted"
+            ) from exc
+        raise HuggingFaceApiError(f"Hugging Face image generation failed: {exc}") from exc
+    except (InferenceTimeoutError, ConnectionError, OSError) as exc:
         raise HuggingFaceApiError(f"Hugging Face image generation failed: {exc}") from exc
 
     buffer = io.BytesIO()

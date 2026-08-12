@@ -105,6 +105,7 @@
   "tryon.invalid_style_variation": "Cette variante n'appartient pas à la coiffure sélectionnée.",
   "tryon.max_pending_reached": "Vous avez déjà {limit} essais en cours. Attendez qu'un essai se termine avant d'en démarrer un autre.",
   "tryon.generation_failed": "Nous n'avons pas pu générer votre essai de coiffure. Veuillez réessayer.",
+  "tryon.ai_credit_exhausted": "Le crédit IA est épuisé pour le moment. Veuillez réessayer plus tard.",
 
   "availability.settings_not_configured": "Cette tresseuse/ce tresseur n'a pas encore configuré ses disponibilités.",
   "availability.invalid_timezone": "Ce n'est pas un fuseau horaire reconnu. Veuillez indiquer un nom de fuseau horaire IANA valide, par ex. \"Africa/Lagos\".",

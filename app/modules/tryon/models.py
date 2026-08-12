@@ -15,6 +15,11 @@ class TryOnStatus(str, enum.Enum):
     FAILED = "FAILED"
 
 
+class TryOnFailureReason(str, enum.Enum):
+    GENERATION_FAILED = "GENERATION_FAILED"
+    AI_CREDIT_EXHAUSTED = "AI_CREDIT_EXHAUSTED"
+
+
 class HairstyleTryOn(Base):
     __tablename__ = "hairstyle_tryons"
 
@@ -42,6 +47,9 @@ class HairstyleTryOn(Base):
     result_object_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
     status: Mapped[TryOnStatus] = mapped_column(
         Enum(TryOnStatus, name="tryon_status"), nullable=False, default=TryOnStatus.PROCESSING
+    )
+    failure_reason: Mapped[TryOnFailureReason | None] = mapped_column(
+        Enum(TryOnFailureReason, name="tryon_failure_reason"), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

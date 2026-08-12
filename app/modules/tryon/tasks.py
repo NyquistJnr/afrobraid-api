@@ -4,8 +4,12 @@ import uuid
 from app.core import storage
 from app.core.database import AsyncSessionLocal
 from app.modules.tryon import repository as tryon_repo
-from app.modules.tryon.client import HuggingFaceApiError, generate_hairstyle_image
-from app.modules.tryon.models import TryOnStatus
+from app.modules.tryon.client import (
+    HuggingFaceApiError,
+    HuggingFaceCreditExhaustedError,
+    generate_hairstyle_image,
+)
+from app.modules.tryon.models import TryOnFailureReason, TryOnStatus
 
 logger = logging.getLogger("app.tasks.tryon")
 
@@ -26,15 +30,23 @@ async def generate_hairstyle_tryon_task(ctx: dict, *, tryon_id: str) -> None:
         if original_bytes is None or source_key is None:
             logger.error("Try-on %s: source photo %r is missing", tryon_id, source_key)
             tryon.status = TryOnStatus.FAILED
+            tryon.failure_reason = TryOnFailureReason.GENERATION_FAILED
             tryon.source_object_key = None
             await db.commit()
             return
 
         try:
             result_bytes = await generate_hairstyle_image(original_bytes, instruction=tryon.prompt)
+        except HuggingFaceCreditExhaustedError:
+            logger.warning("Try-on %s: Hugging Face AI credit is exhausted", tryon_id)
+            tryon.status = TryOnStatus.FAILED
+            tryon.failure_reason = TryOnFailureReason.AI_CREDIT_EXHAUSTED
+            await db.commit()
+            return
         except HuggingFaceApiError:
             logger.exception("Try-on %s: Hugging Face generation failed", tryon_id)
             tryon.status = TryOnStatus.FAILED
+            tryon.failure_reason = TryOnFailureReason.GENERATION_FAILED
             await db.commit()
             # The original photo is kept on a failed run so a future retry
             # feature (or manual support follow-up) doesn't need a re-upload -
@@ -50,4 +62,5 @@ async def generate_hairstyle_tryon_task(ctx: dict, *, tryon_id: str) -> None:
         # service.delete_tryon).
         tryon.result_object_key = result_key
         tryon.status = TryOnStatus.COMPLETED
+        tryon.failure_reason = None
         await db.commit()

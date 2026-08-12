@@ -161,7 +161,7 @@ At least one of `style_id` / `description` is required. All three of `style_id`,
 
 #### Response `202`
 
-`APIResponse<TryOnResponse>` — see §5 for the full field reference. On creation, `status` is always `PROCESSING`, `original_url` is already populated, and `result_url`/`error_message` are always `null`.
+`APIResponse<TryOnResponse>` — see §5 for the full field reference. On creation, `status` is always `PROCESSING`, `original_url` is already populated, and `result_url`/`failure_reason`/`error_message` are always `null`.
 
 ```jsonc
 {
@@ -172,6 +172,7 @@ At least one of `style_id` / `description` is required. All three of `style_id`,
   "description": "shoulder length, honey blonde highlights",
   "original_url": "https://cdn.../tryon/.../original/....webp",
   "result_url": null,
+  "failure_reason": null,
   "error_message": null,
   "created_at": "2026-08-08T17:53:45.297430Z"
 }
@@ -197,7 +198,7 @@ Step 4 of the flow. Any logged-in user — scoped to their own try-ons (someone 
 
 #### Response `200`
 
-Same `TryOnResponse` shape as §3.2. Poll roughly every 3–5 seconds until `status` is no longer `PROCESSING`. On `COMPLETED`, `original_url` and `result_url` are both permanent public image URLs — render them side by side for the before/after. On `FAILED`, `error_message` is a localized, user-safe string (raw error detail is server-side only) — `original_url` is still available even on failure, but there's no "retry this try-on" endpoint, so a retry means uploading fresh via step 1 again.
+Same `TryOnResponse` shape as §3.2. Poll roughly every 3–5 seconds until `status` is no longer `PROCESSING`. On `COMPLETED`, `original_url` and `result_url` are both permanent public image URLs — render them side by side for the before/after. On `FAILED`, `error_message` is a localized, user-safe string (raw error detail is server-side only) and `failure_reason` is either `GENERATION_FAILED` or `AI_CREDIT_EXHAUSTED`. When the reason is `AI_CREDIT_EXHAUSTED`, show it calmly as a temporary AI credit limit, not a serious user-facing error. `original_url` is still available even on failure, but there's no "retry this try-on" endpoint, so a retry means uploading fresh via step 1 again.
 
 There's no push/webhook for completion today — polling is the only option.
 

@@ -105,6 +105,7 @@
   "tryon.invalid_style_variation": "That variation doesn't belong to the selected style.",
   "tryon.max_pending_reached": "You already have {limit} try-ons in progress. Wait for one to finish before starting another.",
   "tryon.generation_failed": "We couldn't generate your hairstyle try-on. Please try again.",
+  "tryon.ai_credit_exhausted": "The AI credit has finished for now. Please try again later.",
 
   "availability.settings_not_configured": "This braider hasn't set up their availability yet.",
   "availability.invalid_timezone": "That's not a recognized timezone. Please send a valid IANA timezone name, e.g. \"Africa/Lagos\".",

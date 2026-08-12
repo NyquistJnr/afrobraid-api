@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.modules.tryon.models import TryOnStatus
+from app.modules.tryon.models import TryOnFailureReason, TryOnStatus
 
 TryOnImageContentType = Literal["image/jpeg", "image/png", "image/webp"]
 
@@ -87,5 +87,6 @@ class TryOnResponse(BaseModel):
     description: str | None
     original_url: str | None
     result_url: str | None
+    failure_reason: TryOnFailureReason | None
     error_message: str | None
     created_at: datetime

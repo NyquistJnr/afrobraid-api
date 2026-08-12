@@ -18,7 +18,7 @@ from app.core.i18n import localize_field, t
 from app.modules.styles import repository as styles_repo
 from app.modules.styles.models import Style, StyleVariation
 from app.modules.tryon import repository as tryon_repo
-from app.modules.tryon.models import HairstyleTryOn, TryOnStatus
+from app.modules.tryon.models import HairstyleTryOn, TryOnFailureReason, TryOnStatus
 from app.modules.tryon.schemas import (
     TryOnCreateRequest,
     TryOnResponse,
@@ -198,6 +198,15 @@ async def _to_response(db: AsyncSession, tryon: HairstyleTryOn, *, locale: str) 
                 name=localize_field(variation, "name", locale) or "",
             )
 
+    error_message = None
+    if tryon.status == TryOnStatus.FAILED:
+        error_key = (
+            "tryon.ai_credit_exhausted"
+            if tryon.failure_reason == TryOnFailureReason.AI_CREDIT_EXHAUSTED
+            else "tryon.generation_failed"
+        )
+        error_message = t(error_key, locale)
+
     return TryOnResponse(
         id=tryon.id,
         status=tryon.status,
@@ -210,8 +219,7 @@ async def _to_response(db: AsyncSession, tryon: HairstyleTryOn, *, locale: str) 
         result_url=storage.build_public_url(tryon.result_object_key)
         if tryon.result_object_key
         else None,
-        error_message=t("tryon.generation_failed", locale)
-        if tryon.status == TryOnStatus.FAILED
-        else None,
+        failure_reason=tryon.failure_reason,
+        error_message=error_message,
         created_at=tryon.created_at,
     )

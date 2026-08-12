@@ -8,7 +8,7 @@ from app.core import storage
 from app.core.config import get_settings
 from app.modules.styles.models import Style, StyleVariation
 from app.modules.tryon import tasks as tryon_tasks
-from app.modules.tryon.models import TryOnStatus
+from app.modules.tryon.models import TryOnFailureReason, TryOnStatus
 from app.modules.tryon.repository import get_tryon_by_id
 from app.modules.tryon.tasks import TASK_GENERATE_HAIRSTYLE_TRYON
 from app.modules.users.models import UserType
@@ -319,9 +319,42 @@ async def test_generation_task_failure_marks_failed_and_keeps_original(
 
     updated = await get_tryon_by_id(db_session, uuid.UUID(tryon["id"]))
     assert updated.status == TryOnStatus.FAILED
+    assert updated.failure_reason == TryOnFailureReason.GENERATION_FAILED
     assert updated.source_object_key is not None
     assert updated.result_object_key is None
 
     get_resp = await client.get(f"{TRYON_URL}/{tryon['id']}", headers=headers)
-    assert get_resp.json()["data"]["status"] == "FAILED"
-    assert get_resp.json()["data"]["error_message"]
+    body = get_resp.json()["data"]
+    assert body["status"] == "FAILED"
+    assert body["failure_reason"] == "GENERATION_FAILED"
+    assert body["error_message"]
+
+
+async def test_generation_task_ai_credit_exhausted_returns_friendly_reason(
+    client: AsyncClient, db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+):
+    _mock_storage(monkeypatch)
+    monkeypatch.setattr(storage, "get_object", lambda key: b"fake-original-bytes")
+
+    async def failing_generate(image_bytes: bytes, *, instruction: str) -> bytes:
+        raise tryon_tasks.HuggingFaceCreditExhaustedError("credits finished")
+
+    monkeypatch.setattr(tryon_tasks, "generate_hairstyle_image", failing_generate)
+
+    _, token = await create_user_with_token(db_session, user_type=UserType.CUSTOMER)
+    headers = {"Authorization": f"Bearer {token}"}
+    tryon = await _create_tryon(client, headers, description="afro")
+
+    await tryon_tasks.generate_hairstyle_tryon_task({}, tryon_id=tryon["id"])
+
+    updated = await get_tryon_by_id(db_session, uuid.UUID(tryon["id"]))
+    assert updated.status == TryOnStatus.FAILED
+    assert updated.failure_reason == TryOnFailureReason.AI_CREDIT_EXHAUSTED
+    assert updated.source_object_key is not None
+    assert updated.result_object_key is None
+
+    get_resp = await client.get(f"{TRYON_URL}/{tryon['id']}", headers=headers)
+    body = get_resp.json()["data"]
+    assert body["status"] == "FAILED"
+    assert body["failure_reason"] == "AI_CREDIT_EXHAUSTED"
+    assert body["error_message"] == "The AI credit has finished for now. Please try again later."
