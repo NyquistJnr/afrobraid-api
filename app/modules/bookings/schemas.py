@@ -9,6 +9,7 @@ from app.modules.bookings.enums import (
     BalanceChargeState,
     BookingItemType,
     BookingStatus,
+    PaymentProvider,
     PaymentPurpose,
     PaymentSchedule,
     PaymentStatus,
@@ -20,6 +21,7 @@ class BookingCreateRequest(BaseModel):
     booking_calculation_id: uuid.UUID
     starts_at: datetime
     terms_accepted: bool
+    payment_provider: PaymentProvider = PaymentProvider.STRIPE
 
     @field_validator("terms_accepted")
     @classmethod
@@ -47,7 +49,9 @@ class BookingPaymentResponse(BaseModel):
     status: PaymentStatus
     amount: Decimal
     currency: Currency
+    provider: PaymentProvider
     client_secret: str | None = None
+    paypal_order_id: str | None = None
 
 
 class BookingResponse(BaseModel):

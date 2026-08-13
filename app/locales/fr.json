@@ -152,6 +152,11 @@
   "dashboard.style_other_label": "Autre",
 
   "payment.webhook_metadata_missing": "L'événement webhook Stripe ne contient pas les métadonnées requises.",
+  "payment.paypal_api_unavailable": "Nous n'avons pas pu contacter PayPal. Veuillez réessayer sous peu.",
+  "payment.paypal_invalid_webhook_signature": "Signature de webhook invalide.",
+  "payment.not_found": "Aucun paiement n'a été trouvé pour cette réservation.",
+  "payment.not_capturable": "Le paiement de cette réservation ne peut pas être capturé.",
+  "payment.paypal_declined": "PayPal a refusé ce paiement. Veuillez réessayer ou utiliser un autre moyen de paiement.",
 
   "reviews.not_eligible": "Vous ne pouvez évaluer un ou une braideur/braideuse qu'après une réservation avec elle/lui ayant abouti à un paiement réussi.",
   "reviews.not_found": "Cet avis n'existe pas.",

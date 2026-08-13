@@ -152,6 +152,11 @@
   "dashboard.style_other_label": "Sonstige",
 
   "payment.webhook_metadata_missing": "Dem Stripe-Webhook-Ereignis fehlen erforderliche Metadaten.",
+  "payment.paypal_api_unavailable": "Wir konnten PayPal nicht erreichen. Bitte versuchen Sie es in Kürze erneut.",
+  "payment.paypal_invalid_webhook_signature": "Ungültige Webhook-Signatur.",
+  "payment.not_found": "Für diese Buchung wurde keine Zahlung gefunden.",
+  "payment.not_capturable": "Die Zahlung für diese Buchung kann nicht eingezogen werden.",
+  "payment.paypal_declined": "PayPal hat diese Zahlung abgelehnt. Bitte versuchen Sie es erneut oder wählen Sie eine andere Zahlungsmethode.",
 
   "reviews.not_eligible": "Sie können eine Braiderin/einen Braider erst bewerten, nachdem eine Buchung bei ihr/ihm erfolgreich bezahlt wurde.",
   "reviews.not_found": "Diese Bewertung existiert nicht.",

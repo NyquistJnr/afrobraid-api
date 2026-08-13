@@ -557,6 +557,36 @@ class StripeWebhookMetadataMissingError(AppError):
     message_key = "payment.webhook_metadata_missing"
 
 
+class PaypalApiUnavailableError(AppError):
+    status_code = status.HTTP_502_BAD_GATEWAY
+    code = "PAYPAL_API_UNAVAILABLE"
+    message_key = "payment.paypal_api_unavailable"
+
+
+class PaypalInvalidWebhookSignatureError(AppError):
+    status_code = status.HTTP_401_UNAUTHORIZED
+    code = "PAYPAL_INVALID_WEBHOOK_SIGNATURE"
+    message_key = "payment.paypal_invalid_webhook_signature"
+
+
+class BookingPaymentNotFoundError(AppError):
+    status_code = status.HTTP_404_NOT_FOUND
+    code = "BOOKING_PAYMENT_NOT_FOUND"
+    message_key = "payment.not_found"
+
+
+class BookingPaymentNotCapturableError(AppError):
+    status_code = status.HTTP_409_CONFLICT
+    code = "BOOKING_PAYMENT_NOT_CAPTURABLE"
+    message_key = "payment.not_capturable"
+
+
+class PaypalPaymentDeclinedError(AppError):
+    status_code = status.HTTP_402_PAYMENT_REQUIRED
+    code = "PAYPAL_PAYMENT_DECLINED"
+    message_key = "payment.paypal_declined"
+
+
 class InvalidTryOnImageUploadError(AppError):
     status_code = status.HTTP_400_BAD_REQUEST
     code = "INVALID_TRYON_IMAGE_UPLOAD"

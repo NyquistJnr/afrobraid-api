@@ -25,6 +25,7 @@ from app.modules.bookings.enums import (
     BalanceChargeState,
     BookingItemType,
     BookingStatus,
+    PaymentProvider,
     PaymentPurpose,
     PaymentSchedule,
     PaymentStatus,
@@ -252,6 +253,9 @@ class BookingPayment(Base):
     status: Mapped[PaymentStatus] = mapped_column(
         Enum(PaymentStatus, name="payment_status"), nullable=False, default=PaymentStatus.PENDING
     )
+    provider: Mapped[PaymentProvider] = mapped_column(
+        Enum(PaymentProvider, name="payment_provider"), nullable=False, default=PaymentProvider.STRIPE
+    )
     amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
     currency: Mapped[Currency] = mapped_column(Enum(Currency, name="currency"), nullable=False)
     braider_share_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
@@ -259,6 +263,8 @@ class BookingPayment(Base):
     amount_transferred_minor: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     stripe_payment_intent_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     stripe_charge_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    paypal_order_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    paypal_capture_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     idempotency_key: Mapped[str] = mapped_column(String(255), nullable=False)
     is_off_session: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     transfer_group: Mapped[str] = mapped_column(String(64), nullable=False)

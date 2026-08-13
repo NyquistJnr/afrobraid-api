@@ -70,6 +70,11 @@ class PaymentPurpose(str, enum.Enum):
     BALANCE = "BALANCE"
 
 
+class PaymentProvider(str, enum.Enum):
+    STRIPE = "STRIPE"
+    PAYPAL = "PAYPAL"
+
+
 class PaymentStatus(str, enum.Enum):
     PENDING = "PENDING"
     SUCCEEDED = "SUCCEEDED"

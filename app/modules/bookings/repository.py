@@ -15,6 +15,7 @@ from app.modules.bookings.enums import (
     BalanceChargeState,
     BookingItemType,
     BookingStatus,
+    PaymentProvider,
     PaymentPurpose,
     PaymentSchedule,
     PaymentStatus,
@@ -76,6 +77,16 @@ async def get_payment_by_id(db: AsyncSession, payment_id: uuid.UUID) -> BookingP
     return await db.get(BookingPayment, payment_id)
 
 
+async def get_latest_payment(db: AsyncSession, booking_id: uuid.UUID) -> BookingPayment | None:
+    result = await db.execute(
+        select(BookingPayment)
+        .where(BookingPayment.booking_id == booking_id)
+        .order_by(BookingPayment.created_at.desc())
+        .limit(1)
+    )
+    return result.scalars().first()
+
+
 async def get_payment_by_stripe_intent_id(
     db: AsyncSession, stripe_payment_intent_id: str
 ) -> BookingPayment | None:
@@ -83,6 +94,13 @@ async def get_payment_by_stripe_intent_id(
         select(BookingPayment).where(
             BookingPayment.stripe_payment_intent_id == stripe_payment_intent_id
         )
+    )
+    return result.scalar_one_or_none()
+
+
+async def get_payment_by_paypal_order_id(db: AsyncSession, paypal_order_id: str) -> BookingPayment | None:
+    result = await db.execute(
+        select(BookingPayment).where(BookingPayment.paypal_order_id == paypal_order_id)
     )
     return result.scalar_one_or_none()
 
@@ -1281,7 +1299,9 @@ async def create_payment(
     amount_minor: int,
     currency: Currency,
     braider_share_minor: int,
-    stripe_payment_intent_id: str | None,
+    provider: PaymentProvider = PaymentProvider.STRIPE,
+    stripe_payment_intent_id: str | None = None,
+    paypal_order_id: str | None = None,
     idempotency_key: str,
     is_off_session: bool,
     transfer_group: str,
@@ -1291,10 +1311,12 @@ async def create_payment(
         booking_id=booking_id,
         purpose=purpose,
         status=PaymentStatus.PENDING,
+        provider=provider,
         amount_minor=amount_minor,
         currency=currency,
         braider_share_minor=braider_share_minor,
         stripe_payment_intent_id=stripe_payment_intent_id,
+        paypal_order_id=paypal_order_id,
         idempotency_key=idempotency_key,
         is_off_session=is_off_session,
         transfer_group=transfer_group,
