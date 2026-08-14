@@ -148,6 +148,7 @@
   "booking.invalid_date_range": "date_to must be on or after date_from.",
   "booking.not_reschedulable": "This booking can't be rescheduled.",
   "booking.reschedule_window_closed": "This booking can no longer be rescheduled - it's within 24 hours of the appointment.",
+  "booking.payment_not_resumable": "There's no outstanding payment on this booking to resume.",
 
   "dashboard.style_other_label": "Other",
 
@@ -166,6 +167,18 @@
   "email.booking_rescheduled_greeting": "Hi {first_name},",
   "email.booking_rescheduled_body": "Your appointment for {style_name} with {braider_name} was moved from {old_when} to {new_when}.",
   "email.booking_rescheduled_reference_label": "Booking reference",
+
+  "email.balance_payment_failed_subject": "Action needed: your balance payment for {reference} didn't go through",
+  "email.balance_payment_failed_greeting": "Hi {first_name},",
+  "email.balance_payment_failed_body_retry": "We tried to charge the remaining balance of {amount} {currency} for your appointment for {style_name} with {braider_name} on {when}, but the payment didn't go through ({reason}). We'll automatically try again, but you can also complete it now.",
+  "email.balance_payment_failed_body_auth_required": "We need you to confirm the remaining balance of {amount} {currency} for your appointment for {style_name} with {braider_name} on {when} - your bank requires you to approve this payment yourself.",
+  "email.balance_payment_failed_cta_label": "Complete your payment",
+  "email.balance_payment_failed_reference_label": "Booking reference",
+
+  "email.booking_cancelled_no_payment_subject": "Your booking {reference} was cancelled",
+  "email.booking_cancelled_no_payment_greeting": "Hi {first_name},",
+  "email.booking_cancelled_no_payment_body": "We weren't able to collect the remaining balance for your appointment for {style_name} with {braider_name} on {when}, so this booking has been cancelled. Your deposit is non-refundable and has not been returned.",
+  "email.booking_cancelled_no_payment_reference_label": "Booking reference",
 
   "email.receipt_subject": "Your Afrobraid receipt for {reference}",
   "email.receipt_greeting": "Hi {first_name},",
@@ -204,6 +217,10 @@
   "notifications.payment_full_succeeded_body": "Congratulations! We've received your full payment of {amount} {currency} for your booking - there's nothing more to pay. You can chat with your braider, review your booking, or cancel if needed here: {link}. Please remember to be respectful and follow our community guidelines.",
   "notifications.payment_balance_succeeded_title": "Balance payment received",
   "notifications.payment_balance_succeeded_body": "Congratulations! We've received your final balance payment of {amount} {currency} for your booking - you're all set. You can chat with your braider or review your booking here: {link}. Please remember to be respectful and follow our community guidelines.",
+  "notifications.payment_balance_failed_title": "Balance payment failed",
+  "notifications.payment_balance_failed_body": "We couldn't charge the remaining balance of {amount} {currency} for your booking ({reason}). Please complete payment here: {link}.",
+  "notifications.booking_cancelled_no_payment_title": "Booking cancelled - payment failed",
+  "notifications.booking_cancelled_no_payment_body": "Your booking was cancelled because we couldn't collect the remaining balance in time. Your deposit is non-refundable. Details here: {link}.",
 
   "notifications.booking_rescheduled_customer_title": "Booking rescheduled",
   "notifications.booking_rescheduled_customer_body": "Your booking has been rescheduled to a new time. View the updated details here: {link}.",

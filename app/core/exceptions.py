@@ -539,6 +539,17 @@ class BookingRescheduleWindowClosedError(AppError):
     message_key = "booking.reschedule_window_closed"
 
 
+class BookingPaymentNotResumableError(AppError):
+    """POST /{id}/pay only makes sense when there's an outstanding balance
+    that isn't already succeeded or mid-flight - e.g. FULL_UPFRONT bookings
+    have nothing to resume, and a balance charge currently IN_PROGRESS must
+    not be raced by a second, customer-initiated attempt."""
+
+    status_code = status.HTTP_409_CONFLICT
+    code = "BOOKING_PAYMENT_NOT_RESUMABLE"
+    message_key = "booking.payment_not_resumable"
+
+
 class TermsNotAcceptedError(AppError):
     status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
     code = "TERMS_NOT_ACCEPTED"

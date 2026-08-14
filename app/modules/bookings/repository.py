@@ -1099,6 +1099,34 @@ async def expire_stale_holds(db: AsyncSession, *, limit: int) -> int:
     return result.rowcount or 0
 
 
+async def claim_due_balance_charges(db: AsyncSession, *, limit: int) -> list[uuid.UUID]:
+    """Atomically flips SCHEDULED -> DUE for every CONFIRMED booking whose
+    balance_charge_due_at has passed, in batches, and returns the claimed
+    ids. The bulk UPDATE...WHERE id IN (SELECT ... LIMIT) is what makes the
+    claim atomic across concurrent sweeper runs (same idiom as
+    expire_stale_holds) - a second sweep tick can't re-claim a row this one
+    already flipped to DUE, so exactly one charge_booking_balance_task gets
+    enqueued per booking per due date."""
+    result = await db.execute(
+        update(Booking)
+        .where(
+            Booking.id.in_(
+                select(Booking.id)
+                .where(
+                    Booking.status == BookingStatus.CONFIRMED,
+                    Booking.balance_charge_state == BalanceChargeState.SCHEDULED,
+                    Booking.balance_charge_due_at.is_not(None),
+                    Booking.balance_charge_due_at <= datetime.now(UTC),
+                )
+                .limit(limit)
+            )
+        )
+        .values(balance_charge_state=BalanceChargeState.DUE)
+        .returning(Booking.id)
+    )
+    return list(result.scalars().all())
+
+
 async def create_booking(
     db: AsyncSession,
     *,

@@ -17,6 +17,7 @@ from app.core.exceptions import (
     BookingCalculationNotFoundError,
     BookingNotFoundError,
     BookingNotReschedulableError,
+    BookingPaymentNotResumableError,
     BookingPriceDriftError,
     BookingRescheduleWindowClosedError,
     BookingSlotUnavailableError,
@@ -487,6 +488,69 @@ async def reschedule_booking(
     )
 
     return await _to_response(db, booking, locale=locale)
+
+
+async def resume_booking_payment(
+    db: AsyncSession, booking_id: uuid.UUID, *, user: User, locale: str
+) -> BookingResponse:
+    """`POST /{id}/pay` - lets the customer complete an outstanding balance
+    on-session, either because the off-session ladder hit
+    `authentication_required` (needs a customer-present 3DS challenge the
+    backend cannot do for them) or simply because they don't want to wait
+    for the next scheduled attempt. Deliberately scoped to BALANCE only:
+    FULL/DEPOSIT failures at booking time never persisted a booking at all
+    (create_booking's PaymentIntent creation isn't wrapped in a DB
+    transaction that survives it), so there is nothing to resume there.
+
+    Marks the charge IN_PROGRESS so the sweeper cron won't also fire an
+    off-session attempt concurrently. If the customer abandons this flow
+    without confirming, the booking stays IN_PROGRESS until a reconciliation
+    sweep (Phase 7, not yet built) reclaims it - a known, accepted gap for
+    now, no worse than an abandoned checkout hold before it.
+    """
+    booking = await bookings_repo.get_booking_by_id_for_update(db, booking_id)
+    if booking is None or booking.customer_id != user.id:
+        raise BookingNotFoundError()
+
+    if (
+        booking.payment_schedule != PaymentSchedule.DEPOSIT_THEN_BALANCE
+        or booking.status != BookingStatus.CONFIRMED
+        or booking.balance_charge_state not in (BalanceChargeState.SCHEDULED, BalanceChargeState.DUE)
+    ):
+        raise BookingPaymentNotResumableError()
+
+    attempt_number = booking.balance_charge_attempts + 1
+    idempotency_key = f"booking:{booking.id}:balance:{attempt_number}"
+    transfer_group = f"booking_{booking.id}"
+
+    intent = await payments_client.create_payment_intent(
+        amount_minor=to_minor_units(booking.balance_amount),
+        currency=booking.currency.value,
+        customer_id=booking.stripe_customer_id,
+        metadata={"booking_id": str(booking.id), "purpose": PaymentPurpose.BALANCE.value},
+        off_session_setup=False,
+    )
+
+    payment = await bookings_repo.create_payment(
+        db,
+        booking_id=booking.id,
+        purpose=PaymentPurpose.BALANCE,
+        amount_minor=to_minor_units(booking.balance_amount),
+        currency=booking.currency,
+        braider_share_minor=to_minor_units(booking.braider_share_balance),
+        stripe_payment_intent_id=intent.id,
+        idempotency_key=idempotency_key,
+        is_off_session=False,
+        transfer_group=transfer_group,
+        attempt_number=attempt_number,
+    )
+
+    booking.balance_charge_attempts = attempt_number
+    booking.balance_charge_state = BalanceChargeState.IN_PROGRESS
+    await db.flush()
+    await db.commit()
+
+    return await _to_response(db, booking, locale=locale, client_secret=intent.client_secret, payment=payment)
 
 
 async def get_braider_booking(

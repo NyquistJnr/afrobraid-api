@@ -92,6 +92,11 @@ class Settings(BaseSettings):
     booking_cancellation_cutoff_hours: int = 24
     booking_balance_charge_grace_minutes: int = 45
     booking_terms_version: str = "1.0"
+    # Retry ladder for a failed off-session balance charge: hours after
+    # attempt N before attempt N+1 is due. Exhausted (or a next attempt
+    # would land past the hard deadline below) -> CANCELLED_NO_PAYMENT.
+    booking_balance_retry_offsets_hours: list[int] = [2, 6, 12]
+    booking_balance_hard_deadline_hours_before_start: int = 4
 
     hf_api_key: str = ""
     hf_provider: str = "auto"

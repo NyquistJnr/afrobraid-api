@@ -135,3 +135,27 @@ async def reschedule_booking(
         db, queue, booking_id, user=user, data=payload, locale=_locale(request)
     )
     return APIResponse(data=result)
+
+
+@router.post(
+    "/{booking_id}/pay",
+    response_model=APIResponse[BookingResponse],
+    summary="Resume an outstanding balance payment",
+    description=(
+        "Customer-only. Creates a fresh, on-session PaymentIntent for the "
+        "remaining balance and returns its client_secret to confirm - for "
+        "when the scheduled off-session charge needs a customer-present 3DS "
+        "confirmation, or the customer just wants to pay before the next "
+        "scheduled attempt. 409s if there's no outstanding balance to "
+        "resume (already paid, not a deposit-then-balance booking, or a "
+        "charge is already in flight)."
+    ),
+)
+async def resume_booking_payment(
+    booking_id: uuid.UUID,
+    request: Request,
+    user: User = Depends(_require_customer),
+    db: AsyncSession = Depends(get_db),
+) -> APIResponse[BookingResponse]:
+    result = await service.resume_booking_payment(db, booking_id, user=user, locale=_locale(request))
+    return APIResponse(data=result)

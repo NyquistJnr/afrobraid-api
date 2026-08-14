@@ -148,6 +148,7 @@
   "booking.invalid_date_range": "date_to doit être postérieure ou égale à date_from.",
   "booking.not_reschedulable": "Cette réservation ne peut pas être reprogrammée.",
   "booking.reschedule_window_closed": "Cette réservation ne peut plus être reprogrammée - le rendez-vous est dans moins de 24 heures.",
+  "booking.payment_not_resumable": "Il n'y a aucun paiement en attente à reprendre pour cette réservation.",
 
   "dashboard.style_other_label": "Autre",
 
@@ -166,6 +167,18 @@
   "email.booking_rescheduled_greeting": "Bonjour {first_name},",
   "email.booking_rescheduled_body": "Votre rendez-vous pour {style_name} avec {braider_name} a été déplacé du {old_when} au {new_when}.",
   "email.booking_rescheduled_reference_label": "Référence de réservation",
+
+  "email.balance_payment_failed_subject": "Action requise : votre paiement du solde pour {reference} a échoué",
+  "email.balance_payment_failed_greeting": "Bonjour {first_name},",
+  "email.balance_payment_failed_body_retry": "Nous avons essayé de prélever le solde restant de {amount} {currency} pour votre rendez-vous pour {style_name} avec {braider_name} le {when}, mais le paiement a échoué ({reason}). Nous réessaierons automatiquement, mais vous pouvez aussi le régler dès maintenant.",
+  "email.balance_payment_failed_body_auth_required": "Nous avons besoin que vous confirmiez le solde restant de {amount} {currency} pour votre rendez-vous pour {style_name} avec {braider_name} le {when} - votre banque exige que vous approuviez vous-même ce paiement.",
+  "email.balance_payment_failed_cta_label": "Finaliser le paiement",
+  "email.balance_payment_failed_reference_label": "Référence de réservation",
+
+  "email.booking_cancelled_no_payment_subject": "Votre réservation {reference} a été annulée",
+  "email.booking_cancelled_no_payment_greeting": "Bonjour {first_name},",
+  "email.booking_cancelled_no_payment_body": "Nous n'avons pas pu prélever le solde restant pour votre rendez-vous pour {style_name} avec {braider_name} le {when}, cette réservation a donc été annulée. Votre acompte n'est pas remboursable et ne vous a pas été restitué.",
+  "email.booking_cancelled_no_payment_reference_label": "Référence de réservation",
 
   "email.receipt_subject": "Votre reçu Afrobraid pour {reference}",
   "email.receipt_greeting": "Bonjour {first_name},",
@@ -204,6 +217,10 @@
   "notifications.payment_full_succeeded_body": "Félicitations ! Nous avons bien reçu votre paiement intégral de {amount} {currency} pour votre réservation - il ne reste plus rien à payer. Vous pouvez discuter avec votre braideur/braideuse, consulter votre réservation ou l'annuler si besoin ici : {link}. Merci de rester respectueux et de suivre les règles de notre communauté.",
   "notifications.payment_balance_succeeded_title": "Solde reçu",
   "notifications.payment_balance_succeeded_body": "Félicitations ! Nous avons bien reçu votre paiement final de {amount} {currency} pour votre réservation - tout est prêt. Vous pouvez discuter avec votre braideur/braideuse ou consulter votre réservation ici : {link}. Merci de rester respectueux et de suivre les règles de notre communauté.",
+  "notifications.payment_balance_failed_title": "Échec du paiement du solde",
+  "notifications.payment_balance_failed_body": "Nous n'avons pas pu prélever le solde restant de {amount} {currency} pour votre réservation ({reason}). Veuillez finaliser le paiement ici : {link}.",
+  "notifications.booking_cancelled_no_payment_title": "Réservation annulée - échec du paiement",
+  "notifications.booking_cancelled_no_payment_body": "Votre réservation a été annulée car nous n'avons pas pu prélever le solde restant à temps. Votre acompte n'est pas remboursable. Détails ici : {link}.",
 
   "notifications.booking_rescheduled_customer_title": "Réservation reprogrammée",
   "notifications.booking_rescheduled_customer_body": "Votre réservation a été reprogrammée à une nouvelle heure. Voir les détails ici : {link}.",

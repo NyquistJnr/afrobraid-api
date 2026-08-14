@@ -148,6 +148,7 @@
   "booking.invalid_date_range": "date_to muss am oder nach date_from liegen.",
   "booking.not_reschedulable": "Diese Buchung kann nicht verschoben werden.",
   "booking.reschedule_window_closed": "Diese Buchung kann nicht mehr verschoben werden - der Termin liegt innerhalb von 24 Stunden.",
+  "booking.payment_not_resumable": "Für diese Buchung gibt es keine ausstehende Zahlung, die fortgesetzt werden kann.",
 
   "dashboard.style_other_label": "Sonstige",
 
@@ -166,6 +167,18 @@
   "email.booking_rescheduled_greeting": "Hallo {first_name},",
   "email.booking_rescheduled_body": "Ihr Termin für {style_name} bei {braider_name} wurde von {old_when} auf {new_when} verschoben.",
   "email.booking_rescheduled_reference_label": "Buchungsreferenz",
+
+  "email.balance_payment_failed_subject": "Handlung erforderlich: Ihre Restzahlung für {reference} ist fehlgeschlagen",
+  "email.balance_payment_failed_greeting": "Hallo {first_name},",
+  "email.balance_payment_failed_body_retry": "Wir haben versucht, die verbleibende Restzahlung von {amount} {currency} für Ihren Termin für {style_name} bei {braider_name} am {when} abzubuchen, aber die Zahlung ist fehlgeschlagen ({reason}). Wir versuchen es automatisch erneut - Sie können die Zahlung aber auch jetzt selbst abschließen.",
+  "email.balance_payment_failed_body_auth_required": "Wir benötigen Ihre Bestätigung für die verbleibende Restzahlung von {amount} {currency} für Ihren Termin für {style_name} bei {braider_name} am {when} - Ihre Bank verlangt, dass Sie diese Zahlung selbst freigeben.",
+  "email.balance_payment_failed_cta_label": "Zahlung abschließen",
+  "email.balance_payment_failed_reference_label": "Buchungsreferenz",
+
+  "email.booking_cancelled_no_payment_subject": "Ihre Buchung {reference} wurde storniert",
+  "email.booking_cancelled_no_payment_greeting": "Hallo {first_name},",
+  "email.booking_cancelled_no_payment_body": "Wir konnten die verbleibende Restzahlung für Ihren Termin für {style_name} bei {braider_name} am {when} nicht einziehen, daher wurde diese Buchung storniert. Ihre Anzahlung ist nicht erstattungsfähig und wurde nicht zurückerstattet.",
+  "email.booking_cancelled_no_payment_reference_label": "Buchungsreferenz",
 
   "email.receipt_subject": "Ihre Afrobraid-Quittung für {reference}",
   "email.receipt_greeting": "Hallo {first_name},",
@@ -204,6 +217,10 @@
   "notifications.payment_full_succeeded_body": "Herzlichen Glückwunsch! Wir haben Ihre vollständige Zahlung von {amount} {currency} für Ihre Buchung erhalten - es ist nichts mehr zu bezahlen. Hier können Sie mit Ihrer Braiderin/Ihrem Braider chatten, Ihre Buchung einsehen oder bei Bedarf stornieren: {link}. Bitte denken Sie daran, respektvoll zu sein und unsere Community-Richtlinien einzuhalten.",
   "notifications.payment_balance_succeeded_title": "Restzahlung erhalten",
   "notifications.payment_balance_succeeded_body": "Herzlichen Glückwunsch! Wir haben Ihre abschließende Restzahlung von {amount} {currency} für Ihre Buchung erhalten - alles ist bereit. Hier können Sie mit Ihrer Braiderin/Ihrem Braider chatten oder Ihre Buchung einsehen: {link}. Bitte denken Sie daran, respektvoll zu sein und unsere Community-Richtlinien einzuhalten.",
+  "notifications.payment_balance_failed_title": "Restzahlung fehlgeschlagen",
+  "notifications.payment_balance_failed_body": "Wir konnten die verbleibende Restzahlung von {amount} {currency} für Ihre Buchung nicht abbuchen ({reason}). Bitte schließen Sie die Zahlung hier ab: {link}.",
+  "notifications.booking_cancelled_no_payment_title": "Buchung storniert - Zahlung fehlgeschlagen",
+  "notifications.booking_cancelled_no_payment_body": "Ihre Buchung wurde storniert, da wir die verbleibende Restzahlung nicht rechtzeitig einziehen konnten. Ihre Anzahlung ist nicht erstattungsfähig. Details hier: {link}.",
 
   "notifications.booking_rescheduled_customer_title": "Buchung verschoben",
   "notifications.booking_rescheduled_customer_body": "Ihre Buchung wurde auf einen neuen Termin verschoben. Details ansehen: {link}.",

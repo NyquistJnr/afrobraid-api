@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.bookings import repository as bookings_repo
 from app.modules.bookings.enums import (
+    BalanceChargeState,
     BookingStatus,
     PaymentPurpose,
     PaymentStatus,
@@ -85,6 +86,16 @@ async def _handle_payment_intent_succeeded(db: AsyncSession, queue: ArqRedis, in
         payment_method_id = getattr(intent, "payment_method", None)
         if isinstance(payment_method_id, str):
             booking.stripe_payment_method_id = payment_method_id
+        await db.flush()
+    elif payment.purpose == PaymentPurpose.BALANCE:
+        # Covers the customer-initiated resume path (POST /{id}/pay), whose
+        # on-session confirmation only completes asynchronously via this
+        # webhook. The sweeper's off-session path sets this directly since
+        # confirm=True there resolves synchronously (see
+        # charge_booking_balance_task) - this is then just an idempotent
+        # no-op for that path, since `payment.status == SUCCEEDED` already
+        # returned above on any redelivery.
+        booking.balance_charge_state = BalanceChargeState.SUCCEEDED
         await db.flush()
 
     await db.commit()

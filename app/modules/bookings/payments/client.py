@@ -34,6 +34,20 @@ class StripeWebhookSignatureError(Exception):
     pass
 
 
+class StripeCardError(Exception):
+    """An off-session charge's CardError - raised synchronously by
+    `charge_off_session` (design correction #13: off-session failure is not
+    a webhook-driven state, Stripe returns/raises it inline). `code` is
+    Stripe's decline/error code (e.g. `card_declined`, `expired_card`,
+    `authentication_required`) and is what the balance-charge retry ladder
+    branches on."""
+
+    def __init__(self, *, code: str | None, message: str) -> None:
+        self.code = code
+        self.message = message
+        super().__init__(message)
+
+
 @dataclass(frozen=True)
 class PaymentIntentResult:
     id: str
@@ -105,6 +119,69 @@ async def create_payment_intent(
         )
     except stripe.error.StripeError as exc:
         raise StripeApiError(f"Stripe payment intent creation failed: {exc}") from exc
+
+
+def _charge_off_session_sync(
+    *,
+    amount_minor: int,
+    currency: str,
+    customer_id: str,
+    payment_method_id: str,
+    metadata: dict[str, str],
+    idempotency_key: str,
+) -> PaymentIntentResult:
+    # Unlike the on-session intent above, this one explicitly pins
+    # payment_method_types to ["card"] (design correction #13) - PayPal,
+    # iDEAL, Bancontact etc. give no reusable off-session mandate, so
+    # letting Stripe's dynamic payment methods pick one here would be wrong
+    # even though it's what create_payment_intent wants for the on-session
+    # deposit/full charge.
+    try:
+        intent = stripe.PaymentIntent.create(
+            amount=amount_minor,
+            currency=currency.lower(),
+            customer=customer_id,
+            payment_method=payment_method_id,
+            payment_method_types=["card"],
+            off_session=True,
+            confirm=True,
+            metadata=metadata,
+            idempotency_key=idempotency_key,
+        )
+    except stripe.error.CardError as exc:
+        error = getattr(exc, "error", None)
+        raise StripeCardError(
+            code=getattr(error, "code", None), message=exc.user_message or str(exc)
+        ) from exc
+    return PaymentIntentResult(id=intent.id, client_secret=intent.client_secret)
+
+
+async def charge_off_session(
+    *,
+    amount_minor: int,
+    currency: str,
+    customer_id: str,
+    payment_method_id: str,
+    metadata: dict[str, str],
+    idempotency_key: str,
+) -> PaymentIntentResult:
+    if _IS_TEST_ENV:
+        pi_id = f"pi_test_{uuid.uuid4().hex[:24]}"
+        return PaymentIntentResult(id=pi_id, client_secret=f"{pi_id}_secret_test")
+    try:
+        return await asyncio.to_thread(
+            _charge_off_session_sync,
+            amount_minor=amount_minor,
+            currency=currency,
+            customer_id=customer_id,
+            payment_method_id=payment_method_id,
+            metadata=metadata,
+            idempotency_key=idempotency_key,
+        )
+    except StripeCardError:
+        raise
+    except stripe.error.StripeError as exc:
+        raise StripeApiError(f"Stripe off-session charge failed: {exc}") from exc
 
 
 def construct_payments_webhook_event(payload: bytes, sig_header: str | None) -> dict[str, Any]:

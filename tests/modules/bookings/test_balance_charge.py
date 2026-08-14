@@ -1,0 +1,300 @@
+import uuid
+from datetime import UTC, datetime, timedelta
+
+import pytest
+from httpx import AsyncClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.modules.bookings import repository as bookings_repo
+from app.modules.bookings.enums import BalanceChargeState, BookingStatus, PaymentPurpose, PaymentStatus
+from app.modules.bookings.models import Booking, BookingPayment
+from app.modules.bookings.payments import client as payments_client
+from app.modules.bookings.payments.client import PaymentIntentResult, StripeCardError
+from app.modules.bookings.tasks import (
+    TASK_CHARGE_BOOKING_BALANCE,
+    TASK_SEND_BOOKING_CANCELLED_NO_PAYMENT_EMAIL,
+    TASK_SEND_BALANCE_PAYMENT_FAILED_EMAIL,
+    TASK_SEND_PAYMENT_NOTIFICATION,
+    TASK_SEND_PAYMENT_RECEIPT_EMAIL,
+    charge_booking_balance_task,
+    send_balance_payment_failed_email_task,
+    send_booking_cancelled_no_payment_email_task,
+)
+from app.modules.bookings import cron as bookings_cron
+from app.modules.users.models import UserType
+from tests.helpers import create_user_with_token
+from tests.modules.bookings.helpers import create_bookable_braider
+
+pytestmark = pytest.mark.asyncio
+
+CALC_URL = "/api/v1/booking-calculations"
+BOOKINGS_URL = "/api/v1/bookings"
+
+
+async def _create_deposit_booking(
+    client: AsyncClient, db_session: AsyncSession
+) -> tuple[uuid.UUID, str]:
+    """Books far enough out to get DEPOSIT_THEN_BALANCE, then simulates the
+    deposit's webhook confirmation directly against the DB (bypassing
+    Stripe) so the booking lands CONFIRMED with balance_charge_state
+    SCHEDULED - the state every balance-charge test starts from. Returns
+    (booking_id, customer_access_token)."""
+    braider = await create_bookable_braider(db_session, base_price="180.00", country="AT")
+    _, token = await create_user_with_token(db_session, user_type=UserType.CUSTOMER)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    calc_resp = await client.post(
+        CALC_URL, json={"braider_id": str(braider["braider_id"]), "style_id": str(braider["style_id"])}
+    )
+    calc = calc_resp.json()["data"]
+    starts_at = datetime.now(UTC) + timedelta(days=60)
+
+    resp = await client.post(
+        BOOKINGS_URL,
+        json={
+            "booking_calculation_id": calc["id"],
+            "starts_at": starts_at.isoformat(),
+            "terms_accepted": True,
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 201, resp.text
+    booking_id = uuid.UUID(resp.json()["data"]["id"])
+
+    booking = await db_session.get(Booking, booking_id)
+    payment_result = await db_session.execute(
+        select(BookingPayment).where(BookingPayment.booking_id == booking_id)
+    )
+    payment = payment_result.scalars().one()
+    payment.status = PaymentStatus.SUCCEEDED
+    booking.status = BookingStatus.CONFIRMED
+    booking.confirmed_at = datetime.now(UTC)
+    booking.stripe_payment_method_id = f"pm_test_{uuid.uuid4().hex[:16]}"
+    await db_session.commit()
+
+    return booking_id, token
+
+
+async def _make_due(db_session: AsyncSession, booking_id: uuid.UUID) -> None:
+    booking = await db_session.get(Booking, booking_id)
+    booking.balance_charge_due_at = datetime.now(UTC) - timedelta(minutes=5)
+    await db_session.commit()
+
+
+async def test_sweep_claims_due_balance_charges(
+    client: AsyncClient, db_session: AsyncSession, fake_queue
+):
+    booking_id, _token = await _create_deposit_booking(client, db_session)
+    await _make_due(db_session, booking_id)
+
+    await bookings_cron.sweep_balance_charges_cron({"redis": fake_queue})
+
+    job_kwargs = fake_queue.last_job_kwargs(TASK_CHARGE_BOOKING_BALANCE)
+    assert job_kwargs["booking_id"] == str(booking_id)
+
+    booking = await db_session.get(Booking, booking_id)
+    await db_session.refresh(booking)
+    assert booking.balance_charge_state == BalanceChargeState.DUE
+
+
+async def test_sweep_ignores_not_yet_due_bookings(
+    client: AsyncClient, db_session: AsyncSession, fake_queue
+):
+    booking_id, _token = await _create_deposit_booking(client, db_session)
+
+    await bookings_cron.sweep_balance_charges_cron({"redis": fake_queue})
+
+    assert fake_queue.jobs == []
+    booking = await db_session.get(Booking, booking_id)
+    await db_session.refresh(booking)
+    assert booking.balance_charge_state == BalanceChargeState.SCHEDULED
+
+
+async def test_charge_booking_balance_task_succeeds(
+    client: AsyncClient, db_session: AsyncSession, fake_queue, monkeypatch
+):
+    booking_id, _token = await _create_deposit_booking(client, db_session)
+    await _make_due(db_session, booking_id)
+
+    claimed = await bookings_repo.claim_due_balance_charges(db_session, limit=10)
+    await db_session.commit()
+    assert booking_id in claimed
+
+    fake_pi_id = f"pi_test_{uuid.uuid4().hex[:16]}"
+
+    async def fake_charge_off_session(**kwargs):
+        return PaymentIntentResult(id=fake_pi_id, client_secret=f"{fake_pi_id}_secret")
+
+    monkeypatch.setattr(payments_client, "charge_off_session", fake_charge_off_session)
+
+    await charge_booking_balance_task({"redis": fake_queue}, booking_id=str(booking_id))
+
+    booking = await db_session.get(Booking, booking_id)
+    await db_session.refresh(booking)
+    assert booking.balance_charge_state == BalanceChargeState.SUCCEEDED
+    assert booking.balance_charge_attempts == 1
+
+    result = await db_session.execute(
+        select(BookingPayment).where(
+            BookingPayment.booking_id == booking_id, BookingPayment.purpose == PaymentPurpose.BALANCE
+        )
+    )
+    balance_payment = result.scalars().one()
+    assert balance_payment.status == PaymentStatus.SUCCEEDED
+    assert balance_payment.stripe_payment_intent_id == fake_pi_id
+
+    fake_queue.last_job_kwargs(TASK_SEND_PAYMENT_RECEIPT_EMAIL)
+    fake_queue.last_job_kwargs(TASK_SEND_PAYMENT_NOTIFICATION)
+
+
+async def test_charge_booking_balance_task_schedules_retry_on_decline(
+    client: AsyncClient, db_session: AsyncSession, fake_queue, monkeypatch
+):
+    booking_id, _token = await _create_deposit_booking(client, db_session)
+    await _make_due(db_session, booking_id)
+    await bookings_repo.claim_due_balance_charges(db_session, limit=10)
+    await db_session.commit()
+
+    async def fake_charge_off_session(**kwargs):
+        raise StripeCardError(code="card_declined", message="Your card was declined.")
+
+    monkeypatch.setattr(payments_client, "charge_off_session", fake_charge_off_session)
+
+    await charge_booking_balance_task({"redis": fake_queue}, booking_id=str(booking_id))
+
+    booking = await db_session.get(Booking, booking_id)
+    await db_session.refresh(booking)
+    assert booking.status == BookingStatus.CONFIRMED
+    assert booking.balance_charge_state == BalanceChargeState.SCHEDULED
+    assert booking.balance_charge_attempts == 1
+    assert booking.balance_charge_due_at > datetime.now(UTC) + timedelta(hours=1)
+
+    result = await db_session.execute(
+        select(BookingPayment).where(
+            BookingPayment.booking_id == booking_id, BookingPayment.purpose == PaymentPurpose.BALANCE
+        )
+    )
+    balance_payment = result.scalars().one()
+    assert balance_payment.status == PaymentStatus.FAILED
+    assert balance_payment.failure_code == "card_declined"
+
+    job_kwargs = fake_queue.last_job_kwargs(TASK_SEND_BALANCE_PAYMENT_FAILED_EMAIL)
+    assert job_kwargs["booking_id"] == str(booking_id)
+    assert job_kwargs["failure_code"] == "card_declined"
+
+
+async def test_charge_booking_balance_task_cancels_after_ladder_exhausted(
+    client: AsyncClient, db_session: AsyncSession, fake_queue, monkeypatch
+):
+    booking_id, _token = await _create_deposit_booking(client, db_session)
+
+    async def fake_charge_off_session(**kwargs):
+        raise StripeCardError(code="card_declined", message="Your card was declined.")
+
+    monkeypatch.setattr(payments_client, "charge_off_session", fake_charge_off_session)
+
+    # Pre-exhaust the ladder: 3 prior failed attempts already recorded.
+    booking = await db_session.get(Booking, booking_id)
+    booking.balance_charge_attempts = 3
+    booking.balance_charge_due_at = datetime.now(UTC) - timedelta(minutes=5)
+    await db_session.commit()
+
+    await bookings_repo.claim_due_balance_charges(db_session, limit=10)
+    await db_session.commit()
+
+    await charge_booking_balance_task({"redis": fake_queue}, booking_id=str(booking_id))
+
+    booking = await db_session.get(Booking, booking_id)
+    await db_session.refresh(booking)
+    assert booking.status == BookingStatus.CANCELLED_NO_PAYMENT
+    assert booking.balance_charge_state == BalanceChargeState.ABANDONED
+    assert booking.cancelled_at is not None
+
+    fake_queue.last_job_kwargs(TASK_SEND_BOOKING_CANCELLED_NO_PAYMENT_EMAIL)
+
+
+async def test_charge_booking_balance_task_noop_when_not_due(
+    client: AsyncClient, db_session: AsyncSession, fake_queue, monkeypatch
+):
+    """No FOR UPDATE claim happened (state is still SCHEDULED, not DUE) -
+    e.g. a stray/duplicate task delivery - must be a safe no-op."""
+    booking_id, _token = await _create_deposit_booking(client, db_session)
+
+    async def fail_if_called(**kwargs):
+        raise AssertionError("Stripe should not be called for a non-DUE booking")
+
+    monkeypatch.setattr(payments_client, "charge_off_session", fail_if_called)
+
+    await charge_booking_balance_task({"redis": fake_queue}, booking_id=str(booking_id))
+
+    booking = await db_session.get(Booking, booking_id)
+    await db_session.refresh(booking)
+    assert booking.balance_charge_state == BalanceChargeState.SCHEDULED
+    assert fake_queue.jobs == []
+
+
+async def test_send_balance_payment_failed_email_task_runs(
+    client: AsyncClient, db_session: AsyncSession, fake_queue
+):
+    booking_id, _token = await _create_deposit_booking(client, db_session)
+    await send_balance_payment_failed_email_task(
+        {"redis": fake_queue},
+        booking_id=str(booking_id),
+        failure_code="authentication_required",
+        failure_message="Your bank requires you to authenticate this payment.",
+    )
+    # No assertion error means the email + notification pipeline ran clean.
+
+
+async def test_send_booking_cancelled_no_payment_email_task_runs(
+    client: AsyncClient, db_session: AsyncSession, fake_queue
+):
+    booking_id, _token = await _create_deposit_booking(client, db_session)
+    await send_booking_cancelled_no_payment_email_task({"redis": fake_queue}, booking_id=str(booking_id))
+
+
+async def test_resume_payment_creates_on_session_intent(
+    client: AsyncClient, db_session: AsyncSession
+):
+    booking_id, token = await _create_deposit_booking(client, db_session)
+    booking = await db_session.get(Booking, booking_id)
+
+    resp = await client.post(
+        f"{BOOKINGS_URL}/{booking_id}/pay", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()["data"]
+    balance_payment = next(p for p in data["payments"] if p["purpose"] == "BALANCE")
+    assert balance_payment["client_secret"] is not None
+
+    await db_session.refresh(booking)
+    assert booking.balance_charge_state == BalanceChargeState.IN_PROGRESS
+    assert booking.balance_charge_attempts == 1
+
+
+async def test_resume_payment_rejects_full_upfront_booking(
+    client: AsyncClient, db_session: AsyncSession
+):
+    braider = await create_bookable_braider(db_session, base_price="180.00", country="AT")
+    _, token = await create_user_with_token(db_session, user_type=UserType.CUSTOMER)
+    headers = {"Authorization": f"Bearer {token}"}
+    calc_resp = await client.post(
+        CALC_URL, json={"braider_id": str(braider["braider_id"]), "style_id": str(braider["style_id"])}
+    )
+    calc = calc_resp.json()["data"]
+    starts_at = datetime.now(UTC) + timedelta(hours=10)
+    resp = await client.post(
+        BOOKINGS_URL,
+        json={
+            "booking_calculation_id": calc["id"],
+            "starts_at": starts_at.isoformat(),
+            "terms_accepted": True,
+        },
+        headers=headers,
+    )
+    booking_id = resp.json()["data"]["id"]
+
+    resp = await client.post(f"{BOOKINGS_URL}/{booking_id}/pay", headers=headers)
+    assert resp.status_code == 409
+    assert resp.json()["error"]["code"] == "BOOKING_PAYMENT_NOT_RESUMABLE"
