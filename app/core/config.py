@@ -114,6 +114,18 @@ class Settings(BaseSettings):
     company_address: str = "Musterstraße 1, 10115 Berlin, Germany"
     company_vat_number: str = "DE000000000"
 
+    # Phase 7 hardening: reconciliation is the safety net for a webhook
+    # that never arrived (design correction #7) - a payment PENDING longer
+    # than this, with a Stripe intent already created, gets its real
+    # status re-fetched directly rather than waiting forever.
+    reconcile_pending_payment_after_minutes: int = 60
+    # A webhook event stuck at RECEIVED longer than this means processing
+    # crashed mid-way; FAILED events are always eligible. Capped by
+    # webhook_max_retry_attempts so a permanently broken event doesn't
+    # retry forever.
+    webhook_retry_after_minutes: int = 15
+    webhook_max_retry_attempts: int = 5
+
     hf_api_key: str = ""
     hf_provider: str = "auto"
     hf_model_id: str = "black-forest-labs/FLUX.1-Kontext-dev"

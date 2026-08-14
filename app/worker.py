@@ -24,6 +24,7 @@ from app.modules.bookings.cron import (
     sweep_balance_charges_cron,
 )
 from app.modules.bookings.payments import models as booking_payments_models  # noqa: F401,E402
+from app.modules.bookings.payments.cron import reconcile_stripe_payments_cron, retry_webhook_events_cron
 from app.modules.bookings.receipts import models as booking_receipts_models  # noqa: F401,E402
 from app.modules.bookings.tasks import (
     charge_booking_balance_task,
@@ -102,6 +103,9 @@ class WorkerSettings:
         cron(start_due_bookings_cron, minute={0, 15, 30, 45}),
         cron(complete_due_bookings_cron, minute={0, 15, 30, 45}),
         cron(release_due_payouts_cron, minute={0, 15, 30, 45}),
+        # Phase 7 hardening (plan: every 30m / 10m).
+        cron(reconcile_stripe_payments_cron, minute={0, 30}),
+        cron(retry_webhook_events_cron, minute={0, 10, 20, 30, 40, 50}),
     ]
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
     on_startup = startup

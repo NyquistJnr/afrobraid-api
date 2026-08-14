@@ -17,6 +17,7 @@ from app.modules.auth.router import router as auth_router
 from app.modules.bookings.admin_router import router as admin_bookings_router
 from app.modules.bookings.braider_router import router as braider_bookings_router
 from app.modules.bookings.calculations.router import router as booking_calculations_router
+from app.modules.bookings.dac7.router import router as dac7_router
 from app.modules.bookings.dashboard.admin_router import router as admin_dashboard_router
 from app.modules.bookings.dashboard.router import router as braider_dashboard_router
 from app.modules.bookings.payments.admin_router import router as admin_payments_router
@@ -124,6 +125,7 @@ def create_app() -> FastAPI:
     app.include_router(booking_calculations_router)
     app.include_router(bookings_router)
     app.include_router(receipts_router)
+    app.include_router(dac7_router)
     app.include_router(admin_bookings_router)
     app.include_router(admin_dashboard_router)
     # Must precede braider_bookings_router: both mount at

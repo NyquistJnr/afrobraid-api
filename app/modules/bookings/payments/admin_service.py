@@ -1,18 +1,23 @@
 import uuid
 from datetime import date
 
+from arq import ArqRedis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.currency import Currency
-from app.core.exceptions import InvalidBookingDateRangeError
+from app.core.exceptions import BookingNotFoundError, InvalidBookingDateRangeError, WebhookEventNotFoundError
 from app.core.money import from_minor_units
 from app.core.pagination import PaginationParams
 from app.modules.bookings import repository as bookings_repo
 from app.modules.bookings.enums import PaymentPurpose, PaymentStatus
 from app.modules.bookings.models import Booking, BookingPayment
+from app.modules.bookings.payments import repository as payments_repo
+from app.modules.bookings.payments import service as payments_service
 from app.modules.bookings.payments.schemas import (
     AdminPaymentListItemResponse,
     PaginatedAdminPaymentsResponse,
+    ReconcileBookingResponse,
+    WebhookEventRetryResponse,
 )
 from app.modules.braiders import repository as braiders_repo
 from app.modules.users import repository as users_repo
@@ -120,3 +125,31 @@ async def list_admin_payments(
         has_next=meta.has_next,
         has_previous=meta.has_previous,
     )
+
+
+async def retry_webhook_event(
+    db: AsyncSession, queue: ArqRedis, *, stripe_event_id: str
+) -> WebhookEventRetryResponse:
+    """Admin-triggered version of retry_webhook_events_cron's per-event
+    action - ignores the stuck-age/attempts-cap thresholds since an admin
+    explicitly asked for this one right now."""
+    webhook_row = await payments_repo.get_by_event_id(db, stripe_event_id)
+    if webhook_row is None:
+        raise WebhookEventNotFoundError()
+    await payments_service.reprocess_webhook_event(db, queue, webhook_row)
+    return WebhookEventRetryResponse(stripe_event_id=webhook_row.stripe_event_id, status=webhook_row.status.value)
+
+
+async def reconcile_booking_payments(
+    db: AsyncSession, queue: ArqRedis, *, booking_id: uuid.UUID
+) -> ReconcileBookingResponse:
+    """Admin-triggered version of reconcile_stripe_payments_cron's
+    per-payment action, scoped to one booking - ignores the age threshold
+    since an admin explicitly asked for this right now."""
+    booking = await bookings_repo.get_booking_by_id(db, booking_id)
+    if booking is None:
+        raise BookingNotFoundError()
+    pending = await bookings_repo.list_pending_payments_for_booking(db, booking_id)
+    for payment in pending:
+        await payments_service.reconcile_pending_payment(db, queue, payment)
+    return ReconcileBookingResponse(booking_id=booking_id, payments_checked=len(pending))

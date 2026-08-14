@@ -309,6 +309,39 @@ async def reverse_transfer(*, transfer_id: str, idempotency_key: str) -> Reversa
         raise StripeApiError(f"Stripe transfer reversal failed: {exc}") from exc
 
 
+def _retrieve_payment_intent_sync(payment_intent_id: str) -> Any:
+    return stripe.PaymentIntent.retrieve(payment_intent_id)
+
+
+async def retrieve_payment_intent(payment_intent_id: str) -> Any:
+    """Reconciliation's core lookup - the real current status of a
+    PaymentIntent, independent of whether its webhook ever arrived. No
+    test-env short-circuit fake here (unlike the create_* functions):
+    there's no sensible generic default for "what did Stripe actually
+    decide", so reconciliation tests monkeypatch this directly, same
+    convention as every other alternate-path test in this module."""
+    try:
+        return await asyncio.to_thread(_retrieve_payment_intent_sync, payment_intent_id)
+    except stripe.error.StripeError as exc:
+        raise StripeApiError(f"Stripe payment intent retrieval failed: {exc}") from exc
+
+
+def _retrieve_payments_event_sync(event_id: str) -> Any:
+    return stripe.Event.retrieve(event_id)
+
+
+async def retrieve_payments_event(event_id: str) -> Any:
+    """Re-fetches a webhook event by id for retry_webhook_events_cron -
+    fresher and more reliably shaped than trying to reconstruct dot-access
+    attributes from the stored JSON payload. Scoped to the platform
+    account's own events (payment_intent.*, charge.dispute.created); the
+    Connect account's webhook stream isn't part of this reconciliation."""
+    try:
+        return await asyncio.to_thread(_retrieve_payments_event_sync, event_id)
+    except stripe.error.StripeError as exc:
+        raise StripeApiError(f"Stripe event retrieval failed: {exc}") from exc
+
+
 def construct_payments_webhook_event(payload: bytes, sig_header: str | None) -> dict[str, Any]:
     if not sig_header:
         raise StripeWebhookSignatureError("Missing Stripe-Signature header")

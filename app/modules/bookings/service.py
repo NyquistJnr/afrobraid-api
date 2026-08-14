@@ -17,6 +17,7 @@ from app.core.exceptions import (
     BookingCalculationExpiredError,
     BookingCalculationNotFoundError,
     BookingCancellationWindowClosedError,
+    BookingNoShowNotAllowedError,
     BookingNotCancellableError,
     BookingNotFoundError,
     BookingNotReschedulableError,
@@ -713,6 +714,31 @@ async def cancel_booking_by_braider(
 
     await queue.enqueue_job(TASK_SEND_BOOKING_CANCELLED_BY_BRAIDER_EMAIL, booking_id=str(booking.id))
     await queue.enqueue_job(TASK_SEND_BOOKING_CANCELLED_BY_BRAIDER_NOTIFICATION, booking_id=str(booking.id))
+
+    return await _to_response(db, booking, locale=locale)
+
+
+async def mark_booking_no_show(
+    db: AsyncSession, booking_id: uuid.UUID, *, user_id: uuid.UUID, locale: str
+) -> BookingResponse:
+    """Braider-only - only they're in a position to know whether the
+    customer actually showed up. No refund, no payout change: NO_SHOW
+    joins COMPLETED as an equally-payable terminal state (already true of
+    release_due_payouts_cron's eligibility query since Phase 5), so the
+    braider is still paid in full - the deposit/balance already collected
+    isn't customer-fault-forgiven the way a customer cancellation is."""
+    profile = await braiders_repo.get_profile_by_user_id(db, user_id)
+    booking = await bookings_repo.get_booking_by_id_for_update(db, booking_id)
+    if booking is None or profile is None or booking.braider_id != profile.id:
+        raise BookingNotFoundError()
+
+    if booking.status not in (BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS):
+        raise BookingNoShowNotAllowedError()
+    if datetime.now(UTC) < booking.starts_at:
+        raise BookingNoShowNotAllowedError()
+
+    booking.status = BookingStatus.NO_SHOW
+    await db.commit()
 
     return await _to_response(db, booking, locale=locale)
 

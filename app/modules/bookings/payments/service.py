@@ -17,7 +17,10 @@ from app.modules.bookings.enums import (
     PaymentStatus,
     WebhookEventSource,
 )
+from app.modules.bookings.payments import client as payments_client
 from app.modules.bookings.payments import repository as payments_repo
+from app.modules.bookings.models import BookingPayment
+from app.modules.bookings.payments.models import StripeWebhookEvent
 from app.modules.bookings.receipts import service as receipts_service
 from app.modules.bookings.tasks import (
     TASK_SEND_BOOKING_CONFIRMED_EMAIL,
@@ -177,15 +180,38 @@ async def _handle_charge_dispute_created(db: AsyncSession, queue: ArqRedis, disp
     )
 
 
+async def _dispatch_event(
+    db: AsyncSession, queue: ArqRedis, *, event: Any, webhook_row: StripeWebhookEvent
+) -> None:
+    """Shared by the live webhook route and retry_webhook_events_cron - the
+    same handler must run whether the event arrived just now or is being
+    replayed minutes/hours later."""
+    try:
+        stripe_object = event.data.object
+        if event.type == "payment_intent.succeeded":
+            await _handle_payment_intent_succeeded(db, queue, stripe_object)
+        elif event.type == "payment_intent.payment_failed":
+            await _handle_payment_intent_failed(db, stripe_object)
+        elif event.type == "charge.dispute.created":
+            await _handle_charge_dispute_created(db, queue, stripe_object)
+        await payments_repo.mark_processed(db, webhook_row)
+        await db.commit()
+    except Exception as exc:
+        await db.rollback()
+        await payments_repo.mark_failed(db, webhook_row, error=str(exc))
+        await db.commit()
+        raise
+
+
 async def handle_webhook_event(
     db: AsyncSession, queue: ArqRedis, *, event: Any, source: WebhookEventSource
 ) -> None:
     """Insert-first dedupe: the `stripe_webhook_events` PK on `stripe_event_id`
     makes a redelivered event a no-op IntegrityError here rather than a
     second processing pass. This stops *duplicate* delivery; it is
-    deliberately not full durability (design correction #7) - a
-    `reconcile_stripe_payments` sweep (Phase 7) is what recovers a webhook
-    that never arrived at all."""
+    deliberately not full durability (design correction #7) -
+    reconcile_stripe_payments_cron and retry_webhook_events_cron are what
+    recover a webhook that never arrived, or crashed mid-processing."""
     try:
         webhook_row = await payments_repo.create_received(
             db,
@@ -204,18 +230,30 @@ async def handle_webhook_event(
         await db.commit()
         return
 
-    try:
-        stripe_object = event.data.object
-        if event.type == "payment_intent.succeeded":
-            await _handle_payment_intent_succeeded(db, queue, stripe_object)
-        elif event.type == "payment_intent.payment_failed":
-            await _handle_payment_intent_failed(db, stripe_object)
-        elif event.type == "charge.dispute.created":
-            await _handle_charge_dispute_created(db, queue, stripe_object)
-        await payments_repo.mark_processed(db, webhook_row)
+    await _dispatch_event(db, queue, event=event, webhook_row=webhook_row)
+
+
+async def reprocess_webhook_event(db: AsyncSession, queue: ArqRedis, webhook_row: StripeWebhookEvent) -> None:
+    """retry_webhook_events_cron's per-event action, and the admin manual
+    retry endpoint's. Re-fetches the event fresh from Stripe (more
+    reliably shaped than reconstructing dot-access attributes from the
+    stored JSON payload) rather than replaying the stored payload."""
+    await payments_repo.increment_attempts(db, webhook_row)
+    event = await payments_client.retrieve_payments_event(webhook_row.stripe_event_id)
+    if event.type not in _HANDLED_EVENT_TYPES:
+        await payments_repo.mark_ignored(db, webhook_row)
         await db.commit()
-    except Exception as exc:
-        await db.rollback()
-        await payments_repo.mark_failed(db, webhook_row, error=str(exc))
-        await db.commit()
-        raise
+        return
+    await _dispatch_event(db, queue, event=event, webhook_row=webhook_row)
+
+
+async def reconcile_pending_payment(db: AsyncSession, queue: ArqRedis, payment: BookingPayment) -> None:
+    """reconcile_stripe_payments_cron's per-payment action, and the admin
+    manual reconcile endpoint's. A payment that's still genuinely in
+    flight at Stripe (requires_action, processing) is left alone - this
+    only acts once Stripe has reached a final state."""
+    intent = await payments_client.retrieve_payment_intent(payment.stripe_payment_intent_id)
+    if intent.status == "succeeded":
+        await _handle_payment_intent_succeeded(db, queue, intent)
+    elif intent.status in ("canceled", "requires_payment_method"):
+        await _handle_payment_intent_failed(db, intent)

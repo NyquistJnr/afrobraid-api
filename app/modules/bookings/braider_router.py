@@ -97,3 +97,24 @@ async def cancel_braider_booking(
         db, queue, booking_id, user_id=user.id, reason=payload.reason, locale=_locale(request)
     )
     return APIResponse(data=result)
+
+
+@router.post(
+    "/{booking_id}/no-show",
+    response_model=APIResponse[BookingResponse],
+    summary="Report the customer as a no-show",
+    description=(
+        "Braider-only. Only available once the appointment time has "
+        "passed on a CONFIRMED or IN_PROGRESS booking. No refund - the "
+        "braider is still paid in full at the normal payout delay, same "
+        "as a COMPLETED booking."
+    ),
+)
+async def mark_booking_no_show(
+    booking_id: uuid.UUID,
+    request: Request,
+    user: User = Depends(_require_braider),
+    db: AsyncSession = Depends(get_db),
+) -> APIResponse[BookingResponse]:
+    result = await service.mark_booking_no_show(db, booking_id, user_id=user.id, locale=_locale(request))
+    return APIResponse(data=result)

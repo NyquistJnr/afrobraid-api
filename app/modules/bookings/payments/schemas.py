@@ -78,3 +78,13 @@ class PaginatedAdminPaymentsResponse(BaseModel):
     total_pages: int
     has_next: bool
     has_previous: bool
+
+
+class WebhookEventRetryResponse(BaseModel):
+    stripe_event_id: str
+    status: str
+
+
+class ReconcileBookingResponse(BaseModel):
+    booking_id: uuid.UUID
+    payments_checked: int

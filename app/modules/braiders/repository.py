@@ -47,6 +47,28 @@ async def list_display_names(
     }
 
 
+async def list_contact_info(
+    db: AsyncSession, braider_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, dict[str, str]]:
+    """Batched braider name + email lookup - for admin-facing exports
+    (DAC7 report) that need the seller's identity, not just a display
+    name."""
+    if not braider_ids:
+        return {}
+    result = await db.execute(
+        select(BraiderProfile.id, BraiderProfile.business_name, User.first_name, User.last_name, User.email)
+        .join(User, User.id == BraiderProfile.user_id)
+        .where(BraiderProfile.id.in_(braider_ids))
+    )
+    return {
+        row.id: {
+            "name": row.business_name or f"{row.first_name} {row.last_name or ''}".strip(),
+            "email": row.email,
+        }
+        for row in result.all()
+    }
+
+
 async def list_admin_display_info(
     db: AsyncSession, braider_ids: list[uuid.UUID]
 ) -> dict[uuid.UUID, dict[str, str | uuid.UUID]]:

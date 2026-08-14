@@ -151,10 +151,13 @@
   "booking.payment_not_resumable": "There's no outstanding payment on this booking to resume.",
   "booking.not_cancellable": "This booking can't be cancelled.",
   "booking.cancellation_window_closed": "This booking can no longer be cancelled - it's within 24 hours of the appointment.",
+  "booking.no_show_not_allowed": "This booking can't be reported as a no-show - either it isn't confirmed, or the appointment hasn't happened yet.",
 
   "dashboard.style_other_label": "Other",
 
   "payment.webhook_metadata_missing": "Stripe webhook event is missing required metadata.",
+  "payment.webhook_event_not_found": "This webhook event doesn't exist.",
+  "dac7.invalid_quarter": "quarter must be between 1 and 4.",
 
   "receipt.not_found": "This receipt doesn't exist.",
 

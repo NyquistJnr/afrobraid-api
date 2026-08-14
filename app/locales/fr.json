@@ -151,10 +151,13 @@
   "booking.payment_not_resumable": "Il n'y a aucun paiement en attente à reprendre pour cette réservation.",
   "booking.not_cancellable": "Cette réservation ne peut pas être annulée.",
   "booking.cancellation_window_closed": "Cette réservation ne peut plus être annulée - le rendez-vous est dans moins de 24 heures.",
+  "booking.no_show_not_allowed": "Cette réservation ne peut pas être signalée comme absence - soit elle n'est pas confirmée, soit le rendez-vous n'a pas encore eu lieu.",
 
   "dashboard.style_other_label": "Autre",
 
   "payment.webhook_metadata_missing": "L'événement webhook Stripe ne contient pas les métadonnées requises.",
+  "payment.webhook_event_not_found": "Cet événement webhook n'existe pas.",
+  "dac7.invalid_quarter": "quarter doit être compris entre 1 et 4.",
 
   "receipt.not_found": "Ce reçu n'existe pas.",
 

@@ -560,10 +560,33 @@ class BookingCancellationWindowClosedError(AppError):
     message_key = "booking.cancellation_window_closed"
 
 
+class BookingNoShowNotAllowedError(AppError):
+    """Braider-only. Only CONFIRMED/IN_PROGRESS bookings whose appointment
+    time has actually passed can be reported as a no-show - a braider
+    can't preempt an appointment that hasn't happened yet, and an already
+    COMPLETED/cancelled booking is past the point this applies."""
+
+    status_code = status.HTTP_409_CONFLICT
+    code = "BOOKING_NO_SHOW_NOT_ALLOWED"
+    message_key = "booking.no_show_not_allowed"
+
+
 class ReceiptNotFoundError(AppError):
     status_code = status.HTTP_404_NOT_FOUND
     code = "RECEIPT_NOT_FOUND"
     message_key = "receipt.not_found"
+
+
+class InvalidDac7QuarterError(AppError):
+    status_code = status.HTTP_400_BAD_REQUEST
+    code = "INVALID_DAC7_QUARTER"
+    message_key = "dac7.invalid_quarter"
+
+
+class WebhookEventNotFoundError(AppError):
+    status_code = status.HTTP_404_NOT_FOUND
+    code = "WEBHOOK_EVENT_NOT_FOUND"
+    message_key = "payment.webhook_event_not_found"
 
 
 class BookingPaymentNotResumableError(AppError):

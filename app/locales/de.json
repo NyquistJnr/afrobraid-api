@@ -151,10 +151,13 @@
   "booking.payment_not_resumable": "Für diese Buchung gibt es keine ausstehende Zahlung, die fortgesetzt werden kann.",
   "booking.not_cancellable": "Diese Buchung kann nicht storniert werden.",
   "booking.cancellation_window_closed": "Diese Buchung kann nicht mehr storniert werden - der Termin liegt innerhalb von 24 Stunden.",
+  "booking.no_show_not_allowed": "Diese Buchung kann nicht als Nichterscheinen gemeldet werden - entweder ist sie nicht bestätigt, oder der Termin hat noch nicht stattgefunden.",
 
   "dashboard.style_other_label": "Sonstige",
 
   "payment.webhook_metadata_missing": "Dem Stripe-Webhook-Ereignis fehlen erforderliche Metadaten.",
+  "payment.webhook_event_not_found": "Dieses Webhook-Ereignis existiert nicht.",
+  "dac7.invalid_quarter": "quarter muss zwischen 1 und 4 liegen.",
 
   "receipt.not_found": "Diese Quittung existiert nicht.",
 

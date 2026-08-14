@@ -179,6 +179,39 @@ async def get_pending_payment(
     return result.scalars().first()
 
 
+async def list_stale_pending_payments(
+    db: AsyncSession, *, older_than: datetime, limit: int
+) -> list[BookingPayment]:
+    """Reconciliation's target set (design correction #7's safety net) -
+    a payment whose PaymentIntent was created but has sat PENDING past
+    `reconcile_pending_payment_after_minutes` with no webhook (success or
+    failure) ever having landed."""
+    result = await db.execute(
+        select(BookingPayment)
+        .where(
+            BookingPayment.status == PaymentStatus.PENDING,
+            BookingPayment.stripe_payment_intent_id.is_not(None),
+            BookingPayment.created_at <= older_than,
+        )
+        .limit(limit)
+    )
+    return list(result.scalars().all())
+
+
+async def list_pending_payments_for_booking(db: AsyncSession, booking_id: uuid.UUID) -> list[BookingPayment]:
+    """Admin-triggered reconciliation for one booking - unlike the cron,
+    ignores the age threshold since an admin explicitly asked for this
+    right now."""
+    result = await db.execute(
+        select(BookingPayment).where(
+            BookingPayment.booking_id == booking_id,
+            BookingPayment.status == PaymentStatus.PENDING,
+            BookingPayment.stripe_payment_intent_id.is_not(None),
+        )
+    )
+    return list(result.scalars().all())
+
+
 def _apply_common_filters(
     stmt,
     *,
@@ -1507,3 +1540,31 @@ async def create_payment(
     db.add(payment)
     await db.flush()
     return payment
+
+
+async def get_dac7_aggregates(db: AsyncSession, *, period_start: datetime, period_end: datetime):
+    """Per (braider, country, currency) totals for DAC7/PStTG reporting -
+    "relevant activities" (bookings) that actually delivered, bounded by
+    `ends_at` (when the service was rendered, not when it was booked or
+    paid). COMPLETED and NO_SHOW both count - a no-show still earned the
+    braider their share. Grouped by country/currency too since a braider
+    can operate in more than one (the plan's per-booking country/currency
+    snapshot already supports this)."""
+    stmt = (
+        select(
+            Booking.braider_id,
+            Booking.country,
+            Booking.currency,
+            func.count(Booking.id).label("booking_count"),
+            func.sum(Booking.braider_share_total).label("gross_consideration"),
+            func.sum(Booking.platform_fee).label("platform_fees_withheld"),
+        )
+        .where(
+            Booking.status.in_([BookingStatus.COMPLETED, BookingStatus.NO_SHOW]),
+            Booking.ends_at >= period_start,
+            Booking.ends_at < period_end,
+        )
+        .group_by(Booking.braider_id, Booking.country, Booking.currency)
+    )
+    result = await db.execute(stmt)
+    return result.all()
