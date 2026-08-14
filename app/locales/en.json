@@ -152,11 +152,6 @@
   "dashboard.style_other_label": "Other",
 
   "payment.webhook_metadata_missing": "Stripe webhook event is missing required metadata.",
-  "payment.paypal_api_unavailable": "We couldn't reach PayPal. Please try again shortly.",
-  "payment.paypal_invalid_webhook_signature": "Invalid webhook signature.",
-  "payment.not_found": "No payment was found for this booking.",
-  "payment.not_capturable": "This booking's payment can't be captured.",
-  "payment.paypal_declined": "PayPal declined this payment. Please try again or use a different payment method.",
 
   "reviews.not_eligible": "You can only review a braider after a booking with them that's reached a successful payment.",
   "reviews.not_found": "This review doesn't exist.",

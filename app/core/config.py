@@ -75,11 +75,6 @@ class Settings(BaseSettings):
     stripe_payments_webhook_secret: str = ""
     stripe_api_version: str = "2024-06-20"
 
-    paypal_client_id: str = ""
-    paypal_client_secret: str = ""
-    paypal_webhook_id: str = ""
-    paypal_api_base_url: str = "https://api-m.sandbox.paypal.com"
-
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
     twilio_verify_service_sid: str = ""

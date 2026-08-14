@@ -53,11 +53,15 @@ def _create_payment_intent_sync(
     metadata: dict[str, str],
     off_session_setup: bool,
 ) -> PaymentIntentResult:
+    # Deliberately no `payment_method_types` here - omitting it turns on
+    # Stripe's dynamic payment methods, which shows/ranks whichever methods
+    # are enabled in the Dashboard (Settings > Payment methods) for this
+    # customer's currency/location/amount, e.g. PayPal for EU-based
+    # customers, with no backend changes needed to add or remove one.
     kwargs: dict[str, Any] = {
         "amount": amount_minor,
         "currency": currency.lower(),
         "customer": customer_id,
-        "payment_method_types": ["card"],
         "metadata": metadata,
     }
     if off_session_setup:

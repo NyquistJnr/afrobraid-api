@@ -114,30 +114,6 @@ async def get_booking(
 
 
 @router.post(
-    "/{booking_id}/payments/paypal/capture",
-    response_model=APIResponse[BookingResponse],
-    summary="Capture a booking's approved PayPal order",
-    description=(
-        "Call this after the customer approves the PayPal order client-side. "
-        "Captures the order server-side and confirms the booking - never "
-        "trusts a client-reported approval on its own. Idempotent: calling "
-        "this again after a successful capture just returns the booking."
-    ),
-)
-async def capture_paypal_payment(
-    booking_id: uuid.UUID,
-    request: Request,
-    user: User = Depends(_require_customer),
-    db: AsyncSession = Depends(get_db),
-    queue: ArqRedis = Depends(get_task_queue),
-) -> APIResponse[BookingResponse]:
-    result = await service.capture_paypal_payment(
-        db, queue, booking_id, user=user, locale=_locale(request)
-    )
-    return APIResponse(data=result)
-
-
-@router.post(
     "/{booking_id}/reschedule",
     response_model=APIResponse[BookingResponse],
     summary="Reschedule a confirmed booking for free",

@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.bookings.enums import WebhookEventSource, WebhookEventStatus
-from app.modules.bookings.payments.models import PaypalWebhookEvent, StripeWebhookEvent
+from app.modules.bookings.payments.models import StripeWebhookEvent
 
 
 async def get_by_event_id(db: AsyncSession, stripe_event_id: str) -> StripeWebhookEvent | None:
@@ -43,42 +43,6 @@ async def mark_ignored(db: AsyncSession, event: StripeWebhookEvent) -> None:
 
 
 async def mark_failed(db: AsyncSession, event: StripeWebhookEvent, *, error: str) -> None:
-    event.status = WebhookEventStatus.FAILED
-    event.last_error = error[:500]
-    await db.flush()
-
-
-async def get_by_paypal_event_id(db: AsyncSession, paypal_event_id: str) -> PaypalWebhookEvent | None:
-    return await db.get(PaypalWebhookEvent, paypal_event_id)
-
-
-async def create_paypal_received(
-    db: AsyncSession, *, paypal_event_id: str, event_type: str, payload: str
-) -> PaypalWebhookEvent:
-    row = PaypalWebhookEvent(
-        paypal_event_id=paypal_event_id,
-        event_type=event_type,
-        status=WebhookEventStatus.RECEIVED,
-        payload=payload,
-    )
-    db.add(row)
-    await db.flush()
-    return row
-
-
-async def mark_paypal_processed(db: AsyncSession, event: PaypalWebhookEvent) -> None:
-    event.status = WebhookEventStatus.PROCESSED
-    event.processed_at = datetime.now(UTC)
-    await db.flush()
-
-
-async def mark_paypal_ignored(db: AsyncSession, event: PaypalWebhookEvent) -> None:
-    event.status = WebhookEventStatus.IGNORED
-    event.processed_at = datetime.now(UTC)
-    await db.flush()
-
-
-async def mark_paypal_failed(db: AsyncSession, event: PaypalWebhookEvent, *, error: str) -> None:
     event.status = WebhookEventStatus.FAILED
     event.last_error = error[:500]
     await db.flush()

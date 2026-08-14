@@ -17,8 +17,6 @@ from app.core.exceptions import (
     BookingCalculationNotFoundError,
     BookingNotFoundError,
     BookingNotReschedulableError,
-    BookingPaymentNotCapturableError,
-    BookingPaymentNotFoundError,
     BookingPriceDriftError,
     BookingRescheduleWindowClosedError,
     BookingSlotUnavailableError,
@@ -26,8 +24,6 @@ from app.core.exceptions import (
     BraiderNotFoundError,
     BraiderNotPayableError,
     InvalidBookingDateRangeError,
-    PaypalApiUnavailableError,
-    PaypalPaymentDeclinedError,
     UserNotFoundError,
 )
 from app.core.i18n import localize_field
@@ -43,15 +39,11 @@ from app.modules.bookings.enums import (
     BalanceChargeState,
     BookingItemType,
     BookingStatus,
-    PaymentProvider,
     PaymentPurpose,
     PaymentSchedule,
-    PaymentStatus,
 )
 from app.modules.bookings.models import Booking, BookingItem, BookingPayment
 from app.modules.bookings.payments import client as payments_client
-from app.modules.bookings.payments import paypal_client
-from app.modules.bookings.payments import service as payments_service
 from app.modules.bookings.pricing import PricedLine
 from app.modules.bookings.schemas import (
     AdminBarChartPoint,
@@ -206,15 +198,13 @@ async def create_booking(
         )
         balance_charge_state = BalanceChargeState.SCHEDULED
 
-    stripe_customer_id: str | None = None
-    if data.payment_provider == PaymentProvider.STRIPE:
-        stripe_customer_id = user.stripe_customer_id
-        if stripe_customer_id is None:
-            stripe_customer_id = await payments_client.create_customer(
-                email=user.email, name=f"{user.first_name} {user.last_name or ''}".strip()
-            )
-            user.stripe_customer_id = stripe_customer_id
-            await db.flush()
+    stripe_customer_id = user.stripe_customer_id
+    if stripe_customer_id is None:
+        stripe_customer_id = await payments_client.create_customer(
+            email=user.email, name=f"{user.first_name} {user.last_name or ''}".strip()
+        )
+        user.stripe_customer_id = stripe_customer_id
+        await db.flush()
 
     reference = _generate_reference()
 
@@ -312,31 +302,14 @@ async def create_booking(
         result.braider_share_total if purpose == PaymentPurpose.FULL else result.braider_share_deposit
     )
     transfer_group = f"booking_{booking.id}"
-    idempotency_key = f"booking:{booking.id}:{purpose.value}:1"
 
-    client_secret: str | None = None
-    stripe_payment_intent_id: str | None = None
-    paypal_order_id: str | None = None
-
-    if data.payment_provider == PaymentProvider.STRIPE:
-        intent = await payments_client.create_payment_intent(
-            amount_minor=to_minor_units(amount),
-            currency=currency.value,
-            customer_id=stripe_customer_id,
-            metadata={"booking_id": str(booking.id), "purpose": purpose.value},
-            off_session_setup=(result.payment_schedule == PaymentSchedule.DEPOSIT_THEN_BALANCE),
-        )
-        client_secret = intent.client_secret
-        stripe_payment_intent_id = intent.id
-    else:
-        order = await paypal_client.create_order(
-            amount_minor=to_minor_units(amount),
-            currency=currency.value,
-            booking_id=str(booking.id),
-            purpose=purpose.value,
-            idempotency_key=idempotency_key,
-        )
-        paypal_order_id = order.id
+    intent = await payments_client.create_payment_intent(
+        amount_minor=to_minor_units(amount),
+        currency=currency.value,
+        customer_id=stripe_customer_id,
+        metadata={"booking_id": str(booking.id), "purpose": purpose.value},
+        off_session_setup=(result.payment_schedule == PaymentSchedule.DEPOSIT_THEN_BALANCE),
+    )
 
     payment = await bookings_repo.create_payment(
         db,
@@ -345,10 +318,8 @@ async def create_booking(
         amount_minor=to_minor_units(amount),
         currency=currency,
         braider_share_minor=to_minor_units(braider_share),
-        provider=data.payment_provider,
-        stripe_payment_intent_id=stripe_payment_intent_id,
-        paypal_order_id=paypal_order_id,
-        idempotency_key=idempotency_key,
+        stripe_payment_intent_id=intent.id,
+        idempotency_key=f"booking:{booking.id}:{purpose.value}:1",
         is_off_session=(result.payment_schedule == PaymentSchedule.DEPOSIT_THEN_BALANCE),
         transfer_group=transfer_group,
     )
@@ -359,7 +330,7 @@ async def create_booking(
 
     await db.commit()
 
-    return await _to_response(db, booking, locale=locale, client_secret=client_secret, payment=payment)
+    return await _to_response(db, booking, locale=locale, client_secret=intent.client_secret, payment=payment)
 
 
 async def _to_response(
@@ -414,9 +385,7 @@ async def _to_response(
                 status=p.status,
                 amount=from_minor_units(p.amount_minor),
                 currency=p.currency,
-                provider=p.provider,
                 client_secret=client_secret if payment is not None and p.id == payment.id else None,
-                paypal_order_id=p.paypal_order_id if payment is not None and p.id == payment.id else None,
             )
             for p in payments
         ],
@@ -445,55 +414,6 @@ async def get_booking(db: AsyncSession, booking_id: uuid.UUID, *, user: User, lo
     if booking is None or booking.customer_id != user.id:
         raise BookingNotFoundError()
     return await _to_response(db, booking, locale=locale)
-
-
-async def capture_paypal_payment(
-    db: AsyncSession, queue: ArqRedis, booking_id: uuid.UUID, *, user: User, locale: str
-) -> BookingResponse:
-    """Customer-triggered capture of a PayPal order after they approved it on
-    PayPal's side - the backend never trusts a client-reported "it worked",
-    it captures server-side and only then finalizes the payment. The
-    `PAYMENT.CAPTURE.*` webhook (`payments/paypal_webhook.py`) is a
-    reconciliation safety net for this same finalization, not the primary
-    path - see `payments_service.finalize_payment_succeeded`."""
-    booking = await bookings_repo.get_booking_by_id(db, booking_id)
-    if booking is None or booking.customer_id != user.id:
-        raise BookingNotFoundError()
-
-    payment = await bookings_repo.get_latest_payment(db, booking_id)
-    if payment is None:
-        raise BookingPaymentNotFoundError()
-    if payment.provider != PaymentProvider.PAYPAL or payment.paypal_order_id is None:
-        raise BookingPaymentNotCapturableError()
-    if payment.status == PaymentStatus.SUCCEEDED:
-        return await _to_response(db, booking, locale=locale, payment=payment)
-    if payment.status != PaymentStatus.PENDING:
-        raise BookingPaymentNotCapturableError()
-
-    try:
-        result = await paypal_client.capture_order(payment.paypal_order_id)
-    except paypal_client.PaypalApiError as exc:
-        raise PaypalApiUnavailableError() from exc
-
-    if result.status != "COMPLETED":
-        await payments_service.finalize_payment_failed(
-            db,
-            payment,
-            failure_code="CAPTURE_DENIED",
-            failure_message=f"PayPal capture status: {result.status}",
-        )
-        raise PaypalPaymentDeclinedError()
-
-    await payments_service.finalize_payment_succeeded(
-        db,
-        queue,
-        payment,
-        provider_order_id=payment.paypal_order_id,
-        provider_charge_id=result.capture_id,
-    )
-
-    await db.refresh(booking)
-    return await _to_response(db, booking, locale=locale, payment=payment)
 
 
 async def reschedule_booking(
