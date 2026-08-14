@@ -21,6 +21,10 @@ from app.modules.bookings.payments import models as booking_payments_models  # n
 from app.modules.bookings.tasks import (
     charge_booking_balance_task,
     send_balance_payment_failed_email_task,
+    send_booking_cancelled_by_braider_email_task,
+    send_booking_cancelled_by_braider_notification_task,
+    send_booking_cancelled_by_customer_email_task,
+    send_booking_cancelled_by_customer_notification_task,
     send_booking_cancelled_no_payment_email_task,
     send_booking_confirmed_email_task,
     send_booking_rescheduled_email_task,
@@ -69,6 +73,10 @@ class WorkerSettings:
         charge_booking_balance_task,
         send_balance_payment_failed_email_task,
         send_booking_cancelled_no_payment_email_task,
+        send_booking_cancelled_by_customer_email_task,
+        send_booking_cancelled_by_customer_notification_task,
+        send_booking_cancelled_by_braider_email_task,
+        send_booking_cancelled_by_braider_notification_task,
     ]
     cron_jobs = [
         # Hourly, well ahead of the 2h calculation TTL - see

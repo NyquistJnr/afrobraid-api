@@ -17,6 +17,8 @@ from app.modules.users import repository as users_repo
 from app.shared.email.client import send_email
 from app.shared.email.templates.booking_email import (
     render_balance_payment_failed_email,
+    render_booking_cancelled_by_braider_email,
+    render_booking_cancelled_by_customer_email,
     render_booking_cancelled_no_payment_email,
     render_booking_confirmed_email,
     render_booking_rescheduled_email,
@@ -35,6 +37,10 @@ TASK_SEND_BOOKING_RESCHEDULED_NOTIFICATION = "send_booking_rescheduled_notificat
 TASK_CHARGE_BOOKING_BALANCE = "charge_booking_balance_task"
 TASK_SEND_BALANCE_PAYMENT_FAILED_EMAIL = "send_balance_payment_failed_email_task"
 TASK_SEND_BOOKING_CANCELLED_NO_PAYMENT_EMAIL = "send_booking_cancelled_no_payment_email_task"
+TASK_SEND_BOOKING_CANCELLED_BY_CUSTOMER_EMAIL = "send_booking_cancelled_by_customer_email_task"
+TASK_SEND_BOOKING_CANCELLED_BY_CUSTOMER_NOTIFICATION = "send_booking_cancelled_by_customer_notification_task"
+TASK_SEND_BOOKING_CANCELLED_BY_BRAIDER_EMAIL = "send_booking_cancelled_by_braider_email_task"
+TASK_SEND_BOOKING_CANCELLED_BY_BRAIDER_NOTIFICATION = "send_booking_cancelled_by_braider_notification_task"
 
 _PAYMENT_NOTIFICATION = {
     PaymentPurpose.DEPOSIT: (
@@ -514,3 +520,153 @@ async def send_booking_cancelled_no_payment_email_task(ctx: dict, *, booking_id:
         await db.refresh(notification)
         await notifications_service.publish_realtime(notification, locale=booking.locale)
         logger.info("Sent cancelled-no-payment email for %s to %s", booking.reference, customer.email)
+
+
+async def send_booking_cancelled_by_customer_email_task(ctx: dict, *, booking_id: str) -> None:
+    async with AsyncSessionLocal() as db:
+        booking = await bookings_repo.get_booking_by_id(db, uuid.UUID(booking_id))
+        if booking is None:
+            logger.warning("Booking %s not found for cancelled-by-customer email", booking_id)
+            return
+
+        customer = await users_repo.get_user_by_id(db, booking.customer_id)
+        style = await styles_repo.get_style_by_id(db, booking.style_id)
+        braider_profile = await braiders_repo.get_profile_by_id(db, booking.braider_id)
+        if customer is None:
+            return
+
+        style_name = (style.name_en if style else None) or "your appointment"
+        braider_name = (braider_profile.business_name if braider_profile else None) or "your braider"
+
+        subject, html = render_booking_cancelled_by_customer_email(
+            first_name=customer.first_name,
+            reference=booking.reference,
+            style_name=style_name,
+            braider_name=braider_name,
+            starts_at=booking.starts_at,
+            locale=booking.locale,
+        )
+        await send_email(to=customer.email, subject=subject, html=html)
+        logger.info("Sent cancelled-by-customer email for %s to %s", booking.reference, customer.email)
+
+
+async def send_booking_cancelled_by_customer_notification_task(ctx: dict, *, booking_id: str) -> None:
+    async with AsyncSessionLocal() as db:
+        booking = await bookings_repo.get_booking_by_id(db, uuid.UUID(booking_id))
+        if booking is None:
+            logger.warning("Booking %s not found for cancelled-by-customer notification", booking_id)
+            return
+
+        braider_profile = await braiders_repo.get_profile_by_id(db, booking.braider_id)
+        customer_notification = await notifications_service.create(
+            db,
+            user_id=booking.customer_id,
+            type=NotificationType.BOOKING_CANCELLED_BY_CUSTOMER,
+            title_key="notifications.booking_cancelled_by_customer_customer_title",
+            body_key="notifications.booking_cancelled_by_customer_customer_body",
+            body_params={
+                "link": build_customer_frontend_url(locale=booking.locale, path=f"bookings/{booking.id}")
+            },
+            related_type="booking",
+            related_id=booking.id,
+        )
+
+        braider_notification = None
+        if braider_profile is not None:
+            braider_notification = await notifications_service.create(
+                db,
+                user_id=braider_profile.user_id,
+                type=NotificationType.BOOKING_CANCELLED_BY_CUSTOMER,
+                title_key="notifications.booking_cancelled_by_customer_braider_title",
+                body_key="notifications.booking_cancelled_by_customer_braider_body",
+                body_params={
+                    "link": build_braider_frontend_url(locale=booking.locale, path=f"bookings/{booking.id}")
+                },
+                related_type="booking",
+                related_id=booking.id,
+            )
+
+        await db.commit()
+        await db.refresh(customer_notification)
+        await notifications_service.publish_realtime(customer_notification, locale=booking.locale)
+        if braider_notification is not None:
+            await db.refresh(braider_notification)
+            await notifications_service.publish_realtime(braider_notification, locale=booking.locale)
+        logger.info("Sent cancelled-by-customer notification for %s", booking.reference)
+
+
+async def send_booking_cancelled_by_braider_email_task(ctx: dict, *, booking_id: str) -> None:
+    async with AsyncSessionLocal() as db:
+        booking = await bookings_repo.get_booking_by_id(db, uuid.UUID(booking_id))
+        if booking is None:
+            logger.warning("Booking %s not found for cancelled-by-braider email", booking_id)
+            return
+
+        customer = await users_repo.get_user_by_id(db, booking.customer_id)
+        style = await styles_repo.get_style_by_id(db, booking.style_id)
+        braider_profile = await braiders_repo.get_profile_by_id(db, booking.braider_id)
+        if customer is None:
+            return
+
+        style_name = (style.name_en if style else None) or "your appointment"
+        braider_name = (braider_profile.business_name if braider_profile else None) or "your braider"
+        payments = await bookings_repo.list_payments(db, booking.id)
+        refunded_amount = from_minor_units(sum(p.amount_refunded_minor for p in payments))
+
+        subject, html = render_booking_cancelled_by_braider_email(
+            first_name=customer.first_name,
+            reference=booking.reference,
+            style_name=style_name,
+            braider_name=braider_name,
+            starts_at=booking.starts_at,
+            refund_amount=refunded_amount,
+            currency=booking.currency.value,
+            locale=booking.locale,
+        )
+        await send_email(to=customer.email, subject=subject, html=html)
+        logger.info("Sent cancelled-by-braider email for %s to %s", booking.reference, customer.email)
+
+
+async def send_booking_cancelled_by_braider_notification_task(ctx: dict, *, booking_id: str) -> None:
+    async with AsyncSessionLocal() as db:
+        booking = await bookings_repo.get_booking_by_id(db, uuid.UUID(booking_id))
+        if booking is None:
+            logger.warning("Booking %s not found for cancelled-by-braider notification", booking_id)
+            return
+
+        braider_profile = await braiders_repo.get_profile_by_id(db, booking.braider_id)
+        customer_notification = await notifications_service.create(
+            db,
+            user_id=booking.customer_id,
+            type=NotificationType.BOOKING_CANCELLED_BY_BRAIDER,
+            title_key="notifications.booking_cancelled_by_braider_customer_title",
+            body_key="notifications.booking_cancelled_by_braider_customer_body",
+            body_params={
+                "link": build_customer_frontend_url(locale=booking.locale, path=f"bookings/{booking.id}")
+            },
+            related_type="booking",
+            related_id=booking.id,
+        )
+
+        braider_notification = None
+        if braider_profile is not None:
+            braider_notification = await notifications_service.create(
+                db,
+                user_id=braider_profile.user_id,
+                type=NotificationType.BOOKING_CANCELLED_BY_BRAIDER,
+                title_key="notifications.booking_cancelled_by_braider_braider_title",
+                body_key="notifications.booking_cancelled_by_braider_braider_body",
+                body_params={
+                    "link": build_braider_frontend_url(locale=booking.locale, path=f"bookings/{booking.id}")
+                },
+                related_type="booking",
+                related_id=booking.id,
+            )
+
+        await db.commit()
+        await db.refresh(customer_notification)
+        await notifications_service.publish_realtime(customer_notification, locale=booking.locale)
+        if braider_notification is not None:
+            await db.refresh(braider_notification)
+            await notifications_service.publish_realtime(braider_notification, locale=booking.locale)
+        logger.info("Sent cancelled-by-braider notification for %s", booking.reference)

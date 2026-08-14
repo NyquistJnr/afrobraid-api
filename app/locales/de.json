@@ -149,6 +149,8 @@
   "booking.not_reschedulable": "Diese Buchung kann nicht verschoben werden.",
   "booking.reschedule_window_closed": "Diese Buchung kann nicht mehr verschoben werden - der Termin liegt innerhalb von 24 Stunden.",
   "booking.payment_not_resumable": "Für diese Buchung gibt es keine ausstehende Zahlung, die fortgesetzt werden kann.",
+  "booking.not_cancellable": "Diese Buchung kann nicht storniert werden.",
+  "booking.cancellation_window_closed": "Diese Buchung kann nicht mehr storniert werden - der Termin liegt innerhalb von 24 Stunden.",
 
   "dashboard.style_other_label": "Sonstige",
 
@@ -179,6 +181,17 @@
   "email.booking_cancelled_no_payment_greeting": "Hallo {first_name},",
   "email.booking_cancelled_no_payment_body": "Wir konnten die verbleibende Restzahlung für Ihren Termin für {style_name} bei {braider_name} am {when} nicht einziehen, daher wurde diese Buchung storniert. Ihre Anzahlung ist nicht erstattungsfähig und wurde nicht zurückerstattet.",
   "email.booking_cancelled_no_payment_reference_label": "Buchungsreferenz",
+
+  "email.booking_cancelled_by_customer_subject": "Ihre Buchung {reference} wurde storniert",
+  "email.booking_cancelled_by_customer_greeting": "Hallo {first_name},",
+  "email.booking_cancelled_by_customer_body": "Ihr Termin für {style_name} bei {braider_name} am {when} wurde wie gewünscht storniert. Ihre Anzahlung ist nicht erstattungsfähig und wurde nicht zurückerstattet.",
+  "email.booking_cancelled_by_customer_reference_label": "Buchungsreferenz",
+
+  "email.booking_cancelled_by_braider_subject": "Ihre Buchung {reference} wurde vom Braider storniert",
+  "email.booking_cancelled_by_braider_greeting": "Hallo {first_name},",
+  "email.booking_cancelled_by_braider_body": "{braider_name} musste Ihren Termin für {style_name} am {when} absagen. Ihnen wurde der volle Betrag zurückerstattet.",
+  "email.booking_cancelled_by_braider_reference_label": "Buchungsreferenz",
+  "email.booking_cancelled_by_braider_refund_label": "Erstattet",
 
   "email.receipt_subject": "Ihre Afrobraid-Quittung für {reference}",
   "email.receipt_greeting": "Hallo {first_name},",
@@ -221,6 +234,14 @@
   "notifications.payment_balance_failed_body": "Wir konnten die verbleibende Restzahlung von {amount} {currency} für Ihre Buchung nicht abbuchen ({reason}). Bitte schließen Sie die Zahlung hier ab: {link}.",
   "notifications.booking_cancelled_no_payment_title": "Buchung storniert - Zahlung fehlgeschlagen",
   "notifications.booking_cancelled_no_payment_body": "Ihre Buchung wurde storniert, da wir die verbleibende Restzahlung nicht rechtzeitig einziehen konnten. Ihre Anzahlung ist nicht erstattungsfähig. Details hier: {link}.",
+  "notifications.booking_cancelled_by_customer_customer_title": "Buchung storniert",
+  "notifications.booking_cancelled_by_customer_customer_body": "Sie haben Ihre Buchung storniert. Ihre Anzahlung ist nicht erstattungsfähig. Details hier: {link}.",
+  "notifications.booking_cancelled_by_customer_braider_title": "Buchung storniert",
+  "notifications.booking_cancelled_by_customer_braider_body": "Ein Kunde hat seine Buchung bei Ihnen storniert. Ihr Anteil am bereits gezahlten Betrag wurde an Sie freigegeben. Details hier: {link}.",
+  "notifications.booking_cancelled_by_braider_customer_title": "Buchung storniert - erstattet",
+  "notifications.booking_cancelled_by_braider_customer_body": "Ihre Braiderin/Ihr Braider hat diese Buchung storniert und Ihnen wurde der volle Betrag zurückerstattet. Details hier: {link}.",
+  "notifications.booking_cancelled_by_braider_braider_title": "Buchung storniert",
+  "notifications.booking_cancelled_by_braider_braider_body": "Sie haben diese Buchung storniert und dem Kunden wurde der volle Betrag zurückerstattet. Details hier: {link}.",
 
   "notifications.booking_rescheduled_customer_title": "Buchung verschoben",
   "notifications.booking_rescheduled_customer_body": "Ihre Buchung wurde auf einen neuen Termin verschoben. Details ansehen: {link}.",

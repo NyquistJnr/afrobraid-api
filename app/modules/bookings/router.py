@@ -159,3 +159,25 @@ async def resume_booking_payment(
 ) -> APIResponse[BookingResponse]:
     result = await service.resume_booking_payment(db, booking_id, user=user, locale=_locale(request))
     return APIResponse(data=result)
+
+
+@router.post(
+    "/{booking_id}/cancel",
+    response_model=APIResponse[BookingResponse],
+    summary="Cancel a confirmed booking",
+    description=(
+        "Customer-only. Free at any time up until 24h before the "
+        "appointment (`cancellation_cutoff_at`); rejected inside that "
+        "window. The deposit (or full amount already captured) is "
+        "non-refundable - only CONFIRMED bookings are eligible."
+    ),
+)
+async def cancel_booking(
+    booking_id: uuid.UUID,
+    request: Request,
+    user: User = Depends(_require_customer),
+    db: AsyncSession = Depends(get_db),
+    queue: ArqRedis = Depends(get_task_queue),
+) -> APIResponse[BookingResponse]:
+    result = await service.cancel_booking_by_customer(db, queue, booking_id, user=user, locale=_locale(request))
+    return APIResponse(data=result)

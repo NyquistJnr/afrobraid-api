@@ -1,16 +1,22 @@
 import uuid
 from datetime import date
 
+from arq import ArqRedis
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.pagination import PaginationParams
+from app.core.queue import get_task_queue
 from app.core.response import APIResponse
 from app.modules.auth.dependencies import require_roles
 from app.modules.bookings import service
 from app.modules.bookings.enums import BookingStatus
-from app.modules.bookings.schemas import BookingResponse, PaginatedBookingsResponse
+from app.modules.bookings.schemas import (
+    BookingResponse,
+    BraiderBookingCancelRequest,
+    PaginatedBookingsResponse,
+)
 from app.modules.users.models import User, UserType
 
 router = APIRouter(prefix="/api/v1/braiders/me/bookings", tags=["Braider - Bookings"])
@@ -64,4 +70,30 @@ async def get_braider_booking(
     db: AsyncSession = Depends(get_db),
 ) -> APIResponse[BookingResponse]:
     result = await service.get_braider_booking(db, booking_id, user_id=user.id, locale=_locale(request))
+    return APIResponse(data=result)
+
+
+@router.post(
+    "/{booking_id}/cancel",
+    response_model=APIResponse[BookingResponse],
+    summary="Cancel a confirmed booking",
+    description=(
+        "Braider-only, reason required. No cutoff - can cancel at any "
+        "time up to the appointment. Fully refunds every succeeded "
+        "payment on the booking, deposit included; the platform absorbs "
+        "Stripe's non-returned processing fee. Only CONFIRMED bookings "
+        "are eligible."
+    ),
+)
+async def cancel_braider_booking(
+    booking_id: uuid.UUID,
+    payload: BraiderBookingCancelRequest,
+    request: Request,
+    user: User = Depends(_require_braider),
+    db: AsyncSession = Depends(get_db),
+    queue: ArqRedis = Depends(get_task_queue),
+) -> APIResponse[BookingResponse]:
+    result = await service.cancel_booking_by_braider(
+        db, queue, booking_id, user_id=user.id, reason=payload.reason, locale=_locale(request)
+    )
     return APIResponse(data=result)

@@ -33,6 +33,18 @@ class BookingRescheduleRequest(BaseModel):
     starts_at: datetime
 
 
+class BraiderBookingCancelRequest(BaseModel):
+    reason: str
+
+    @field_validator("reason")
+    @classmethod
+    def _reason_not_blank(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("reason must not be blank")
+        return stripped
+
+
 class BookingItemResponse(BaseModel):
     item_type: BookingItemType
     name: str | None
@@ -81,6 +93,9 @@ class BookingResponse(BaseModel):
     balance_amount: Decimal
     payment_schedule: PaymentSchedule
     cancellation_cutoff_at: datetime
+    cancelled_at: datetime | None
+    cancelled_by: CancelledBy | None
+    cancellation_reason: str | None
     payments: list[BookingPaymentResponse]
     created_at: datetime
 

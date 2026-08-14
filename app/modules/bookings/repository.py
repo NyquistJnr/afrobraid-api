@@ -18,8 +18,9 @@ from app.modules.bookings.enums import (
     PaymentPurpose,
     PaymentSchedule,
     PaymentStatus,
+    TransferStatus,
 )
-from app.modules.bookings.models import Booking, BookingItem, BookingPayment
+from app.modules.bookings.models import Booking, BookingItem, BookingPayment, BookingRefund, BookingTransfer
 from app.modules.braiders.models import BraiderProfile
 from app.modules.platform_settings.models import SettingValueType
 from app.modules.styles.models import Style
@@ -74,6 +75,76 @@ async def list_payments(db: AsyncSession, booking_id: uuid.UUID) -> list[Booking
 
 async def get_payment_by_id(db: AsyncSession, payment_id: uuid.UUID) -> BookingPayment | None:
     return await db.get(BookingPayment, payment_id)
+
+
+async def list_succeeded_payments(db: AsyncSession, booking_id: uuid.UUID) -> list[BookingPayment]:
+    result = await db.execute(
+        select(BookingPayment).where(
+            BookingPayment.booking_id == booking_id, BookingPayment.status == PaymentStatus.SUCCEEDED
+        )
+    )
+    return list(result.scalars().all())
+
+
+async def create_refund(
+    db: AsyncSession,
+    *,
+    booking_id: uuid.UUID,
+    booking_payment_id: uuid.UUID,
+    amount_minor: int,
+    currency: Currency,
+    idempotency_key: str,
+) -> BookingRefund:
+    refund = BookingRefund(
+        booking_id=booking_id,
+        booking_payment_id=booking_payment_id,
+        amount_minor=amount_minor,
+        currency=currency,
+        idempotency_key=idempotency_key,
+    )
+    db.add(refund)
+    await db.flush()
+    return refund
+
+
+async def create_transfer(
+    db: AsyncSession,
+    *,
+    booking_id: uuid.UUID,
+    booking_payment_id: uuid.UUID,
+    destination_account_id: str,
+    amount_minor: int,
+    currency: Currency,
+    transfer_group: str,
+    idempotency_key: str,
+) -> BookingTransfer:
+    transfer = BookingTransfer(
+        booking_id=booking_id,
+        booking_payment_id=booking_payment_id,
+        destination_account_id=destination_account_id,
+        amount_minor=amount_minor,
+        currency=currency,
+        transfer_group=transfer_group,
+        idempotency_key=idempotency_key,
+    )
+    db.add(transfer)
+    await db.flush()
+    return transfer
+
+
+async def list_active_transfers_for_booking(db: AsyncSession, booking_id: uuid.UUID) -> list[BookingTransfer]:
+    """PENDING/SUCCEEDED transfers only - what a braider cancellation needs
+    to reverse. In current codebase state this is only ever populated by
+    the customer-cancellation deposit-share release, since the general
+    completion payout (Phase 5) doesn't exist yet - kept generic so it
+    still does the right thing once that lands."""
+    result = await db.execute(
+        select(BookingTransfer).where(
+            BookingTransfer.booking_id == booking_id,
+            BookingTransfer.status.in_([TransferStatus.PENDING, TransferStatus.SUCCEEDED]),
+        )
+    )
+    return list(result.scalars().all())
 
 
 async def get_payment_by_stripe_intent_id(

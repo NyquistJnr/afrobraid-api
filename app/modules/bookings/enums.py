@@ -97,3 +97,16 @@ class WebhookEventStatus(str, enum.Enum):
     PROCESSED = "PROCESSED"
     FAILED = "FAILED"
     IGNORED = "IGNORED"
+
+
+class RefundStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    SUCCEEDED = "SUCCEEDED"
+    FAILED = "FAILED"
+
+
+class TransferStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    SUCCEEDED = "SUCCEEDED"
+    FAILED = "FAILED"
+    REVERSED = "REVERSED"

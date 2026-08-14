@@ -1,3 +1,4 @@
+import logging
 import random
 import uuid
 from datetime import UTC, date, datetime, timedelta
@@ -15,6 +16,8 @@ from app.core.exceptions import (
     BookingCalculationAlreadyUsedError,
     BookingCalculationExpiredError,
     BookingCalculationNotFoundError,
+    BookingCancellationWindowClosedError,
+    BookingNotCancellableError,
     BookingNotFoundError,
     BookingNotReschedulableError,
     BookingPaymentNotResumableError,
@@ -42,8 +45,10 @@ from app.modules.bookings.enums import (
     BookingStatus,
     PaymentPurpose,
     PaymentSchedule,
+    RefundStatus,
+    TransferStatus,
 )
-from app.modules.bookings.models import Booking, BookingItem, BookingPayment
+from app.modules.bookings.models import Booking, BookingItem, BookingPayment, CancelledBy
 from app.modules.bookings.payments import client as payments_client
 from app.modules.bookings.pricing import PricedLine
 from app.modules.bookings.schemas import (
@@ -69,6 +74,10 @@ from app.modules.bookings.schemas import (
     PaginatedBookingsResponse,
 )
 from app.modules.bookings.tasks import (
+    TASK_SEND_BOOKING_CANCELLED_BY_BRAIDER_EMAIL,
+    TASK_SEND_BOOKING_CANCELLED_BY_BRAIDER_NOTIFICATION,
+    TASK_SEND_BOOKING_CANCELLED_BY_CUSTOMER_EMAIL,
+    TASK_SEND_BOOKING_CANCELLED_BY_CUSTOMER_NOTIFICATION,
     TASK_SEND_BOOKING_RESCHEDULED_EMAIL,
     TASK_SEND_BOOKING_RESCHEDULED_NOTIFICATION,
 )
@@ -81,6 +90,7 @@ from app.modules.users import repository as users_repo
 from app.modules.users.models import User, UserType
 
 settings = get_settings()
+logger = logging.getLogger("app.modules.bookings")
 
 _REFERENCE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no 0/O or 1/I
 _DEFAULT_CHART_WINDOW_DAYS = 90
@@ -380,6 +390,9 @@ async def _to_response(
         balance_amount=booking.balance_amount,
         payment_schedule=booking.payment_schedule,
         cancellation_cutoff_at=booking.cancellation_cutoff_at,
+        cancelled_at=booking.cancelled_at,
+        cancelled_by=booking.cancelled_by,
+        cancellation_reason=booking.cancellation_reason,
         payments=[
             BookingPaymentResponse(
                 purpose=p.purpose,
@@ -551,6 +564,205 @@ async def resume_booking_payment(
     await db.commit()
 
     return await _to_response(db, booking, locale=locale, client_secret=intent.client_secret, payment=payment)
+
+
+async def cancel_booking_by_customer(
+    db: AsyncSession, queue: ArqRedis, booking_id: uuid.UUID, *, user: User, locale: str
+) -> BookingResponse:
+    """Confirmed product decision: the deposit (or, for a FULL_UPFRONT
+    booking cancelled right at the cutoff edge, the whole captured amount)
+    is non-refundable - but the braider's proportional share of whatever
+    succeeded is still theirs, so it's released to them immediately rather
+    than waiting for the normal completion payout (which will never fire,
+    since this booking never reaches COMPLETED). Zero Stripe calls on the
+    cancellation itself (design correction: the slot falls out of the
+    exclusion predicate the moment status leaves CALENDAR_BLOCKING_STATUSES)
+    - only the braider-share transfer touches Stripe."""
+    booking = await bookings_repo.get_booking_by_id_for_update(db, booking_id)
+    if booking is None or booking.customer_id != user.id:
+        raise BookingNotFoundError()
+    if booking.status != BookingStatus.CONFIRMED:
+        raise BookingNotCancellableError()
+
+    now = datetime.now(UTC)
+    if now >= booking.cancellation_cutoff_at:
+        raise BookingCancellationWindowClosedError()
+
+    booking.status = BookingStatus.CANCELLED_BY_CUSTOMER
+    booking.cancelled_at = now
+    booking.cancelled_by = CancelledBy.CUSTOMER
+    if booking.balance_charge_state in (BalanceChargeState.SCHEDULED, BalanceChargeState.DUE):
+        booking.balance_charge_state = BalanceChargeState.ABANDONED
+    await db.flush()
+
+    connect_account = await payment_setup_repo.get_by_braider_id(db, booking.braider_id)
+    await _release_braider_shares(db, booking, connect_account=connect_account)
+
+    await db.commit()
+
+    await queue.enqueue_job(TASK_SEND_BOOKING_CANCELLED_BY_CUSTOMER_EMAIL, booking_id=str(booking.id))
+    await queue.enqueue_job(TASK_SEND_BOOKING_CANCELLED_BY_CUSTOMER_NOTIFICATION, booking_id=str(booking.id))
+
+    return await _to_response(db, booking, locale=locale)
+
+
+async def _release_braider_shares(db: AsyncSession, booking: Booking, *, connect_account) -> None:
+    """One Transfer per succeeded payment, for that payment's
+    braider_share_minor - source_transaction=<that payment's charge> makes
+    the funds available immediately. Never blocks the cancellation itself:
+    a missing Connect account or a Stripe failure is recorded and logged,
+    not raised, so the customer's cancellation always goes through (an
+    admin/reconciliation follow-up, same spirit as the plan's
+    PAYOUT_BLOCKED handling for the general payout path)."""
+    succeeded_payments = await bookings_repo.list_succeeded_payments(db, booking.id)
+    for payment in succeeded_payments:
+        if payment.braider_share_minor <= 0:
+            continue
+        idempotency_key = f"booking:{booking.id}:transfer:{payment.id}"
+        if connect_account is None or payment.stripe_charge_id is None:
+            logger.warning(
+                "Skipping braider-share transfer for booking %s payment %s - no payable "
+                "Connect account or missing charge id",
+                booking.reference,
+                payment.id,
+            )
+            continue
+        try:
+            result = await payments_client.create_transfer(
+                amount_minor=payment.braider_share_minor,
+                currency=payment.currency.value,
+                destination_account_id=connect_account.stripe_account_id,
+                source_charge_id=payment.stripe_charge_id,
+                transfer_group=payment.transfer_group,
+                metadata={"booking_id": str(booking.id), "booking_payment_id": str(payment.id)},
+                idempotency_key=idempotency_key,
+            )
+        except payments_client.StripeApiError as exc:
+            transfer = await bookings_repo.create_transfer(
+                db,
+                booking_id=booking.id,
+                booking_payment_id=payment.id,
+                destination_account_id=connect_account.stripe_account_id,
+                amount_minor=payment.braider_share_minor,
+                currency=payment.currency,
+                transfer_group=payment.transfer_group,
+                idempotency_key=idempotency_key,
+            )
+            transfer.status = TransferStatus.FAILED
+            transfer.failure_message = str(exc)[:500]
+            logger.warning(
+                "Braider-share transfer failed for booking %s payment %s: %s",
+                booking.reference,
+                payment.id,
+                exc,
+            )
+            continue
+        transfer = await bookings_repo.create_transfer(
+            db,
+            booking_id=booking.id,
+            booking_payment_id=payment.id,
+            destination_account_id=connect_account.stripe_account_id,
+            amount_minor=payment.braider_share_minor,
+            currency=payment.currency,
+            transfer_group=payment.transfer_group,
+            idempotency_key=idempotency_key,
+        )
+        transfer.status = TransferStatus.SUCCEEDED
+        transfer.stripe_transfer_id = result.id
+        payment.amount_transferred_minor = payment.braider_share_minor
+        await db.flush()
+
+
+async def cancel_booking_by_braider(
+    db: AsyncSession, queue: ArqRedis, booking_id: uuid.UUID, *, user_id: uuid.UUID, reason: str, locale: str
+) -> BookingResponse:
+    """No cutoff - a braider can cancel at any time up to COMPLETED, unlike
+    the customer's 24h window (confirmed product decision). Full refund of
+    every succeeded payment, deposit included; reverses any transfer
+    already made for this booking first (defensive - in the current
+    codebase state that list is always empty, since the only thing that
+    creates a transfer before Phase 5's completion payout is a customer
+    cancellation, and the two are mutually exclusive terminal states).
+    Platform absorbs Stripe's non-returned processing fee - an accounting
+    fact, not something this code enforces."""
+    profile = await braiders_repo.get_profile_by_user_id(db, user_id)
+    booking = await bookings_repo.get_booking_by_id_for_update(db, booking_id)
+    if booking is None or profile is None or booking.braider_id != profile.id:
+        raise BookingNotFoundError()
+    if booking.status != BookingStatus.CONFIRMED:
+        raise BookingNotCancellableError()
+
+    now = datetime.now(UTC)
+    booking.status = BookingStatus.CANCELLED_BY_BRAIDER
+    booking.cancelled_at = now
+    booking.cancelled_by = CancelledBy.BRAIDER
+    booking.cancellation_reason = reason
+    if booking.balance_charge_state in (BalanceChargeState.SCHEDULED, BalanceChargeState.DUE):
+        booking.balance_charge_state = BalanceChargeState.ABANDONED
+    await db.flush()
+
+    active_transfers = await bookings_repo.list_active_transfers_for_booking(db, booking.id)
+    for transfer in active_transfers:
+        if transfer.stripe_transfer_id is None:
+            continue
+        try:
+            await payments_client.reverse_transfer(
+                transfer_id=transfer.stripe_transfer_id,
+                idempotency_key=f"booking:{booking.id}:transfer_reversal:{transfer.id}",
+            )
+            transfer.status = TransferStatus.REVERSED
+        except payments_client.StripeApiError as exc:
+            logger.warning(
+                "Transfer reversal failed for booking %s transfer %s: %s", booking.reference, transfer.id, exc
+            )
+
+    succeeded_payments = await bookings_repo.list_succeeded_payments(db, booking.id)
+    for payment in succeeded_payments:
+        refundable_minor = payment.amount_minor - payment.amount_refunded_minor
+        if refundable_minor <= 0 or payment.stripe_payment_intent_id is None:
+            continue
+        idempotency_key = f"booking:{booking.id}:refund:{payment.id}"
+        try:
+            result = await payments_client.create_refund(
+                payment_intent_id=payment.stripe_payment_intent_id,
+                amount_minor=refundable_minor,
+                metadata={"booking_id": str(booking.id), "booking_payment_id": str(payment.id)},
+                idempotency_key=idempotency_key,
+            )
+        except payments_client.StripeApiError as exc:
+            refund = await bookings_repo.create_refund(
+                db,
+                booking_id=booking.id,
+                booking_payment_id=payment.id,
+                amount_minor=refundable_minor,
+                currency=payment.currency,
+                idempotency_key=idempotency_key,
+            )
+            refund.status = RefundStatus.FAILED
+            refund.failure_message = str(exc)[:500]
+            logger.warning(
+                "Refund failed for booking %s payment %s: %s", booking.reference, payment.id, exc
+            )
+            continue
+        refund = await bookings_repo.create_refund(
+            db,
+            booking_id=booking.id,
+            booking_payment_id=payment.id,
+            amount_minor=refundable_minor,
+            currency=payment.currency,
+            idempotency_key=idempotency_key,
+        )
+        refund.status = RefundStatus.SUCCEEDED
+        refund.stripe_refund_id = result.id
+        payment.amount_refunded_minor += refundable_minor
+        await db.flush()
+
+    await db.commit()
+
+    await queue.enqueue_job(TASK_SEND_BOOKING_CANCELLED_BY_BRAIDER_EMAIL, booking_id=str(booking.id))
+    await queue.enqueue_job(TASK_SEND_BOOKING_CANCELLED_BY_BRAIDER_NOTIFICATION, booking_id=str(booking.id))
+
+    return await _to_response(db, booking, locale=locale)
 
 
 async def get_braider_booking(

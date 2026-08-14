@@ -149,6 +149,8 @@
   "booking.not_reschedulable": "This booking can't be rescheduled.",
   "booking.reschedule_window_closed": "This booking can no longer be rescheduled - it's within 24 hours of the appointment.",
   "booking.payment_not_resumable": "There's no outstanding payment on this booking to resume.",
+  "booking.not_cancellable": "This booking can't be cancelled.",
+  "booking.cancellation_window_closed": "This booking can no longer be cancelled - it's within 24 hours of the appointment.",
 
   "dashboard.style_other_label": "Other",
 
@@ -179,6 +181,17 @@
   "email.booking_cancelled_no_payment_greeting": "Hi {first_name},",
   "email.booking_cancelled_no_payment_body": "We weren't able to collect the remaining balance for your appointment for {style_name} with {braider_name} on {when}, so this booking has been cancelled. Your deposit is non-refundable and has not been returned.",
   "email.booking_cancelled_no_payment_reference_label": "Booking reference",
+
+  "email.booking_cancelled_by_customer_subject": "Your booking {reference} was cancelled",
+  "email.booking_cancelled_by_customer_greeting": "Hi {first_name},",
+  "email.booking_cancelled_by_customer_body": "Your appointment for {style_name} with {braider_name} on {when} has been cancelled, as requested. Your deposit is non-refundable and has not been returned.",
+  "email.booking_cancelled_by_customer_reference_label": "Booking reference",
+
+  "email.booking_cancelled_by_braider_subject": "Your booking {reference} was cancelled by the braider",
+  "email.booking_cancelled_by_braider_greeting": "Hi {first_name},",
+  "email.booking_cancelled_by_braider_body": "{braider_name} had to cancel your appointment for {style_name} on {when}. You've been fully refunded.",
+  "email.booking_cancelled_by_braider_reference_label": "Booking reference",
+  "email.booking_cancelled_by_braider_refund_label": "Refunded",
 
   "email.receipt_subject": "Your Afrobraid receipt for {reference}",
   "email.receipt_greeting": "Hi {first_name},",
@@ -221,6 +234,14 @@
   "notifications.payment_balance_failed_body": "We couldn't charge the remaining balance of {amount} {currency} for your booking ({reason}). Please complete payment here: {link}.",
   "notifications.booking_cancelled_no_payment_title": "Booking cancelled - payment failed",
   "notifications.booking_cancelled_no_payment_body": "Your booking was cancelled because we couldn't collect the remaining balance in time. Your deposit is non-refundable. Details here: {link}.",
+  "notifications.booking_cancelled_by_customer_customer_title": "Booking cancelled",
+  "notifications.booking_cancelled_by_customer_customer_body": "You cancelled your booking. Your deposit is non-refundable. Details here: {link}.",
+  "notifications.booking_cancelled_by_customer_braider_title": "Booking cancelled",
+  "notifications.booking_cancelled_by_customer_braider_body": "A customer cancelled their booking with you. Your share of what was already paid has been released to you. Details here: {link}.",
+  "notifications.booking_cancelled_by_braider_customer_title": "Booking cancelled - refunded",
+  "notifications.booking_cancelled_by_braider_customer_body": "Your braider cancelled this booking and you've been fully refunded. Details here: {link}.",
+  "notifications.booking_cancelled_by_braider_braider_title": "Booking cancelled",
+  "notifications.booking_cancelled_by_braider_braider_body": "You cancelled this booking and the customer has been fully refunded. Details here: {link}.",
 
   "notifications.booking_rescheduled_customer_title": "Booking rescheduled",
   "notifications.booking_rescheduled_customer_body": "Your booking has been rescheduled to a new time. View the updated details here: {link}.",

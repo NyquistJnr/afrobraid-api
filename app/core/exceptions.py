@@ -539,6 +539,27 @@ class BookingRescheduleWindowClosedError(AppError):
     message_key = "booking.reschedule_window_closed"
 
 
+class BookingNotCancellableError(AppError):
+    """Only CONFIRMED bookings can be cancelled - PENDING_PAYMENT ones have
+    no successful payment yet (the hold just expires on its own) and every
+    other status is already terminal or past the point cancellation makes
+    sense."""
+
+    status_code = status.HTTP_409_CONFLICT
+    code = "BOOKING_NOT_CANCELLABLE"
+    message_key = "booking.not_cancellable"
+
+
+class BookingCancellationWindowClosedError(AppError):
+    """Customer-only - the confirmed product decision is that a customer
+    cannot cancel inside cancellation_cutoff_at (24h before the
+    appointment). Braiders have no such window (they can always cancel)."""
+
+    status_code = status.HTTP_409_CONFLICT
+    code = "BOOKING_CANCELLATION_WINDOW_CLOSED"
+    message_key = "booking.cancellation_window_closed"
+
+
 class BookingPaymentNotResumableError(AppError):
     """POST /{id}/pay only makes sense when there's an outstanding balance
     that isn't already succeeded or mid-flight - e.g. FULL_UPFRONT bookings

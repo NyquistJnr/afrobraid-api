@@ -149,6 +149,8 @@
   "booking.not_reschedulable": "Cette réservation ne peut pas être reprogrammée.",
   "booking.reschedule_window_closed": "Cette réservation ne peut plus être reprogrammée - le rendez-vous est dans moins de 24 heures.",
   "booking.payment_not_resumable": "Il n'y a aucun paiement en attente à reprendre pour cette réservation.",
+  "booking.not_cancellable": "Cette réservation ne peut pas être annulée.",
+  "booking.cancellation_window_closed": "Cette réservation ne peut plus être annulée - le rendez-vous est dans moins de 24 heures.",
 
   "dashboard.style_other_label": "Autre",
 
@@ -179,6 +181,17 @@
   "email.booking_cancelled_no_payment_greeting": "Bonjour {first_name},",
   "email.booking_cancelled_no_payment_body": "Nous n'avons pas pu prélever le solde restant pour votre rendez-vous pour {style_name} avec {braider_name} le {when}, cette réservation a donc été annulée. Votre acompte n'est pas remboursable et ne vous a pas été restitué.",
   "email.booking_cancelled_no_payment_reference_label": "Référence de réservation",
+
+  "email.booking_cancelled_by_customer_subject": "Votre réservation {reference} a été annulée",
+  "email.booking_cancelled_by_customer_greeting": "Bonjour {first_name},",
+  "email.booking_cancelled_by_customer_body": "Votre rendez-vous pour {style_name} avec {braider_name} le {when} a été annulé, comme demandé. Votre acompte n'est pas remboursable et ne vous a pas été restitué.",
+  "email.booking_cancelled_by_customer_reference_label": "Référence de réservation",
+
+  "email.booking_cancelled_by_braider_subject": "Votre réservation {reference} a été annulée par le/la braideur/braideuse",
+  "email.booking_cancelled_by_braider_greeting": "Bonjour {first_name},",
+  "email.booking_cancelled_by_braider_body": "{braider_name} a dû annuler votre rendez-vous pour {style_name} le {when}. Vous avez été intégralement remboursé(e).",
+  "email.booking_cancelled_by_braider_reference_label": "Référence de réservation",
+  "email.booking_cancelled_by_braider_refund_label": "Remboursé",
 
   "email.receipt_subject": "Votre reçu Afrobraid pour {reference}",
   "email.receipt_greeting": "Bonjour {first_name},",
@@ -221,6 +234,14 @@
   "notifications.payment_balance_failed_body": "Nous n'avons pas pu prélever le solde restant de {amount} {currency} pour votre réservation ({reason}). Veuillez finaliser le paiement ici : {link}.",
   "notifications.booking_cancelled_no_payment_title": "Réservation annulée - échec du paiement",
   "notifications.booking_cancelled_no_payment_body": "Votre réservation a été annulée car nous n'avons pas pu prélever le solde restant à temps. Votre acompte n'est pas remboursable. Détails ici : {link}.",
+  "notifications.booking_cancelled_by_customer_customer_title": "Réservation annulée",
+  "notifications.booking_cancelled_by_customer_customer_body": "Vous avez annulé votre réservation. Votre acompte n'est pas remboursable. Détails ici : {link}.",
+  "notifications.booking_cancelled_by_customer_braider_title": "Réservation annulée",
+  "notifications.booking_cancelled_by_customer_braider_body": "Un client a annulé sa réservation avec vous. Votre part de ce qui a déjà été payé vous a été reversée. Détails ici : {link}.",
+  "notifications.booking_cancelled_by_braider_customer_title": "Réservation annulée - remboursée",
+  "notifications.booking_cancelled_by_braider_customer_body": "Votre braideur/braideuse a annulé cette réservation et vous avez été intégralement remboursé(e). Détails ici : {link}.",
+  "notifications.booking_cancelled_by_braider_braider_title": "Réservation annulée",
+  "notifications.booking_cancelled_by_braider_braider_body": "Vous avez annulé cette réservation et le client a été intégralement remboursé. Détails ici : {link}.",
 
   "notifications.booking_rescheduled_customer_title": "Réservation reprogrammée",
   "notifications.booking_rescheduled_customer_body": "Votre réservation a été reprogrammée à une nouvelle heure. Voir les détails ici : {link}.",

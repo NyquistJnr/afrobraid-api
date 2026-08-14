@@ -52,6 +52,27 @@ class StripeCardError(Exception):
 class PaymentIntentResult:
     id: str
     client_secret: str
+    # Only populated by charge_off_session, whose confirm=True call resolves
+    # synchronously - create_payment_intent's on-session flow only learns
+    # the charge id later, from the payment_intent.succeeded webhook. It's
+    # what a later Transfer.create's source_transaction needs.
+    charge_id: str | None = None
+
+
+@dataclass(frozen=True)
+class RefundResult:
+    id: str
+    status: str
+
+
+@dataclass(frozen=True)
+class TransferResult:
+    id: str
+
+
+@dataclass(frozen=True)
+class ReversalResult:
+    id: str
 
 
 def _create_customer_sync(*, email: str, name: str) -> str:
@@ -153,7 +174,9 @@ def _charge_off_session_sync(
         raise StripeCardError(
             code=getattr(error, "code", None), message=exc.user_message or str(exc)
         ) from exc
-    return PaymentIntentResult(id=intent.id, client_secret=intent.client_secret)
+    return PaymentIntentResult(
+        id=intent.id, client_secret=intent.client_secret, charge_id=getattr(intent, "latest_charge", None)
+    )
 
 
 async def charge_off_session(
@@ -167,7 +190,9 @@ async def charge_off_session(
 ) -> PaymentIntentResult:
     if _IS_TEST_ENV:
         pi_id = f"pi_test_{uuid.uuid4().hex[:24]}"
-        return PaymentIntentResult(id=pi_id, client_secret=f"{pi_id}_secret_test")
+        return PaymentIntentResult(
+            id=pi_id, client_secret=f"{pi_id}_secret_test", charge_id=f"ch_test_{uuid.uuid4().hex[:16]}"
+        )
     try:
         return await asyncio.to_thread(
             _charge_off_session_sync,
@@ -182,6 +207,106 @@ async def charge_off_session(
         raise
     except stripe.error.StripeError as exc:
         raise StripeApiError(f"Stripe off-session charge failed: {exc}") from exc
+
+
+def _create_refund_sync(
+    *, payment_intent_id: str, amount_minor: int, metadata: dict[str, str], idempotency_key: str
+) -> RefundResult:
+    refund = stripe.Refund.create(
+        payment_intent=payment_intent_id,
+        amount=amount_minor,
+        metadata=metadata,
+        idempotency_key=idempotency_key,
+    )
+    return RefundResult(id=refund.id, status=refund.status)
+
+
+async def create_refund(
+    *, payment_intent_id: str, amount_minor: int, metadata: dict[str, str], idempotency_key: str
+) -> RefundResult:
+    """Refunds are keyed by payment_intent (not charge) - Stripe resolves
+    the underlying charge itself, so this needs no `stripe_charge_id` on
+    our side, unlike create_transfer below."""
+    if _IS_TEST_ENV:
+        return RefundResult(id=f"re_test_{uuid.uuid4().hex[:24]}", status="succeeded")
+    try:
+        return await asyncio.to_thread(
+            _create_refund_sync,
+            payment_intent_id=payment_intent_id,
+            amount_minor=amount_minor,
+            metadata=metadata,
+            idempotency_key=idempotency_key,
+        )
+    except stripe.error.StripeError as exc:
+        raise StripeApiError(f"Stripe refund failed: {exc}") from exc
+
+
+def _create_transfer_sync(
+    *,
+    amount_minor: int,
+    currency: str,
+    destination_account_id: str,
+    source_charge_id: str,
+    transfer_group: str,
+    metadata: dict[str, str],
+    idempotency_key: str,
+) -> TransferResult:
+    transfer = stripe.Transfer.create(
+        amount=amount_minor,
+        currency=currency.lower(),
+        destination=destination_account_id,
+        # Ties the transfer to a specific already-captured charge - funds
+        # are available immediately, no negative-balance risk on the
+        # connected account (plan's Stripe sequences section).
+        source_transaction=source_charge_id,
+        transfer_group=transfer_group,
+        metadata=metadata,
+        idempotency_key=idempotency_key,
+    )
+    return TransferResult(id=transfer.id)
+
+
+async def create_transfer(
+    *,
+    amount_minor: int,
+    currency: str,
+    destination_account_id: str,
+    source_charge_id: str,
+    transfer_group: str,
+    metadata: dict[str, str],
+    idempotency_key: str,
+) -> TransferResult:
+    if _IS_TEST_ENV:
+        return TransferResult(id=f"tr_test_{uuid.uuid4().hex[:24]}")
+    try:
+        return await asyncio.to_thread(
+            _create_transfer_sync,
+            amount_minor=amount_minor,
+            currency=currency,
+            destination_account_id=destination_account_id,
+            source_charge_id=source_charge_id,
+            transfer_group=transfer_group,
+            metadata=metadata,
+            idempotency_key=idempotency_key,
+        )
+    except stripe.error.StripeError as exc:
+        raise StripeApiError(f"Stripe transfer failed: {exc}") from exc
+
+
+def _reverse_transfer_sync(*, transfer_id: str, idempotency_key: str) -> ReversalResult:
+    reversal = stripe.Transfer.create_reversal(transfer_id, idempotency_key=idempotency_key)
+    return ReversalResult(id=reversal.id)
+
+
+async def reverse_transfer(*, transfer_id: str, idempotency_key: str) -> ReversalResult:
+    if _IS_TEST_ENV:
+        return ReversalResult(id=f"trr_test_{uuid.uuid4().hex[:24]}")
+    try:
+        return await asyncio.to_thread(
+            _reverse_transfer_sync, transfer_id=transfer_id, idempotency_key=idempotency_key
+        )
+    except stripe.error.StripeError as exc:
+        raise StripeApiError(f"Stripe transfer reversal failed: {exc}") from exc
 
 
 def construct_payments_webhook_event(payload: bytes, sig_header: str | None) -> dict[str, Any]:

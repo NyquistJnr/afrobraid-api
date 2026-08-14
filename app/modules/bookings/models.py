@@ -13,6 +13,7 @@ from sqlalchemy import (
     Integer,
     Numeric,
     String,
+    Text,
     UniqueConstraint,
     func,
 )
@@ -28,6 +29,8 @@ from app.modules.bookings.enums import (
     PaymentPurpose,
     PaymentSchedule,
     PaymentStatus,
+    RefundStatus,
+    TransferStatus,
 )
 from app.modules.platform_settings.models import SettingValueType
 
@@ -175,6 +178,7 @@ class Booking(Base):
     cancelled_by: Mapped[CancelledBy | None] = mapped_column(
         Enum(CancelledBy, name="cancelled_by"), nullable=True
     )
+    cancellation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     stripe_customer_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     stripe_payment_method_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -264,6 +268,77 @@ class BookingPayment(Base):
     transfer_group: Mapped[str] = mapped_column(String(64), nullable=False)
     attempt_number: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     failure_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    failure_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class BookingRefund(Base):
+    """A mirror of one Stripe Refund against a `booking_payments` row - a
+    braider cancellation refunds every succeeded payment on the booking in
+    full (deposit included), so there can be more than one refund per
+    booking but at most one per payment (Stripe itself would reject a
+    second full refund on an already-fully-refunded PaymentIntent)."""
+
+    __tablename__ = "booking_refunds"
+    __table_args__ = (
+        CheckConstraint("amount_minor > 0", name="ck_booking_refunds_amount"),
+        UniqueConstraint("idempotency_key", name="uq_booking_refunds_idempotency_key"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    booking_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("bookings.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    booking_payment_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("booking_payments.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    status: Mapped[RefundStatus] = mapped_column(
+        Enum(RefundStatus, name="refund_status"), nullable=False, default=RefundStatus.PENDING
+    )
+    amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    currency: Mapped[Currency] = mapped_column(Enum(Currency, name="currency"), nullable=False)
+    stripe_refund_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    idempotency_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    failure_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    failure_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class BookingTransfer(Base):
+    """A mirror of one Stripe Transfer moving a braider's share out of the
+    platform account for a specific `booking_payments` row -
+    `source_transaction=<that payment's charge>` is what makes the funds
+    available immediately (no negative-balance risk on the connected
+    account). The partial unique index (in this table's migration) caps it
+    at one PENDING/SUCCEEDED transfer per payment - a REVERSED one frees the
+    slot back up only in the sense that a *new* transfer would need a new
+    row, never reusing this one."""
+
+    __tablename__ = "booking_transfers"
+    __table_args__ = (CheckConstraint("amount_minor > 0", name="ck_booking_transfers_amount"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    booking_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("bookings.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    booking_payment_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("booking_payments.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    destination_account_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[TransferStatus] = mapped_column(
+        Enum(TransferStatus, name="transfer_status"), nullable=False, default=TransferStatus.PENDING
+    )
+    amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    currency: Mapped[Currency] = mapped_column(Enum(Currency, name="currency"), nullable=False)
+    transfer_group: Mapped[str] = mapped_column(String(64), nullable=False)
+    stripe_transfer_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    idempotency_key: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     failure_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
