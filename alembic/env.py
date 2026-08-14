@@ -14,6 +14,7 @@ from app.modules.auth import models as auth_models  # noqa: F401
 from app.modules.bookings import models as bookings_models  # noqa: F401
 from app.modules.bookings.calculations import models as booking_calculations_models  # noqa: F401
 from app.modules.bookings.payments import models as booking_payments_models  # noqa: F401
+from app.modules.bookings.receipts import models as booking_receipts_models  # noqa: F401
 from app.modules.braiders import models as braiders_models  # noqa: F401
 from app.modules.braiders.availability import models as braider_availability_models  # noqa: F401
 from app.modules.braiders.offerings import models as braider_offerings_models  # noqa: F401

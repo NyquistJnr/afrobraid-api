@@ -110,3 +110,20 @@ class TransferStatus(str, enum.Enum):
     SUCCEEDED = "SUCCEEDED"
     FAILED = "FAILED"
     REVERSED = "REVERSED"
+
+
+class BraiderVatStatus(str, enum.Enum):
+    """Snapshotted onto a booking at creation time. No braider-facing
+    collection flow exists yet (flagged in the plan as needing a tax
+    advisor first), so every booking is UNKNOWN today - the receipt
+    template treats UNKNOWN the same as STANDARD (VAT shown) but flags the
+    line as unconfirmed, rather than silently picking one."""
+
+    UNKNOWN = "UNKNOWN"
+    STANDARD = "STANDARD"
+    SMALL_BUSINESS = "SMALL_BUSINESS"
+
+
+class ReceiptType(str, enum.Enum):
+    INVOICE = "INVOICE"
+    CREDIT_NOTE = "CREDIT_NOTE"

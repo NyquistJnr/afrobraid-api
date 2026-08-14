@@ -18,6 +18,7 @@ from app.modules.bookings.enums import (
     WebhookEventSource,
 )
 from app.modules.bookings.payments import repository as payments_repo
+from app.modules.bookings.receipts import service as receipts_service
 from app.modules.bookings.tasks import (
     TASK_SEND_BOOKING_CONFIRMED_EMAIL,
     TASK_SEND_DISPUTE_ADMIN_ALERT,
@@ -103,6 +104,11 @@ async def _handle_payment_intent_succeeded(db: AsyncSession, queue: ArqRedis, in
         # returned above on any redelivery.
         booking.balance_charge_state = BalanceChargeState.SUCCEEDED
         await db.flush()
+
+    # Same transaction as the payment's own SUCCEEDED flip, so the receipt
+    # number is only consumed if this whole thing commits (design
+    # correction #4).
+    await receipts_service.issue_invoice_receipt(db, booking=booking, payment=payment)
 
     await db.commit()
 

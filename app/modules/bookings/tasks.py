@@ -10,6 +10,8 @@ from app.modules.bookings import repository as bookings_repo
 from app.modules.bookings.enums import BalanceChargeState, BookingStatus, PaymentPurpose, PaymentStatus
 from app.modules.bookings.models import CancelledBy
 from app.modules.bookings.payments import client as payments_client
+from app.modules.bookings.receipts import repository as receipts_repo
+from app.modules.bookings.receipts import service as receipts_service
 from app.modules.braiders import repository as braiders_repo
 from app.modules.braiders.payment_setup import repository as payment_setup_repo
 from app.modules.notifications import service as notifications_service
@@ -118,6 +120,13 @@ async def send_payment_receipt_email_task(ctx: dict, *, payment_id: str) -> None
         style_name = (style.name_en if style else None) or "your appointment"
         braider_name = (braider_profile.business_name if braider_profile else None) or "your braider"
 
+        invoice_receipt = await receipts_repo.get_invoice_receipt_for_payment(db, payment.id)
+        receipt_url = (
+            f"{settings.public_base_url.rstrip('/')}/api/v1/receipts/{invoice_receipt.public_token}"
+            if invoice_receipt is not None
+            else None
+        )
+
         subject, html = render_payment_receipt_email(
             first_name=customer.first_name,
             reference=booking.reference,
@@ -131,6 +140,7 @@ async def send_payment_receipt_email_task(ctx: dict, *, payment_id: str) -> None
             currency=payment.currency.value,
             paid_at=payment.updated_at,
             locale=booking.locale,
+            receipt_url=receipt_url,
         )
         await send_email(to=customer.email, subject=subject, html=html)
         logger.info("Sent payment receipt email for %s (%s) to %s", booking.reference, payment.purpose, customer.email)
@@ -417,8 +427,10 @@ async def charge_booking_balance_task(ctx: dict, *, booking_id: str) -> None:
             attempt_number=attempt_number,
         )
         payment.status = PaymentStatus.SUCCEEDED
+        payment.stripe_charge_id = intent.charge_id
         booking.balance_charge_state = BalanceChargeState.SUCCEEDED
         booking.balance_charge_attempts = attempt_number
+        await receipts_service.issue_invoice_receipt(db, booking=booking, payment=payment)
         await db.commit()
         payment_id = str(payment.id)
         reference = booking.reference

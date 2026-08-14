@@ -156,6 +156,24 @@
 
   "payment.webhook_metadata_missing": "Dem Stripe-Webhook-Ereignis fehlen erforderliche Metadaten.",
 
+  "receipt.not_found": "Diese Quittung existiert nicht.",
+
+  "receipt.title_invoice": "Rechnung",
+  "receipt.title_credit_note": "Gutschrift",
+  "receipt.number_label": "Rechnungsnummer",
+  "receipt.date_label": "Datum",
+  "receipt.reference_label": "Buchungsreferenz",
+  "receipt.seller_label": "Plattform",
+  "receipt.buyer_label": "Rechnungsempfänger",
+  "receipt.provider_label": "Erbrachte Leistung von",
+  "receipt.vat_number_label": "USt-IdNr.",
+  "receipt.vat_status_small_business": "Kleinunternehmer - keine Umsatzsteuer gemäß §19 UStG.",
+  "receipt.vat_status_unconfirmed": "Der Umsatzsteuerstatus dieses Anbieters wurde noch nicht bestätigt.",
+  "receipt.amount_due_label": "Betrag",
+  "receipt.amount_credited_label": "Gutgeschriebener Betrag",
+  "receipt.prior_receipts_note": "Abzüglich bereits berechneter Betrag (Beleg {prior_receipt_number})",
+  "receipt.credit_note_reference_label": "Korrigiert Rechnung",
+
   "reviews.not_eligible": "Sie können eine Braiderin/einen Braider erst bewerten, nachdem eine Buchung bei ihr/ihm erfolgreich bezahlt wurde.",
   "reviews.not_found": "Diese Bewertung existiert nicht.",
 
@@ -205,6 +223,7 @@
   "email.receipt_date_label": "Zahlungsdatum",
   "email.receipt_balance_due_label": "Noch fälliger Restbetrag",
   "email.receipt_total_label": "Gesamtbetrag der Buchung",
+  "email.receipt_view_link_label": "Beleg ansehen",
 
   "users.invalid_chat_locale": "Das ist keine unterstützte Chat-Sprache.",
   "users.not_found": "Dieser Benutzer existiert nicht.",

@@ -560,6 +560,12 @@ class BookingCancellationWindowClosedError(AppError):
     message_key = "booking.cancellation_window_closed"
 
 
+class ReceiptNotFoundError(AppError):
+    status_code = status.HTTP_404_NOT_FOUND
+    code = "RECEIPT_NOT_FOUND"
+    message_key = "receipt.not_found"
+
+
 class BookingPaymentNotResumableError(AppError):
     """POST /{id}/pay only makes sense when there's an outstanding balance
     that isn't already succeeded or mid-flight - e.g. FULL_UPFRONT bookings

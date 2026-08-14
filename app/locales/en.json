@@ -156,6 +156,24 @@
 
   "payment.webhook_metadata_missing": "Stripe webhook event is missing required metadata.",
 
+  "receipt.not_found": "This receipt doesn't exist.",
+
+  "receipt.title_invoice": "Invoice",
+  "receipt.title_credit_note": "Credit Note",
+  "receipt.number_label": "Receipt number",
+  "receipt.date_label": "Date",
+  "receipt.reference_label": "Booking reference",
+  "receipt.seller_label": "Platform",
+  "receipt.buyer_label": "Billed to",
+  "receipt.provider_label": "Service provided by",
+  "receipt.vat_number_label": "VAT number",
+  "receipt.vat_status_small_business": "Small business - no VAT charged under §19 UStG (Kleinunternehmerregelung).",
+  "receipt.vat_status_unconfirmed": "This provider's VAT status has not yet been confirmed.",
+  "receipt.amount_due_label": "Amount",
+  "receipt.amount_credited_label": "Amount credited",
+  "receipt.prior_receipts_note": "Less amount already invoiced (receipt {prior_receipt_number})",
+  "receipt.credit_note_reference_label": "Corrects invoice",
+
   "reviews.not_eligible": "You can only review a braider after a booking with them that's reached a successful payment.",
   "reviews.not_found": "This review doesn't exist.",
 
@@ -208,6 +226,7 @@
   "email.receipt_date_label": "Payment date",
   "email.receipt_balance_due_label": "Balance still due",
   "email.receipt_total_label": "Booking total",
+  "email.receipt_view_link_label": "View receipt",
 
   "users.invalid_chat_locale": "That's not a supported chat language.",
   "users.not_found": "This user doesn't exist.",

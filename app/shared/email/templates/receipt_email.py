@@ -26,6 +26,7 @@ def render_payment_receipt_email(
     currency: str,
     paid_at: datetime,
     locale: str,
+    receipt_url: str | None = None,
 ) -> tuple[str, str]:
     safe_name = html_lib.escape(first_name)
     safe_style = html_lib.escape(style_name)
@@ -59,6 +60,16 @@ def render_payment_receipt_email(
             f'<strong style="color:#18181b;">{balance_amount} {currency}</strong></div>'
         )
 
+    receipt_link_row = ""
+    if receipt_url:
+        view_receipt_label = t("email.receipt_view_link_label", locale)
+        receipt_link_row = (
+            f'<tr><td style="padding-top:16px;">'
+            f'<a href="{receipt_url}" style="display:inline-block;background:#18181b;color:#ffffff;'
+            f'font-size:14px;font-weight:600;text-decoration:none;padding:12px 20px;border-radius:8px;">'
+            f"{view_receipt_label}</a></td></tr>"
+        )
+
     html = f"""\
 <!doctype html>
 <html>
@@ -80,6 +91,7 @@ def render_payment_receipt_email(
                 <div>{total_label}: <strong style="color:#18181b;">{total} {currency}</strong></div>
               </td>
             </tr>
+            {receipt_link_row}
           </table>
         </td>
       </tr>

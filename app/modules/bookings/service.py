@@ -72,7 +72,10 @@ from app.modules.bookings.schemas import (
     BookingSummaryResponse,
     PaginatedAdminBookingsResponse,
     PaginatedBookingsResponse,
+    ReceiptSummaryResponse,
 )
+from app.modules.bookings.receipts import repository as receipts_repo
+from app.modules.bookings.receipts import service as receipts_service
 from app.modules.bookings.tasks import (
     TASK_SEND_BOOKING_CANCELLED_BY_BRAIDER_EMAIL,
     TASK_SEND_BOOKING_CANCELLED_BY_BRAIDER_NOTIFICATION,
@@ -430,6 +433,31 @@ async def get_booking(db: AsyncSession, booking_id: uuid.UUID, *, user: User, lo
     return await _to_response(db, booking, locale=locale)
 
 
+def _receipt_url(public_token: str) -> str:
+    return f"{settings.public_base_url.rstrip('/')}/api/v1/receipts/{public_token}"
+
+
+async def list_booking_receipts(
+    db: AsyncSession, booking_id: uuid.UUID, *, user: User
+) -> list[ReceiptSummaryResponse]:
+    booking = await bookings_repo.get_booking_by_id(db, booking_id)
+    if booking is None or booking.customer_id != user.id:
+        raise BookingNotFoundError()
+    receipts = await receipts_repo.list_receipts_for_booking(db, booking.id)
+    return [
+        ReceiptSummaryResponse(
+            id=r.id,
+            type=r.type,
+            receipt_number=r.receipt_number,
+            issued_at=r.issued_at,
+            amount_total=r.amount_total,
+            currency=r.currency,
+            url=_receipt_url(r.public_token),
+        )
+        for r in receipts
+    ]
+
+
 async def reschedule_booking(
     db: AsyncSession,
     queue: ArqRedis,
@@ -676,6 +704,10 @@ async def cancel_booking_by_braider(
         refund.stripe_refund_id = result.id
         payment.amount_refunded_minor += refundable_minor
         await db.flush()
+        # A refund without a corresponding credit note leaves the original
+        # invoice's VAT owed under §14c UStG even though the money went
+        # back - same transaction as the refund itself.
+        await receipts_service.issue_credit_note(db, booking=booking, payment=payment, refund=refund)
 
     await db.commit()
 

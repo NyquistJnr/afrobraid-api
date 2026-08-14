@@ -103,6 +103,17 @@ class Settings(BaseSettings):
     # path, not this delay.
     booking_payout_release_delay_hours: int = 48
 
+    # This API serves the receipt HTML directly (GET /api/v1/receipts/{token}),
+    # not the frontend - public_base_url is what that link is built against.
+    public_base_url: str = "http://localhost:8000"
+
+    # Placeholder legal-entity details for the receipt template's seller
+    # block - deliberately dummy values (see plan's flagged item #1: needs
+    # a tax advisor and real company details before this goes live).
+    company_legal_name: str = "Afrobraid GmbH"
+    company_address: str = "Musterstraße 1, 10115 Berlin, Germany"
+    company_vat_number: str = "DE000000000"
+
     hf_api_key: str = ""
     hf_provider: str = "auto"
     hf_model_id: str = "black-forest-labs/FLUX.1-Kontext-dev"

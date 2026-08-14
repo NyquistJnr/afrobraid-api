@@ -156,6 +156,24 @@
 
   "payment.webhook_metadata_missing": "L'événement webhook Stripe ne contient pas les métadonnées requises.",
 
+  "receipt.not_found": "Ce reçu n'existe pas.",
+
+  "receipt.title_invoice": "Facture",
+  "receipt.title_credit_note": "Avoir",
+  "receipt.number_label": "Numéro de reçu",
+  "receipt.date_label": "Date",
+  "receipt.reference_label": "Référence de réservation",
+  "receipt.seller_label": "Plateforme",
+  "receipt.buyer_label": "Facturé à",
+  "receipt.provider_label": "Service fourni par",
+  "receipt.vat_number_label": "Numéro de TVA",
+  "receipt.vat_status_small_business": "Petite entreprise - pas de TVA facturée (§19 UStG).",
+  "receipt.vat_status_unconfirmed": "Le statut de TVA de ce prestataire n'a pas encore été confirmé.",
+  "receipt.amount_due_label": "Montant",
+  "receipt.amount_credited_label": "Montant crédité",
+  "receipt.prior_receipts_note": "Moins le montant déjà facturé (reçu {prior_receipt_number})",
+  "receipt.credit_note_reference_label": "Corrige la facture",
+
   "reviews.not_eligible": "Vous ne pouvez évaluer un ou une braideur/braideuse qu'après une réservation avec elle/lui ayant abouti à un paiement réussi.",
   "reviews.not_found": "Cet avis n'existe pas.",
 
@@ -205,6 +223,7 @@
   "email.receipt_date_label": "Date de paiement",
   "email.receipt_balance_due_label": "Solde restant dû",
   "email.receipt_total_label": "Total de la réservation",
+  "email.receipt_view_link_label": "Voir le reçu",
 
   "users.invalid_chat_locale": "Cette langue de chat n'est pas prise en charge.",
   "users.not_found": "Cet utilisateur n'existe pas.",

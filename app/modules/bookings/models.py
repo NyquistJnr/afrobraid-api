@@ -26,6 +26,7 @@ from app.modules.bookings.enums import (
     BalanceChargeState,
     BookingItemType,
     BookingStatus,
+    BraiderVatStatus,
     PaymentPurpose,
     PaymentSchedule,
     PaymentStatus,
@@ -154,6 +155,18 @@ class Booking(Base):
     braider_share_total: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     braider_share_deposit: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     braider_share_balance: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+
+    # Snapshotted for receipts (design correction #5 / plan flagged item #1)
+    # - no collection UI exists yet, so this is UNKNOWN for every booking
+    # today. Kept on the booking (not looked up live from the braider at
+    # receipt time) so a two-year-old receipt reflects what applied then,
+    # not whatever the braider's status happens to be now.
+    braider_vat_status: Mapped[BraiderVatStatus] = mapped_column(
+        Enum(BraiderVatStatus, name="braider_vat_status"),
+        nullable=False,
+        default=BraiderVatStatus.UNKNOWN,
+    )
+    braider_vat_number: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
     status: Mapped[BookingStatus] = mapped_column(
         Enum(BookingStatus, name="booking_status"),

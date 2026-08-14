@@ -24,6 +24,7 @@ from app.modules.bookings.cron import (
     sweep_balance_charges_cron,
 )
 from app.modules.bookings.payments import models as booking_payments_models  # noqa: F401,E402
+from app.modules.bookings.receipts import models as booking_receipts_models  # noqa: F401,E402
 from app.modules.bookings.tasks import (
     charge_booking_balance_task,
     release_booking_payout_task,

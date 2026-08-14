@@ -22,6 +22,7 @@ from app.modules.bookings.dashboard.router import router as braider_dashboard_ro
 from app.modules.bookings.payments.admin_router import router as admin_payments_router
 from app.modules.bookings.payments.braider_router import router as braider_payments_router
 from app.modules.bookings.payments.webhook import router as stripe_payments_webhook_router
+from app.modules.bookings.receipts.router import router as receipts_router
 from app.modules.bookings.router import router as bookings_router
 from app.modules.bookings.stats.router import router as braider_booking_stats_router
 from app.modules.braiders.admin_router import router as braiders_admin_router
@@ -122,6 +123,7 @@ def create_app() -> FastAPI:
     app.include_router(stripe_webhook_router)
     app.include_router(booking_calculations_router)
     app.include_router(bookings_router)
+    app.include_router(receipts_router)
     app.include_router(admin_bookings_router)
     app.include_router(admin_dashboard_router)
     # Must precede braider_bookings_router: both mount at

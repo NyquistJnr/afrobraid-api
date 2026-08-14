@@ -35,6 +35,7 @@ async def _clean_state() -> AsyncGenerator[None]:
                 "TRUNCATE TABLE refresh_tokens, otp_codes, auth_identities, "
                 "notifications, chat_reports, chat_messages, chat_threads, "
                 "stripe_webhook_events, booking_transfer_reversals, "
+                "receipts, receipt_counters, "
                 "booking_refunds, booking_transfers, "
                 "booking_payments, booking_items, bookings, "
                 "booking_calculation_addons, booking_calculations, "

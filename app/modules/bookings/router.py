@@ -19,6 +19,7 @@ from app.modules.bookings.schemas import (
     BookingRescheduleRequest,
     BookingResponse,
     PaginatedBookingsResponse,
+    ReceiptSummaryResponse,
 )
 from app.modules.users.models import User, UserType
 
@@ -180,4 +181,23 @@ async def cancel_booking(
     queue: ArqRedis = Depends(get_task_queue),
 ) -> APIResponse[BookingResponse]:
     result = await service.cancel_booking_by_customer(db, queue, booking_id, user=user, locale=_locale(request))
+    return APIResponse(data=result)
+
+
+@router.get(
+    "/{booking_id}/receipts",
+    response_model=APIResponse[list[ReceiptSummaryResponse]],
+    summary="List a booking's receipts",
+    description=(
+        "Every invoice (one per succeeded payment) and credit note (one "
+        "per refund) issued for this booking, oldest first. `url` points "
+        "at the public, no-auth receipt page."
+    ),
+)
+async def list_booking_receipts(
+    booking_id: uuid.UUID,
+    user: User = Depends(_require_customer),
+    db: AsyncSession = Depends(get_db),
+) -> APIResponse[list[ReceiptSummaryResponse]]:
+    result = await service.list_booking_receipts(db, booking_id, user=user)
     return APIResponse(data=result)

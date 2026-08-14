@@ -12,6 +12,7 @@ from app.modules.bookings.enums import (
     PaymentPurpose,
     PaymentSchedule,
     PaymentStatus,
+    ReceiptType,
 )
 from app.modules.bookings.models import CancelledBy
 
@@ -60,6 +61,16 @@ class BookingPaymentResponse(BaseModel):
     amount: Decimal
     currency: Currency
     client_secret: str | None = None
+
+
+class ReceiptSummaryResponse(BaseModel):
+    id: uuid.UUID
+    type: ReceiptType
+    receipt_number: str
+    issued_at: datetime
+    amount_total: Decimal
+    currency: Currency
+    url: str
 
 
 class BookingResponse(BaseModel):
