@@ -8,6 +8,7 @@ from arq import ArqRedis
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.bookings import payouts
 from app.modules.bookings import repository as bookings_repo
 from app.modules.bookings.enums import (
     BalanceChargeState,
@@ -19,13 +20,18 @@ from app.modules.bookings.enums import (
 from app.modules.bookings.payments import repository as payments_repo
 from app.modules.bookings.tasks import (
     TASK_SEND_BOOKING_CONFIRMED_EMAIL,
+    TASK_SEND_DISPUTE_ADMIN_ALERT,
     TASK_SEND_PAYMENT_NOTIFICATION,
     TASK_SEND_PAYMENT_RECEIPT_EMAIL,
 )
 
 logger = logging.getLogger("app.webhooks.stripe.payments")
 
-_HANDLED_EVENT_TYPES = {"payment_intent.succeeded", "payment_intent.payment_failed"}
+_HANDLED_EVENT_TYPES = {
+    "payment_intent.succeeded",
+    "payment_intent.payment_failed",
+    "charge.dispute.created",
+}
 
 
 def _safe_payload(event: Any) -> str:
@@ -132,6 +138,39 @@ async def _handle_payment_intent_failed(db: AsyncSession, intent: Any) -> None:
     await db.commit()
 
 
+async def _handle_charge_dispute_created(db: AsyncSession, queue: ArqRedis, dispute: Any) -> None:
+    """Design correction #6 - disputes land 120+ days out, typically after
+    the braider has already been paid. Freezes the booking's payout (stops
+    release_due_payouts_cron from picking it up if it hasn't paid out yet)
+    and attempts to claw back any transfer that already went out."""
+    charge = getattr(dispute, "charge", None)
+    charge_id = charge if isinstance(charge, str) else getattr(charge, "id", None)
+    payment = await bookings_repo.get_payment_by_stripe_charge_id(db, charge_id) if charge_id else None
+    if payment is None:
+        logger.warning("charge.dispute.created for unknown charge %s", charge_id)
+        return
+
+    booking = await bookings_repo.get_booking_by_id(db, payment.booking_id)
+    if booking is None:
+        return
+    if booking.stripe_dispute_id == dispute.id:
+        return  # already processed this dispute - redelivered event
+
+    booking.status = BookingStatus.DISPUTED
+    booking.payouts_frozen = True
+    booking.stripe_dispute_id = dispute.id
+    booking.disputed_at = datetime.now(UTC)
+    await db.flush()
+
+    await payouts.reverse_transfers_for_booking(db, booking)
+
+    await db.commit()
+
+    await queue.enqueue_job(
+        TASK_SEND_DISPUTE_ADMIN_ALERT, booking_id=str(booking.id), dispute_id=dispute.id
+    )
+
+
 async def handle_webhook_event(
     db: AsyncSession, queue: ArqRedis, *, event: Any, source: WebhookEventSource
 ) -> None:
@@ -160,11 +199,13 @@ async def handle_webhook_event(
         return
 
     try:
-        intent = event.data.object
+        stripe_object = event.data.object
         if event.type == "payment_intent.succeeded":
-            await _handle_payment_intent_succeeded(db, queue, intent)
+            await _handle_payment_intent_succeeded(db, queue, stripe_object)
         elif event.type == "payment_intent.payment_failed":
-            await _handle_payment_intent_failed(db, intent)
+            await _handle_payment_intent_failed(db, stripe_object)
+        elif event.type == "charge.dispute.created":
+            await _handle_charge_dispute_created(db, queue, stripe_object)
         await payments_repo.mark_processed(db, webhook_row)
         await db.commit()
     except Exception as exc:

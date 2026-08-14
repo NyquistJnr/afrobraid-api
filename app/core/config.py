@@ -97,6 +97,11 @@ class Settings(BaseSettings):
     # would land past the hard deadline below) -> CANCELLED_NO_PAYMENT.
     booking_balance_retry_offsets_hours: list[int] = [2, 6, 12]
     booking_balance_hard_deadline_hours_before_start: int = 4
+    # How long after a booking's appointment ends before the braider's
+    # payout releases - covers the near-term dispute window (plan design
+    # correction #6); full chargeback protection is the transfer-reversal
+    # path, not this delay.
+    booking_payout_release_delay_hours: int = 48
 
     hf_api_key: str = ""
     hf_provider: str = "auto"

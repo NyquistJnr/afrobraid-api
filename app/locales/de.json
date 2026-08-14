@@ -242,6 +242,8 @@
   "notifications.booking_cancelled_by_braider_customer_body": "Ihre Braiderin/Ihr Braider hat diese Buchung storniert und Ihnen wurde der volle Betrag zurückerstattet. Details hier: {link}.",
   "notifications.booking_cancelled_by_braider_braider_title": "Buchung storniert",
   "notifications.booking_cancelled_by_braider_braider_body": "Sie haben diese Buchung storniert und dem Kunden wurde der volle Betrag zurückerstattet. Details hier: {link}.",
+  "notifications.payout_released_title": "Auszahlung freigegeben",
+  "notifications.payout_released_body": "Ihre Auszahlung für diese Buchung wurde freigegeben. Details hier: {link}.",
 
   "notifications.booking_rescheduled_customer_title": "Buchung verschoben",
   "notifications.booking_rescheduled_customer_body": "Ihre Buchung wurde auf einen neuen Termin verschoben. Details ansehen: {link}.",

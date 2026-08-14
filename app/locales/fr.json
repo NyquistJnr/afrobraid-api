@@ -242,6 +242,8 @@
   "notifications.booking_cancelled_by_braider_customer_body": "Votre braideur/braideuse a annulé cette réservation et vous avez été intégralement remboursé(e). Détails ici : {link}.",
   "notifications.booking_cancelled_by_braider_braider_title": "Réservation annulée",
   "notifications.booking_cancelled_by_braider_braider_body": "Vous avez annulé cette réservation et le client a été intégralement remboursé. Détails ici : {link}.",
+  "notifications.payout_released_title": "Paiement libéré",
+  "notifications.payout_released_body": "Votre paiement pour cette réservation a été libéré. Détails ici : {link}.",
 
   "notifications.booking_rescheduled_customer_title": "Réservation reprogrammée",
   "notifications.booking_rescheduled_customer_body": "Votre réservation a été reprogrammée à une nouvelle heure. Voir les détails ici : {link}.",

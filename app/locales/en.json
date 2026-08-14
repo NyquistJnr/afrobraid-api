@@ -193,6 +193,9 @@
   "email.booking_cancelled_by_braider_reference_label": "Booking reference",
   "email.booking_cancelled_by_braider_refund_label": "Refunded",
 
+  "email.dispute_admin_alert_subject": "Dispute opened on booking {reference}",
+  "email.dispute_admin_alert_body": "A chargeback dispute (Stripe {dispute_id}) was opened for booking {reference}, total {total} {currency}. Payouts for this booking are now frozen and any released transfer is being reversed. Please review in the Stripe Dashboard.",
+
   "email.receipt_subject": "Your Afrobraid receipt for {reference}",
   "email.receipt_greeting": "Hi {first_name},",
   "email.receipt_body": "We've received your {payment_type} for {style_name} with {braider_name}, scheduled for {when}.",
@@ -242,6 +245,10 @@
   "notifications.booking_cancelled_by_braider_customer_body": "Your braider cancelled this booking and you've been fully refunded. Details here: {link}.",
   "notifications.booking_cancelled_by_braider_braider_title": "Booking cancelled",
   "notifications.booking_cancelled_by_braider_braider_body": "You cancelled this booking and the customer has been fully refunded. Details here: {link}.",
+  "notifications.payout_released_title": "Payout released",
+  "notifications.payout_released_body": "Your payout for this booking has been released. Details here: {link}.",
+  "notifications.booking_disputed_admin_title": "Dispute opened",
+  "notifications.booking_disputed_admin_body": "A dispute was opened on booking {reference}. Payouts are frozen pending review.",
 
   "notifications.booking_rescheduled_customer_title": "Booking rescheduled",
   "notifications.booking_rescheduled_customer_body": "Your booking has been rescheduled to a new time. View the updated details here: {link}.",

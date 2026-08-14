@@ -298,6 +298,42 @@ def render_booking_cancelled_by_braider_email(
     return subject, html
 
 
+def render_dispute_admin_alert_email(
+    *, reference: str, dispute_id: str, total: Decimal, currency: str
+) -> tuple[str, str]:
+    """Internal ops alert, not a customer/braider-facing template - always
+    English regardless of who's on the admin team, unlike every other
+    template in this module."""
+    subject = t("email.dispute_admin_alert_subject", "en", reference=reference)
+    body = t(
+        "email.dispute_admin_alert_body",
+        "en",
+        reference=reference,
+        dispute_id=dispute_id,
+        total=total,
+        currency=currency,
+    )
+
+    html = f"""\
+<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background-color:#f4f4f5;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="480" cellpadding="0" cellspacing="0"
+                 style="background:#ffffff;border-radius:12px;padding:32px;">
+            <tr><td style="font-size:14px;color:#52525b;line-height:1.5;">{body}</td></tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+"""
+    return subject, html
+
+
 def render_booking_cancelled_no_payment_email(
     *,
     first_name: str,

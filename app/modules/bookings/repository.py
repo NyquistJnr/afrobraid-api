@@ -6,6 +6,7 @@ from sqlalchemy import Integer, cast, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
+from app.core.config import get_settings
 from app.core.currency import Currency
 from app.core.pagination import PaginationMeta, PaginationParams, paginate
 from app.modules.bookings.enums import (
@@ -20,7 +21,14 @@ from app.modules.bookings.enums import (
     PaymentStatus,
     TransferStatus,
 )
-from app.modules.bookings.models import Booking, BookingItem, BookingPayment, BookingRefund, BookingTransfer
+from app.modules.bookings.models import (
+    Booking,
+    BookingItem,
+    BookingPayment,
+    BookingRefund,
+    BookingTransfer,
+    BookingTransferReversal,
+)
 from app.modules.braiders.models import BraiderProfile
 from app.modules.platform_settings.models import SettingValueType
 from app.modules.styles.models import Style
@@ -1196,6 +1204,103 @@ async def claim_due_balance_charges(db: AsyncSession, *, limit: int) -> list[uui
         .returning(Booking.id)
     )
     return list(result.scalars().all())
+
+
+async def start_due_bookings(db: AsyncSession, *, limit: int) -> int:
+    """CONFIRMED -> IN_PROGRESS once starts_at has passed - a plain bulk
+    flip (same idiom as expire_stale_holds), since both statuses are
+    already CALENDAR_BLOCKING_STATUSES so the exclusion constraint sees no
+    change worth objecting to."""
+    result = await db.execute(
+        update(Booking)
+        .where(
+            Booking.id.in_(
+                select(Booking.id)
+                .where(Booking.status == BookingStatus.CONFIRMED, Booking.starts_at <= datetime.now(UTC))
+                .limit(limit)
+            )
+        )
+        .values(status=BookingStatus.IN_PROGRESS)
+    )
+    return result.rowcount or 0
+
+
+async def complete_due_bookings(db: AsyncSession, *, limit: int) -> int:
+    """IN_PROGRESS -> COMPLETED once ends_at has passed. Payout eligibility
+    is computed straight off ends_at (see list_bookings_due_for_payout), not
+    off when this cron happened to run, so a delayed tick here doesn't
+    delay the payout clock."""
+    result = await db.execute(
+        update(Booking)
+        .where(
+            Booking.id.in_(
+                select(Booking.id)
+                .where(Booking.status == BookingStatus.IN_PROGRESS, Booking.ends_at <= datetime.now(UTC))
+                .limit(limit)
+            )
+        )
+        .values(status=BookingStatus.COMPLETED)
+    )
+    return result.rowcount or 0
+
+
+async def list_bookings_due_for_payout(db: AsyncSession, *, limit: int) -> list[uuid.UUID]:
+    """COMPLETED/NO_SHOW, not payouts_frozen (an open dispute), ends_at +
+    booking_payout_release_delay_hours has passed, and at least one
+    succeeded payment still has money to move (amount_transferred_minor ==
+    0, braider_share_minor > 0). No claim/lock step here, unlike
+    claim_due_balance_charges - the transfer's idempotency_key is
+    deterministic per (booking, payment) rather than attempt-numbered, so
+    Stripe itself de-duplicates a concurrent double-enqueue; the DB partial
+    unique index (uq_booking_transfers_active_per_payment) is the second
+    line of defense."""
+    threshold = datetime.now(UTC) - timedelta(hours=get_settings().booking_payout_release_delay_hours)
+    stmt = (
+        select(Booking.id)
+        .where(
+            Booking.status.in_([BookingStatus.COMPLETED, BookingStatus.NO_SHOW]),
+            Booking.payouts_frozen.is_(False),
+            Booking.ends_at <= threshold,
+            Booking.id.in_(
+                select(BookingPayment.booking_id).where(
+                    BookingPayment.status == PaymentStatus.SUCCEEDED,
+                    BookingPayment.amount_transferred_minor == 0,
+                    BookingPayment.braider_share_minor > 0,
+                )
+            ),
+        )
+        .limit(limit)
+    )
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def get_payment_by_stripe_charge_id(db: AsyncSession, stripe_charge_id: str) -> BookingPayment | None:
+    result = await db.execute(
+        select(BookingPayment).where(BookingPayment.stripe_charge_id == stripe_charge_id)
+    )
+    return result.scalars().first()
+
+
+async def create_transfer_reversal(
+    db: AsyncSession,
+    *,
+    booking_id: uuid.UUID,
+    booking_transfer_id: uuid.UUID,
+    amount_minor: int,
+    currency: Currency,
+    idempotency_key: str,
+) -> BookingTransferReversal:
+    reversal = BookingTransferReversal(
+        booking_id=booking_id,
+        booking_transfer_id=booking_transfer_id,
+        amount_minor=amount_minor,
+        currency=currency,
+        idempotency_key=idempotency_key,
+    )
+    db.add(reversal)
+    await db.flush()
+    return reversal
 
 
 async def create_booking(

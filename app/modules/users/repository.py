@@ -16,6 +16,11 @@ async def get_user_by_id(db: AsyncSession, user_id: uuid.UUID) -> User | None:
     return await db.get(User, user_id)
 
 
+async def list_admin_users(db: AsyncSession) -> list[User]:
+    result = await db.execute(select(User).where(User.user_type == UserType.ADMIN))
+    return list(result.scalars().all())
+
+
 async def list_full_names(db: AsyncSession, user_ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
     """Batched display-name lookup - avoids one query per row when rendering
     a list (e.g. a braider's bookings, each naming its customer)."""

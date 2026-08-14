@@ -16,10 +16,17 @@ from app.modules.bookings.calculations import (
     models as booking_calculations_models,  # noqa: F401,E402
 )
 from app.modules.bookings.calculations.cron import expire_booking_calculations_cron
-from app.modules.bookings.cron import expire_booking_holds_cron, sweep_balance_charges_cron
+from app.modules.bookings.cron import (
+    complete_due_bookings_cron,
+    expire_booking_holds_cron,
+    release_due_payouts_cron,
+    start_due_bookings_cron,
+    sweep_balance_charges_cron,
+)
 from app.modules.bookings.payments import models as booking_payments_models  # noqa: F401,E402
 from app.modules.bookings.tasks import (
     charge_booking_balance_task,
+    release_booking_payout_task,
     send_balance_payment_failed_email_task,
     send_booking_cancelled_by_braider_email_task,
     send_booking_cancelled_by_braider_notification_task,
@@ -29,8 +36,10 @@ from app.modules.bookings.tasks import (
     send_booking_confirmed_email_task,
     send_booking_rescheduled_email_task,
     send_booking_rescheduled_notification_task,
+    send_dispute_admin_alert_task,
     send_payment_notification_task,
     send_payment_receipt_email_task,
+    send_payout_released_notification_task,
 )
 from app.modules.braiders import models as braiders_models  # noqa: F401,E402
 from app.modules.braiders.offerings import models as braider_offerings_models  # noqa: F401,E402
@@ -77,6 +86,9 @@ class WorkerSettings:
         send_booking_cancelled_by_customer_notification_task,
         send_booking_cancelled_by_braider_email_task,
         send_booking_cancelled_by_braider_notification_task,
+        release_booking_payout_task,
+        send_payout_released_notification_task,
+        send_dispute_admin_alert_task,
     ]
     cron_jobs = [
         # Hourly, well ahead of the 2h calculation TTL - see
@@ -85,6 +97,10 @@ class WorkerSettings:
         cron(expire_booking_holds_cron, second=0),
         # The primary balance driver (plan: every 5m).
         cron(sweep_balance_charges_cron, minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55}),
+        # Booking lifecycle + payout release (plan: every 15m).
+        cron(start_due_bookings_cron, minute={0, 15, 30, 45}),
+        cron(complete_due_bookings_cron, minute={0, 15, 30, 45}),
+        cron(release_due_payouts_cron, minute={0, 15, 30, 45}),
     ]
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
     on_startup = startup

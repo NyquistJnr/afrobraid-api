@@ -5,11 +5,13 @@ from datetime import UTC, datetime, timedelta
 from app.core.config import get_settings
 from app.core.database import AsyncSessionLocal
 from app.core.money import from_minor_units, to_minor_units
+from app.modules.bookings import payouts
 from app.modules.bookings import repository as bookings_repo
 from app.modules.bookings.enums import BalanceChargeState, BookingStatus, PaymentPurpose, PaymentStatus
 from app.modules.bookings.models import CancelledBy
 from app.modules.bookings.payments import client as payments_client
 from app.modules.braiders import repository as braiders_repo
+from app.modules.braiders.payment_setup import repository as payment_setup_repo
 from app.modules.notifications import service as notifications_service
 from app.modules.notifications.models import NotificationType
 from app.modules.styles import repository as styles_repo
@@ -22,6 +24,7 @@ from app.shared.email.templates.booking_email import (
     render_booking_cancelled_no_payment_email,
     render_booking_confirmed_email,
     render_booking_rescheduled_email,
+    render_dispute_admin_alert_email,
 )
 from app.shared.email.templates.receipt_email import render_payment_receipt_email
 from app.shared.links import build_braider_frontend_url, build_customer_frontend_url
@@ -41,6 +44,9 @@ TASK_SEND_BOOKING_CANCELLED_BY_CUSTOMER_EMAIL = "send_booking_cancelled_by_custo
 TASK_SEND_BOOKING_CANCELLED_BY_CUSTOMER_NOTIFICATION = "send_booking_cancelled_by_customer_notification_task"
 TASK_SEND_BOOKING_CANCELLED_BY_BRAIDER_EMAIL = "send_booking_cancelled_by_braider_email_task"
 TASK_SEND_BOOKING_CANCELLED_BY_BRAIDER_NOTIFICATION = "send_booking_cancelled_by_braider_notification_task"
+TASK_RELEASE_BOOKING_PAYOUT = "release_booking_payout_task"
+TASK_SEND_PAYOUT_RELEASED_NOTIFICATION = "send_payout_released_notification_task"
+TASK_SEND_DISPUTE_ADMIN_ALERT = "send_dispute_admin_alert_task"
 
 _PAYMENT_NOTIFICATION = {
     PaymentPurpose.DEPOSIT: (
@@ -670,3 +676,93 @@ async def send_booking_cancelled_by_braider_notification_task(ctx: dict, *, book
             await db.refresh(braider_notification)
             await notifications_service.publish_realtime(braider_notification, locale=booking.locale)
         logger.info("Sent cancelled-by-braider notification for %s", booking.reference)
+
+
+async def release_booking_payout_task(ctx: dict, *, booking_id: str) -> None:
+    """Enqueued by release_due_payouts_cron. Re-asserts COMPLETED/NO_SHOW
+    and not payouts_frozen under FOR UPDATE before touching Stripe - a
+    dispute landing between the sweep and this task running must freeze
+    the payout, not race it."""
+    bid = uuid.UUID(booking_id)
+    async with AsyncSessionLocal() as db:
+        booking = await bookings_repo.get_booking_by_id_for_update(db, bid)
+        if (
+            booking is None
+            or booking.status not in (BookingStatus.COMPLETED, BookingStatus.NO_SHOW)
+            or booking.payouts_frozen
+        ):
+            await db.rollback()
+            return
+        connect_account = await payment_setup_repo.get_by_braider_id(db, booking.braider_id)
+        await payouts.release_braider_shares(db, booking, connect_account=connect_account)
+        await db.commit()
+        reference = booking.reference
+
+    await ctx["redis"].enqueue_job(TASK_SEND_PAYOUT_RELEASED_NOTIFICATION, booking_id=booking_id)
+    logger.info("Released payout for booking %s", reference)
+
+
+async def send_payout_released_notification_task(ctx: dict, *, booking_id: str) -> None:
+    async with AsyncSessionLocal() as db:
+        booking = await bookings_repo.get_booking_by_id(db, uuid.UUID(booking_id))
+        if booking is None:
+            logger.warning("Booking %s not found for payout released notification", booking_id)
+            return
+
+        braider_profile = await braiders_repo.get_profile_by_id(db, booking.braider_id)
+        if braider_profile is None:
+            return
+
+        notification = await notifications_service.create(
+            db,
+            user_id=braider_profile.user_id,
+            type=NotificationType.PAYOUT_RELEASED,
+            title_key="notifications.payout_released_title",
+            body_key="notifications.payout_released_body",
+            body_params={
+                "link": build_braider_frontend_url(locale=booking.locale, path=f"bookings/{booking.id}")
+            },
+            related_type="booking",
+            related_id=booking.id,
+        )
+        await db.commit()
+        await db.refresh(notification)
+        await notifications_service.publish_realtime(notification, locale=booking.locale)
+        logger.info("Sent payout released notification for %s", booking.reference)
+
+
+async def send_dispute_admin_alert_task(ctx: dict, *, booking_id: str, dispute_id: str) -> None:
+    async with AsyncSessionLocal() as db:
+        booking = await bookings_repo.get_booking_by_id(db, uuid.UUID(booking_id))
+        if booking is None:
+            logger.warning("Booking %s not found for dispute admin alert", booking_id)
+            return
+
+        admins = await users_repo.list_admin_users(db)
+        if not admins:
+            logger.warning("No admin users to alert for dispute on booking %s", booking.reference)
+            return
+
+        subject, html = render_dispute_admin_alert_email(
+            reference=booking.reference,
+            dispute_id=dispute_id,
+            total=booking.total,
+            currency=booking.currency.value,
+        )
+
+        for admin in admins:
+            await send_email(to=admin.email, subject=subject, html=html)
+            notification = await notifications_service.create(
+                db,
+                user_id=admin.id,
+                type=NotificationType.BOOKING_DISPUTED,
+                title_key="notifications.booking_disputed_admin_title",
+                body_key="notifications.booking_disputed_admin_body",
+                body_params={"reference": booking.reference},
+                related_type="booking",
+                related_id=booking.id,
+            )
+            await db.commit()
+            await db.refresh(notification)
+            await notifications_service.publish_realtime(notification, locale="en")
+        logger.warning("Dispute alert sent to %d admin(s) for booking %s", len(admins), booking.reference)

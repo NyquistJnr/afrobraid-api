@@ -46,9 +46,9 @@ from app.modules.bookings.enums import (
     PaymentPurpose,
     PaymentSchedule,
     RefundStatus,
-    TransferStatus,
 )
 from app.modules.bookings.models import Booking, BookingItem, BookingPayment, CancelledBy
+from app.modules.bookings import payouts
 from app.modules.bookings.payments import client as payments_client
 from app.modules.bookings.pricing import PricedLine
 from app.modules.bookings.schemas import (
@@ -596,7 +596,7 @@ async def cancel_booking_by_customer(
     await db.flush()
 
     connect_account = await payment_setup_repo.get_by_braider_id(db, booking.braider_id)
-    await _release_braider_shares(db, booking, connect_account=connect_account)
+    await payouts.release_braider_shares(db, booking, connect_account=connect_account)
 
     await db.commit()
 
@@ -604,73 +604,6 @@ async def cancel_booking_by_customer(
     await queue.enqueue_job(TASK_SEND_BOOKING_CANCELLED_BY_CUSTOMER_NOTIFICATION, booking_id=str(booking.id))
 
     return await _to_response(db, booking, locale=locale)
-
-
-async def _release_braider_shares(db: AsyncSession, booking: Booking, *, connect_account) -> None:
-    """One Transfer per succeeded payment, for that payment's
-    braider_share_minor - source_transaction=<that payment's charge> makes
-    the funds available immediately. Never blocks the cancellation itself:
-    a missing Connect account or a Stripe failure is recorded and logged,
-    not raised, so the customer's cancellation always goes through (an
-    admin/reconciliation follow-up, same spirit as the plan's
-    PAYOUT_BLOCKED handling for the general payout path)."""
-    succeeded_payments = await bookings_repo.list_succeeded_payments(db, booking.id)
-    for payment in succeeded_payments:
-        if payment.braider_share_minor <= 0:
-            continue
-        idempotency_key = f"booking:{booking.id}:transfer:{payment.id}"
-        if connect_account is None or payment.stripe_charge_id is None:
-            logger.warning(
-                "Skipping braider-share transfer for booking %s payment %s - no payable "
-                "Connect account or missing charge id",
-                booking.reference,
-                payment.id,
-            )
-            continue
-        try:
-            result = await payments_client.create_transfer(
-                amount_minor=payment.braider_share_minor,
-                currency=payment.currency.value,
-                destination_account_id=connect_account.stripe_account_id,
-                source_charge_id=payment.stripe_charge_id,
-                transfer_group=payment.transfer_group,
-                metadata={"booking_id": str(booking.id), "booking_payment_id": str(payment.id)},
-                idempotency_key=idempotency_key,
-            )
-        except payments_client.StripeApiError as exc:
-            transfer = await bookings_repo.create_transfer(
-                db,
-                booking_id=booking.id,
-                booking_payment_id=payment.id,
-                destination_account_id=connect_account.stripe_account_id,
-                amount_minor=payment.braider_share_minor,
-                currency=payment.currency,
-                transfer_group=payment.transfer_group,
-                idempotency_key=idempotency_key,
-            )
-            transfer.status = TransferStatus.FAILED
-            transfer.failure_message = str(exc)[:500]
-            logger.warning(
-                "Braider-share transfer failed for booking %s payment %s: %s",
-                booking.reference,
-                payment.id,
-                exc,
-            )
-            continue
-        transfer = await bookings_repo.create_transfer(
-            db,
-            booking_id=booking.id,
-            booking_payment_id=payment.id,
-            destination_account_id=connect_account.stripe_account_id,
-            amount_minor=payment.braider_share_minor,
-            currency=payment.currency,
-            transfer_group=payment.transfer_group,
-            idempotency_key=idempotency_key,
-        )
-        transfer.status = TransferStatus.SUCCEEDED
-        transfer.stripe_transfer_id = result.id
-        payment.amount_transferred_minor = payment.braider_share_minor
-        await db.flush()
 
 
 async def cancel_booking_by_braider(
@@ -701,20 +634,7 @@ async def cancel_booking_by_braider(
         booking.balance_charge_state = BalanceChargeState.ABANDONED
     await db.flush()
 
-    active_transfers = await bookings_repo.list_active_transfers_for_booking(db, booking.id)
-    for transfer in active_transfers:
-        if transfer.stripe_transfer_id is None:
-            continue
-        try:
-            await payments_client.reverse_transfer(
-                transfer_id=transfer.stripe_transfer_id,
-                idempotency_key=f"booking:{booking.id}:transfer_reversal:{transfer.id}",
-            )
-            transfer.status = TransferStatus.REVERSED
-        except payments_client.StripeApiError as exc:
-            logger.warning(
-                "Transfer reversal failed for booking %s transfer %s: %s", booking.reference, transfer.id, exc
-            )
+    await payouts.reverse_transfers_for_booking(db, booking)
 
     succeeded_payments = await bookings_repo.list_succeeded_payments(db, booking.id)
     for payment in succeeded_payments:

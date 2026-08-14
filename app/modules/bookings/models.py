@@ -180,6 +180,14 @@ class Booking(Base):
     )
     cancellation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    stripe_dispute_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    disputed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Set the moment a dispute lands (design correction #6) - checked by
+    # release_due_payouts_cron so a booking mid-dispute never has its
+    # payout released out from under the reversal attempt. Never cleared
+    # automatically; a resolved dispute is an admin/Phase-7 action.
+    payouts_frozen: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
     stripe_customer_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     stripe_payment_method_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
@@ -338,6 +346,40 @@ class BookingTransfer(Base):
     currency: Mapped[Currency] = mapped_column(Enum(Currency, name="currency"), nullable=False)
     transfer_group: Mapped[str] = mapped_column(String(64), nullable=False)
     stripe_transfer_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    idempotency_key: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    failure_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class BookingTransferReversal(Base):
+    """Design correction #6 - a dedicated audit row for reversing a
+    `booking_transfers` row on `charge.dispute.created`, distinct from the
+    plain `status=REVERSED` flip a braider cancellation does on its own
+    (rare, defensive, same-request path). Disputes land 120+ days out,
+    after the braider has usually already been paid - this table is what
+    lets that reversal attempt (and its failure, if the connected
+    account's balance can't cover the clawback) be tracked independently
+    of the original transfer."""
+
+    __tablename__ = "booking_transfer_reversals"
+    __table_args__ = (CheckConstraint("amount_minor > 0", name="ck_booking_transfer_reversals_amount"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    booking_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("bookings.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    booking_transfer_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("booking_transfers.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    status: Mapped[TransferStatus] = mapped_column(
+        Enum(TransferStatus, name="transfer_status"), nullable=False, default=TransferStatus.PENDING
+    )
+    amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    currency: Mapped[Currency] = mapped_column(Enum(Currency, name="currency"), nullable=False)
+    stripe_reversal_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     idempotency_key: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     failure_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

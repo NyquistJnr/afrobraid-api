@@ -2,12 +2,14 @@ import logging
 
 from app.core.database import AsyncSessionLocal
 from app.modules.bookings import repository as bookings_repo
-from app.modules.bookings.tasks import TASK_CHARGE_BOOKING_BALANCE
+from app.modules.bookings.tasks import TASK_CHARGE_BOOKING_BALANCE, TASK_RELEASE_BOOKING_PAYOUT
 
 logger = logging.getLogger("app.cron.bookings")
 
 _EXPIRE_BATCH_LIMIT = 5000
 _BALANCE_SWEEP_BATCH_LIMIT = 500
+_LIFECYCLE_BATCH_LIMIT = 2000
+_PAYOUT_SWEEP_BATCH_LIMIT = 500
 
 
 async def expire_booking_holds_cron(ctx: dict) -> None:
@@ -35,3 +37,41 @@ async def sweep_balance_charges_cron(ctx: dict) -> None:
         await ctx["redis"].enqueue_job(TASK_CHARGE_BOOKING_BALANCE, booking_id=str(booking_id))
     if claimed:
         logger.info("Enqueued %d due balance charges", len(claimed))
+
+
+async def start_due_bookings_cron(ctx: dict) -> None:
+    """CONFIRMED -> IN_PROGRESS once starts_at has passed (plan:
+    `start_due_bookings`, every 15m). A plain bulk flip, no Stripe I/O."""
+    async with AsyncSessionLocal() as db:
+        started = await bookings_repo.start_due_bookings(db, limit=_LIFECYCLE_BATCH_LIMIT)
+        await db.commit()
+        if started:
+            logger.info("Started %d due bookings", started)
+
+
+async def complete_due_bookings_cron(ctx: dict) -> None:
+    """IN_PROGRESS -> COMPLETED once ends_at has passed (plan:
+    `complete_due_bookings`, every 15m). Payout eligibility is computed
+    off ends_at directly (see release_due_payouts_cron), so this doesn't
+    need to touch Stripe or stamp a separate completion timestamp."""
+    async with AsyncSessionLocal() as db:
+        completed = await bookings_repo.complete_due_bookings(db, limit=_LIFECYCLE_BATCH_LIMIT)
+        await db.commit()
+        if completed:
+            logger.info("Completed %d due bookings", completed)
+
+
+async def release_due_payouts_cron(ctx: dict) -> None:
+    """Braiders get paid (plan: `release_due_payouts`, every 15m).
+    COMPLETED/NO_SHOW, not payouts_frozen, ends_at +
+    booking_payout_release_delay_hours (48h) has passed, and still has
+    money to move - see list_bookings_due_for_payout for why this doesn't
+    need a claim/lock step the way the balance sweeper does. Enqueues one
+    release_booking_payout_task per booking, keeping Stripe I/O off the
+    cron's critical path."""
+    async with AsyncSessionLocal() as db:
+        due = await bookings_repo.list_bookings_due_for_payout(db, limit=_PAYOUT_SWEEP_BATCH_LIMIT)
+    for booking_id in due:
+        await ctx["redis"].enqueue_job(TASK_RELEASE_BOOKING_PAYOUT, booking_id=str(booking_id))
+    if due:
+        logger.info("Enqueued %d due payouts", len(due))
