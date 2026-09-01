@@ -1,10 +1,14 @@
-uvicorn app.main:app --reload
-arq app.worker.WorkerSettings
-alembic upgrade head
-python -m scripts.seed_styles
+# uvicorn app.main:app --reload
 
-1. Google — easiest, works in a browser right now
-   Google issues an ID token (a signed JWT) straight to client-side JavaScript after sign-in — no server-side secret needed for this step. I built you a small local test page for exactly this: dev-tools/social-login-test/google.html. It's already open in the Browser pane.
+# arq app.worker.WorkerSettings
+
+# alembic upgrade head
+
+# python -m scripts.seed_styles
+
+# 1. Google — easiest, works in a browser right now
+
+Google issues an ID token (a signed JWT) straight to client-side JavaScript after sign-in — no server-side secret needed for this step. I built you a small local test page for exactly this: dev-tools/social-login-test/google.html. It's already open in the Browser pane.
 
 Steps:
 
